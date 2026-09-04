@@ -2,7 +2,7 @@
  * Athanor in-house cryptographic core (REQ-1.1).
  *
  * Purpose:  Public API for primitives compiled from our source only.
- * Spec:     DEC-0002; see docs/SPEC_INDEX.md for the RFC/FIPS list.
+ * Spec:     DEC-0002 / DEC-0005; see docs/SPEC_INDEX.md for the RFC/FIPS list.
  * Policy:   No outside crypto libraries. Callers must atn_memzero secrets
  *           they no longer need. Tags are compared with atn_ct_equal only.
  *
@@ -27,6 +27,20 @@
 #define ATN_AEAD_KEY_LEN       32u
 #define ATN_AEAD_NONCE_LEN     12u
 #define ATN_AEAD_TAG_LEN       16u
+
+/* FIPS 202 */
+#define ATN_SHA3_256_LEN       32u
+#define ATN_SHA3_512_LEN       64u
+#define ATN_SHA512_LEN         64u
+#define ATN_SHA512_BLOCK       128u
+#define ATN_HMAC_SHA512_LEN    64u
+
+/* FIPS 203 ML-KEM-1024 (NIST category 5) */
+#define ATN_MLKEM1024_EK_LEN   1568u
+#define ATN_MLKEM1024_DK_LEN   3168u
+#define ATN_MLKEM1024_CT_LEN   1568u
+#define ATN_MLKEM1024_SS_LEN   32u
+#define ATN_MLKEM1024_SEED_LEN 32u
 
 enum {
     ATN_OK          = 0,
@@ -176,5 +190,64 @@ int atn_nonce_next(atn_nonce_state *st, uint32_t sender,
 
 int atn_nonce_accept(atn_nonce_state *st,
                      const uint8_t nonce[ATN_AEAD_NONCE_LEN]);
+
+/* ---- SHA-512 (RFC 6234 / FIPS 180-4) — Grover-margin hash -------------- */
+
+int atn_sha512(const void *data, size_t n, uint8_t out[ATN_SHA512_LEN]);
+
+int atn_hmac_sha512(const uint8_t *key, size_t key_len,
+                    const uint8_t *msg, size_t msg_len,
+                    uint8_t out[ATN_HMAC_SHA512_LEN]);
+
+int atn_hkdf_sha512(const uint8_t *salt, size_t salt_len,
+                    const uint8_t *ikm, size_t ikm_len,
+                    const uint8_t *info, size_t info_len,
+                    uint8_t *okm, size_t okm_len);
+
+/* ---- FIPS 202 SHA-3 / SHAKE -------------------------------------------- */
+
+int atn_sha3_256(const void *data, size_t n, uint8_t out[ATN_SHA3_256_LEN]);
+int atn_sha3_512(const void *data, size_t n, uint8_t out[ATN_SHA3_512_LEN]);
+int atn_shake128(const void *data, size_t n, uint8_t *out, size_t outlen);
+int atn_shake256(const void *data, size_t n, uint8_t *out, size_t outlen);
+
+typedef struct {
+    uint64_t s[25];
+    uint8_t  buf[168];
+    size_t   used;
+    int      squeezing;
+} atn_shake128_ctx;
+
+void atn_shake128_init(atn_shake128_ctx *ctx);
+void atn_shake128_absorb(atn_shake128_ctx *ctx, const uint8_t *in, size_t n);
+void atn_shake128_finalize(atn_shake128_ctx *ctx);
+void atn_shake128_squeeze(atn_shake128_ctx *ctx, uint8_t *out, size_t n);
+
+/* ---- FIPS 203 ML-KEM-1024 ---------------------------------------------- */
+
+/*
+ * Internal (deterministic) APIs exist so KATs can inject seeds. Production
+ * callers use the random APIs. FIPS 203 §3.3: do not expose internals to
+ * applications other than testing.
+ */
+int atn_mlkem1024_keygen_internal(const uint8_t d[32], const uint8_t z[32],
+                                  uint8_t ek[ATN_MLKEM1024_EK_LEN],
+                                  uint8_t dk[ATN_MLKEM1024_DK_LEN]);
+
+int atn_mlkem1024_encaps_internal(const uint8_t ek[ATN_MLKEM1024_EK_LEN],
+                                  const uint8_t m[32],
+                                  uint8_t ss[ATN_MLKEM1024_SS_LEN],
+                                  uint8_t ct[ATN_MLKEM1024_CT_LEN]);
+
+int atn_mlkem1024_decaps(const uint8_t dk[ATN_MLKEM1024_DK_LEN],
+                         const uint8_t ct[ATN_MLKEM1024_CT_LEN],
+                         uint8_t ss[ATN_MLKEM1024_SS_LEN]);
+
+int atn_mlkem1024_keygen(uint8_t ek[ATN_MLKEM1024_EK_LEN],
+                         uint8_t dk[ATN_MLKEM1024_DK_LEN]);
+
+int atn_mlkem1024_encaps(const uint8_t ek[ATN_MLKEM1024_EK_LEN],
+                         uint8_t ss[ATN_MLKEM1024_SS_LEN],
+                         uint8_t ct[ATN_MLKEM1024_CT_LEN]);
 
 #endif /* ATN_CRYPTO_H */

@@ -4,6 +4,20 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0004 — ML-KEM-1024 + SHA-3/SHAKE + SHA-512 (2026-09-04)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0
+- **Command:** `make test` (CFLAGS include `-Itests` for the KAT header)
+- **Result:** `ALL PASSED`
+  - FIPS 202: SHA3-256/512 empty, SHAKE128/256 empty 32-byte
+  - SHA-512 empty/abc, HMAC-SHA-512 RFC 4231 tc1
+  - ML-KEM-1024: keygen/encaps match first FIPS-203-style KAT
+    (ek, dk, ct, ss); decaps recovers ss; random roundtrip; flipped-ct
+    implicit reject produces a different ss
+- **Not in this build:** ML-DSA-87 (ISS-0005)
+
+---
+
 ## BN-0003 — Cross-platform build (DEC-0004) (2026-09-04)
 
 - **Host:** Windows x86_64 MinGW, `gcc -dumpmachine` = `x86_64-w64-mingw32`

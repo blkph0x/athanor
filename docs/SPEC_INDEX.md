@@ -13,6 +13,9 @@ If a constant is not in this list, it does not go in the tree.
 | RFC 8439 §2.3 | Nonce partition | 32-bit sender id + remaining nonce unique per key | REQ-1.1 nonce |
 | RFC 8439 §4 | Side channels | Constant-time tag compare; no memcmp on tags | REQ-1.1 ct_equal |
 | Win32 BCrypt / POSIX getrandom | OS CSPRNG | Entropy source, not an algorithm we designed | REQ-1.1 random |
+| FIPS 202 | SHA-3 / SHAKE (Keccak-p[1600,24]) | SHA3-256, SHA3-512, SHAKE128, SHAKE256, round constants Table 2 | REQ-1.1-PQ |
+| FIPS 203 | ML-KEM-1024 | n=256 q=3329 k=4 η1=η2=2 du=11 dv=5; Algorithms 7–21; ζ=17 | REQ-1.1-PQ |
+| RFC 6234 SHA-512 | SHA-512 / HMAC-SHA-512 | §§4.2, 5.2, 6.3–6.4; RFC 4231 HMAC-SHA-512 KATs | REQ-1.1-PQ |
 
 SHA-256 one-block and two-block message digests are the FIPS 180-4 examples
 also printed throughout the literature:

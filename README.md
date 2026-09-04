@@ -195,8 +195,9 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 
 | REQ | Status |
 |---|---|
-| REQ-1.1 crypto primitives | Done — KATs from RFC 6234 / 4231 / 5869 / 8439 pass (`tests/test_crypto`). Residual: ISS-0003. |
-| REQ-1.2 onward | Not started. Handshake primitive is ISS-0001 — do not guess. |
+| REQ-1.1 crypto primitives | Done — RFC 6234 / 4231 / 5869 / 8439 KATs. Residual: ISS-0003. |
+| REQ-1.1-PQ | Done — FIPS 203 **ML-KEM-1024** (category 5) + FIPS 202 SHAKE/SHA3 + SHA-512. KAT + implicit reject pass. |
+| REQ-1.2 onward | Handshake **algorithm** is ML-KEM-1024 (DEC-0005). Packet layout is T-0100. Signatures: ISS-0005 (ML-DSA-87). |
 
 Until a requirement’s gate is green, treat that capability as *intended*, not *done*.
 

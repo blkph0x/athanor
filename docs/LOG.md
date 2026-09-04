@@ -4,6 +4,18 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — Quantum-resistant KEM (DEC-0005)
+
+- User required bleeding-edge quantum-proof encryption, no exceptions.
+- Did not invent a cipher. Implemented FIPS 202 + FIPS 203 ML-KEM-1024
+  (NIST category 5) and SHA-512/HMAC-SHA-512 from RFC 6234.
+- `make test` ALL PASSED including official-style ML-KEM-1024 KAT and
+  implicit rejection.
+- Handshake algorithm for REQ-1.2 is now ML-KEM-1024. Packet bytes still
+  T-0100. Signatures are ISS-0005 (ML-DSA-87).
+
+---
+
 ## 2026-09-04 — Windows / Linux / ARM build path (DEC-0004)
 
 - User required the tree to be buildable on Windows, Linux, and ARM.

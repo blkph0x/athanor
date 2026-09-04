@@ -21,6 +21,11 @@ Tier 1: In-House Custom Network Protocol (Replaces WireGuard/OpenVPN)
   - Low-Level Cryptography: Symmetric packet encryption handled entirely using
     in-house cryptographic primitive implementations compiled directly into our
     communication binary. No external crypto libraries.
+  - QUANTUM-RESISTANT KEY ESTABLISHMENT (DEC-0005, no exceptions):
+    ML-KEM-1024 (FIPS 203, NIST category 5) implemented line-by-line from the
+    standard. Session AEAD is ChaCha20-Poly1305 with 256-bit keys. Long-term
+    MAC/KDF is HMAC-SHA-512 / HKDF-SHA-512. SHA-3/SHAKE as required by FIPS 203.
+    Do not substitute ML-KEM-512/768. Do not invent a “quantum” cipher.
 
 Tier 2: Proprietary Static Web & API Stack (Replaces Nginx/Apache/Node.js)
   - Custom Web Server Binaries: Minimal, compiled network listeners that open
@@ -47,6 +52,7 @@ custom code compilation validation.
 
 PHASE 1: PROPRIETARY CORE BUILD & LOW-LEVEL CRYPTO
 [X] REQ-1.1: Code and compile the custom low-level cryptographic math primitives.
+[X] REQ-1.1-PQ: ML-KEM-1024 + SHA-3/SHAKE + SHA-512 (FIPS 203/202/180-4).
 [ ] REQ-1.2: Build the proprietary UDP network tunneling engine from raw socket code.
 [ ] REQ-1.3: Build the custom 2FA challenge-response authentication binary.
 

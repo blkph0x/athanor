@@ -22,7 +22,7 @@ endif
 ifeq ($(origin AR),default)
   AR := ar
 endif
-CFLAGS  ?= -std=c99 -Wall -Wextra -Werror -O2 -Iinclude
+CFLAGS  ?= -std=c99 -Wall -Wextra -Werror -O2 -Iinclude -Itests
 LDFLAGS ?=
 
 MACHINE := $(shell $(CC) -dumpmachine)
@@ -109,8 +109,11 @@ SRC = \
 	src/crypto/atn_platform.c \
 	src/crypto/atn_secure.c \
 	src/crypto/atn_sha256.c \
+	src/crypto/atn_sha512.c \
 	src/crypto/atn_hmac.c \
 	src/crypto/atn_hkdf.c \
+	src/crypto/atn_fips202.c \
+	src/crypto/atn_mlkem.c \
 	src/crypto/atn_chacha20.c \
 	src/crypto/atn_poly1305.c \
 	src/crypto/atn_aead.c \
@@ -149,7 +152,7 @@ lib: $(LIB_BIN)
 
 $(LIB_BIN): $(SRC) include/atn_crypto.h include/atn_platform.h
 	$(CC) $(CFLAGS) -c $(SRC)
-	$(AR) rcs $@ atn_platform.o atn_secure.o atn_sha256.o atn_hmac.o atn_hkdf.o atn_chacha20.o atn_poly1305.o atn_aead.o atn_nonce.o
+	$(AR) rcs $@ atn_platform.o atn_secure.o atn_sha256.o atn_sha512.o atn_hmac.o atn_hkdf.o atn_fips202.o atn_mlkem.o atn_chacha20.o atn_poly1305.o atn_aead.o atn_nonce.o
 
 clean:
 	-rm -f $(TEST_BIN) tests/test_crypto tests/test_crypto.exe $(LIB_BIN) atn_*.o

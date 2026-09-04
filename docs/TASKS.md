@@ -11,7 +11,7 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
-| T-0100 | open | REQ-1.2 | DEC for tunnel packet header + handshake (needs public-key or PSK decision — do not guess) |
+| T-0100 | open | REQ-1.2 | Tunnel packet header around ML-KEM-1024 encaps (DEC-0005). Layout only — algorithm is decided. |
 
 ---
 
@@ -38,3 +38,4 @@ to enter. Do not spawn implementation tasks for them here until then.
 | T-0005 | done | REQ-1.1 | Compile with GCC 11.3.0, record BUILD_NOTES BN-0002, ALL PASSED |
 | T-0006 | done | REQ-1.1 | SoT REQ-1.1 marked [X]. Residual ISS-0003 remains open (timing not measured). |
 | T-0007 | done | REQ-1.1 | Portable Windows/Linux/ARM build (DEC-0004). Native + unsigned-char + m32 KATs pass. ARM run is ISS-0004. |
+| T-0008 | done | REQ-1.1-PQ | FIPS 202 SHAKE/SHA3 + FIPS 203 ML-KEM-1024 + SHA-512. KATs ALL PASSED. |

@@ -10,7 +10,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 CC=${CC:-cc}
-CFLAGS=${CFLAGS:--std=c99 -Wall -Wextra -Werror -O2 -Iinclude}
+CFLAGS=${CFLAGS:--std=c99 -Wall -Wextra -Werror -O2 -Iinclude -Itests}
 MACHINE=$("$CC" -dumpmachine)
 
 EXE=""
@@ -33,8 +33,11 @@ echo "CC=$CC MACHINE=$MACHINE"
     src/crypto/atn_platform.c \
     src/crypto/atn_secure.c \
     src/crypto/atn_sha256.c \
+    src/crypto/atn_sha512.c \
     src/crypto/atn_hmac.c \
     src/crypto/atn_hkdf.c \
+    src/crypto/atn_fips202.c \
+    src/crypto/atn_mlkem.c \
     src/crypto/atn_chacha20.c \
     src/crypto/atn_poly1305.c \
     src/crypto/atn_aead.c \

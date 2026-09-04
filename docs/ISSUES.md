@@ -8,15 +8,23 @@ Status: `open` | `closed`
 
 ## ISS-0001 — Public-key primitive for the tunnel handshake is unspecified
 
+- **Status:** closed (narrowed)
+- **Opened:** 2026-09-04
+- **Closed:** 2026-09-04 — DEC-0005: KEM is ML-KEM-1024 (FIPS 203). Remaining
+  work is packet layout (T-0100), not algorithm choice.
+- **REQ:** REQ-1.2
+
+## ISS-0005 — ML-DSA-87 signatures not yet implemented
+
 - **Status:** open
 - **Opened:** 2026-09-04
-- **REQ:** REQ-1.2 (does not block REQ-1.1)
-- **Unknown:** SoT requires a handshake that derives session keys from REQ-1.1.
-  It does not name Diffie-Hellman, a signature scheme, or a pre-shared key.
-- **Must not invent:** X25519, RSA, or "just PSK" without a decision record
-  citing a spec we will implement line-by-line.
-- **Unblock by:** write DEC-xxxx naming the handshake and the spec, *before*
-  any tunnel handshake code.
+- **REQ:** REQ-1.2 / 5.1 (code signing)
+- **Unknown:** DEC-0005 covers encryption/KEM. Category-5 *signatures* are
+  ML-DSA-87 (FIPS 204). Not compiled in this tree yet. Do not claim
+  quantum-proof authentication of binaries or handshake transcripts.
+- **Must not invent:** a hash-based signature of our own; wait for FIPS 204
+  line-by-line + KATs.
+- **Unblock by:** implement ML-DSA-87 from FIPS 204 with ACVP/KAT vectors.
 
 ## ISS-0002 — SHA-256 empty/abc/two-block fixtures need FIPS page confirmation on audit
 

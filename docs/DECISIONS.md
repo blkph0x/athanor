@@ -81,3 +81,31 @@ A decision is recorded **before** code that depends on it is written.
   Windows ARM64, Linux x86_64, Linux aarch64, Linux armhf, Android NDK.
   Executing tests on ARM hardware is ISS-0004 until we have that compiler
   or board. Do not claim an ARM run we did not perform.
+
+---
+
+## DEC-0005 — Quantum-resistant suite (no homemade “quantum” cipher)
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** User required bleeding-edge quantum-proof encryption with no
+  exceptions. DEVELOPMENT_RULES forbid inventing algorithms. NIST FIPS 203
+  (2024-08-13) is the U.S. standard ML-KEM; category 5 is ML-KEM-1024
+  (equivalent claim to AES-256). FIPS 202 supplies SHAKE/SHA3 required by
+  FIPS 203. Grover’s algorithm halves symmetric key search; 256-bit keys
+  (ChaCha20) and SHA-512 remain the conservative symmetric/hash margin
+  (CNSA 2.0 uses SHA-384+ / AES-256). HQC and FN-DSA are not FIPS yet —
+  using them would be guessing.
+- **Decision:**
+  - Key establishment: **ML-KEM-1024 only** (FIPS 203 Table 2). Not 512, not 768.
+  - Hashes used by ML-KEM: SHA3-256, SHA3-512, SHAKE128, SHAKE256 (FIPS 202).
+  - Long-term MAC/KDF: HMAC-SHA-512 / HKDF-SHA-512 (RFC 2104 / 5869 / 6234).
+  - Packet AEAD stays ChaCha20-Poly1305 (256-bit key). Grover still leaves
+    ~128-bit quantum security, same class as AES-256.
+  - We do **not** invent a lattice/hash scheme. We transcribe FIPS 203/202.
+  - ML-DSA-87 (FIPS 204 category 5 signatures) is **not** in this decision’s
+    compile; that is ISS-0005. Encryption/KEM does not wait on signatures.
+- **Consequences:** REQ-1.2 handshake SHALL encapsulate with ML-KEM-1024.
+  Shared secret feeds HKDF-SHA-512 into ChaCha20-Poly1305 session keys.
+  ISS-0001 is narrowed from “unknown primitive” to “packet layout around
+  ML-KEM-1024.”

@@ -927,6 +927,7 @@ ROLL-UP CHECKLIST (MIRROR OF SoT, WITH CAUSE IN ONE LINE)
 
 PHASE 1
 [X] REQ-1.1  Crypto primitives     — CAUSE: own the math; EFFECT: every secret derives here
+[X] REQ-1.1-PQ ML-KEM-1024 + SHA-3  — CAUSE: quantum computers; EFFECT: key establishment is FIPS 203 category 5
 [ ] REQ-1.2  UDP tunnel            — CAUSE: own the pipe; EFFECT: no WireGuard/OpenVPN
 [ ] REQ-1.3  2FA binary            — CAUSE: own the second factor; EFFECT: password theft is not enough
 
