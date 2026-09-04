@@ -4,6 +4,22 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0009 — REQ-2.3 DNS + CI compiler fixes (2026-09-04)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0
+- **Command:** `make test`
+- **Result:** ALL PASSED including `tests/test_dns.exe` and `atndns demo`.
+- **CI evidence (run 33851841144, billing unlocked):**
+  - linux-x86_64: success (`make test` + unsigned-char + lib)
+  - linux-aarch64: success — ISS-0004 closed
+  - windows-x86_64: fail `-Werror=unterminated-string-initialization`
+    on `uint8_t hello[11] = "hello-plain"` (fixed: memcpy 11 bytes)
+  - darwin: fail undeclared `arc4random_buf` under `-std=c99`
+    (fixed: `_DARWIN_C_SOURCE`)
+- **DNS:** in-zone A 127.0.0.1, example.com REFUSED, no forward peer.
+
+---
+
 ## BN-0008 — REQ-2.2 admin console (2026-09-04)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0

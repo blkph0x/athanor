@@ -24,7 +24,8 @@ int main(void)
 {
     atn_tun a, b;
     uint8_t ek[ATN_MLKEM1024_EK_LEN], dk[ATN_MLKEM1024_DK_LEN];
-    uint8_t hello[11] = "hello-plain";
+    uint8_t hello[11];
+    memcpy(hello, "hello-plain", 11);
     uint8_t back[64];
     size_t n = 0;
     int rc;

@@ -11,16 +11,15 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
-| T-0202 | open | REQ-2.3 | Authoritative DNS responder (IPv4 UDP, no recursion) |
+| T-0300 | open | REQ-3.2 | In-process memory tree (insert/get/delete/scan) |
 
 ---
 
 ## Backlog (do not start early)
 
-Phase 3–6 REQs stay in `SOURCE_OF_TRUTH.md` until their `Depends on` items
-in the cause/effect map are `[X]`. Do not spawn implementation tasks for
-them here until then. Zone persistence for DNS waits on REQ-3.2; an
-embedded static zone is legal for T-0202.
+REQ-3.1 (replication) and REQ-3.3 (heartbeat) stay in the SoT until
+started. REQ-3.2 is legal now (depends on REQ-1.1). Do not spawn
+Phase 4–6 tasks here until their depends-on items are `[X]`.
 
 ---
 
@@ -42,3 +41,4 @@ embedded static zone is legal for T-0202.
 | T-0102 | done | REQ-1.3 | HMAC-SHA-512 2FA library + `atn2fa` CLI |
 | T-0200 | done | REQ-2.1 | HTTP/1.1 listener on loopback TCP + DEC-0007 records (`atnhttp`) |
 | T-0201 | done | REQ-2.2 | Embedded admin console, POST + CSRF + 2FA on mutate |
+| T-0202 | done | REQ-2.3 | Authoritative DNS RFC 1035, zone `atn.test`, no recursion |

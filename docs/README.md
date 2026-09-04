@@ -16,6 +16,7 @@ In-tree trackers are canonical so work continues when GitHub is unreachable
 | [CI.md](CI.md) | Local + GitHub Actions contract. Same `make test`. |
 | [TUNNEL.md](TUNNEL.md) | REQ-1.2 UDP wire format (DEC-0007). |
 | [HTTP.md](HTTP.md) | REQ-2.1 TCP records + HTTP/1.1 (DEC-0009). |
+| [DNS.md](DNS.md) | REQ-2.3 RFC 1035 authoritative DNS (DEC-0011). |
 
 Rules: [`../DEVELOPMENT_RULES.md`](../DEVELOPMENT_RULES.md).
 Architecture: [`../SOURCE_OF_TRUTH.md`](../SOURCE_OF_TRUTH.md).

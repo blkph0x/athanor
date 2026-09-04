@@ -4,6 +4,16 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — REQ-2.3 DNS + GitHub Actions actually ran
+
+- Billing unlocked. Run 33851841144 executed: Linux x64 and ARM green.
+  Windows/Darwin compiler misses fixed (string init, Darwin CSPRNG).
+- DEC-0011 / docs/DNS.md. RFC 1035 authoritative `atn.test`, recursion
+  off, REFUSED out of zone. `make test` ALL PASSED (BN-0009).
+- SoT REQ-2.3 [X]. ISS-0004 and ISS-0006 closed. Next: REQ-3.2 tree.
+
+---
+
 ## 2026-09-04 — REQ-2.2 console (DEC-0010)
 
 - Handwritten HTML+CSS, zero JS, compiled into `atnhttp`.

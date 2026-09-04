@@ -19,6 +19,8 @@ If a constant is not in this list, it does not go in the tree.
 | RFC 9112 | HTTP/1.1 | Request line, header block, CRLF, Host required | REQ-2.1 |
 | RFC 9110 | HTTP semantics | Method case-sensitivity, Host, 4xx status | REQ-2.1 |
 | docs/TUNNEL.md | DEC-0007 records | TCP framing of the same 16-byte header + ML-KEM handshake | REQ-2.1 |
+| RFC 1035 | DNS | Header, names, CLASS IN, A/NS/SOA/TXT, UDP 512, TCP length prefix | REQ-2.3 |
+| RFC 2606 / 6761 | `.test` | Scaffold zone `atn.test` | REQ-2.3 |
 
 SHA-256 one-block and two-block message digests are the FIPS 180-4 examples
 also printed throughout the literature:

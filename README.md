@@ -205,7 +205,8 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | REQ-1.3 2FA | Done — HMAC-SHA-512 challenge-response. `tests/test_2fa` + `atn2fa demo`. |
 | REQ-2.1 HTTP listener | Done — HTTP/1.1 on loopback TCP inside DEC-0007 records. Not RFC 8446 (ISS-0009). |
 | REQ-2.2 admin console | Done — embedded HTML/CSS, POST+CSRF, 2FA on mutate. |
-| REQ-2.3 onward | Next: authoritative DNS (T-0202). Signatures: ISS-0005. |
+| REQ-2.3 DNS | Done — RFC 1035 authoritative `atn.test`, no recursion. |
+| REQ-3.2 onward | Next: in-process memory tree (T-0300). Signatures: ISS-0005. |
 
 Until a requirement’s gate is green, treat that capability as *intended*, not *done*.
 

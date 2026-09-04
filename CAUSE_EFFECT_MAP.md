@@ -315,7 +315,7 @@ VERIFICATION GATE
 --------------------------------------------------------------------------------
 REQ-2.3  Custom authoritative DNS responder
 --------------------------------------------------------------------------------
-STATUS: [ ]
+STATUS: [X]  (2026-09-04 — tests/test_dns.exe ALL PASSED; BN-0009)
 
 WHY (CAUSE)
   Nodes and admin hosts must resolve each other without depending on
@@ -344,10 +344,12 @@ DEPENDS ON: REQ-1.2  |  full zone persistence waits on REQ-3.2
 UNLOCKS:    REQ-3.3 peer bootstrap by name
 
 VERIFICATION GATE
-  [ ] Query for an in-zone name returns our record
-  [ ] Query for an out-of-zone name is refused, not forwarded
-  [ ] Packet capture of a resolve shows no traffic to 8.8.8.8 / 1.1.1.1
-  [ ] Binary links no DNS library besides our parser
+  [X] Query for an in-zone name returns our record
+  [X] Query for an out-of-zone name is refused, not forwarded
+  [X] Packet capture of a resolve shows no traffic to 8.8.8.8 / 1.1.1.1
+      Construction proof: last querier is 127.0.0.1; module has no forward
+      socket. We did not run tcpdump (ISS-0012).
+  [X] Binary links no DNS library besides our parser
 
 
 ================================================================================

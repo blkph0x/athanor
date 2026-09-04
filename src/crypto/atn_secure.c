@@ -14,7 +14,11 @@
  * a volatile pointer. Neither claims to beat DMA or a debugger.
  */
 
-#if !defined(_WIN32)
+#if defined(__APPLE__)
+#  if !defined(_DARWIN_C_SOURCE)
+#    define _DARWIN_C_SOURCE 1
+#  endif
+#elif !defined(_WIN32)
 #  if !defined(_DEFAULT_SOURCE)
 #    define _DEFAULT_SOURCE 1
 #  endif

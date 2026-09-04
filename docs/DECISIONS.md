@@ -221,3 +221,26 @@ A decision is recorded **before** code that depends on it is written.
 - **Consequences:** `docs/HTTP.md` gains the POST/session section.
   Percent-encoded bodies are ISS-0011. Browser cookie jars are unused
   until ISS-0009; our client sends `Cookie` explicitly.
+
+---
+
+## DEC-0011 — Authoritative DNS is RFC 1035, recursion off, zone `atn.test`
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** REQ-2.3 and the cause/effect map forbid bind/unbound and
+  public resolvers. RFC 1035 is the message format. `.test` is reserved
+  (RFC 2606 / 6761) so the scaffold zone does not collide with a real
+  TLD. Port 53 is privileged on this Windows builder; tests cannot bind
+  it without an elevation we will not assume.
+- **Decision:**
+  - Parser and responder from RFC 1035 §§3–4. CLASS IN. Types A, NS,
+    SOA, TXT. Recursion available bit is always 0. Out-of-zone →
+    REFUSED. No forwarding socket.
+  - Bind `127.0.0.1`. Tests: port 0. CLI default 1053. Port 53 is a
+    later production DEC.
+  - Embedded zone `atn.test` until REQ-3.2. IPv4 A records only.
+  - UDP 512-byte cap; TCP length-prefix for overflow (RFC 1035 §4.2.2).
+- **Consequences:** `atndns` is the binary. AAAA dual-stack waits on
+  ISS-0007. Console DNS forms wait on a small HTTP route; the zone
+  mutate API is in the DNS module now.

@@ -47,18 +47,14 @@ Status: `open` | `closed`
 
 ## ISS-0006 — GitHub Actions will not start: account billing lock
 
-- **Status:** open
+- **Status:** closed
 - **Opened:** 2026-09-04
+- **Closed:** 2026-09-04 — Run https://github.com/blkph0x/athanor/actions/runs/33851841144
+  actually started jobs. linux-x86_64 and linux-aarch64 **passed**.
+  windows-x86_64 and darwin failed on real compiler issues (fixed in
+  the REQ-2.3 commit: unterminated-string-init; Darwin `_DARWIN_C_SOURCE`
+  for `arc4random_buf`). Billing is no longer the blocker.
 - **REQ:** DEC-0006 pipeline
-- **Evidence:** Run https://github.com/blkph0x/athanor/actions/runs/33848702338
-  — all four jobs (linux-x86_64, linux-aarch64, darwin, windows-x86_64)
-  annotated: "The job was not started because your account is locked due
-  to a billing issue." Steps arrays were empty; this is not a Makefile
-  failure.
-- **Must not invent:** a green badge. Local `make test` passed; GitHub did
-  not execute.
-- **Unblock by:** fix billing on the GitHub account (Settings → Billing),
-  then Actions → ci → Re-run all jobs on commit `2ca2be9` or later.
 
 ## ISS-0002 — SHA-256 empty/abc/two-block fixtures need FIPS page confirmation on audit
 
@@ -88,6 +84,19 @@ Status: `open` | `closed`
 - **Unblock by:** after KATs pass, add a note on ISS-0003 in BUILD_NOTES with
   what we did (or did not) measure. SoT gate "constant-time checks" stays
   honest.
+
+## ISS-0012 — No tcpdump of DNS; TCP may not share the UDP ephemeral port on Windows
+
+- **Status:** open
+- **Opened:** 2026-09-04
+- **REQ:** REQ-2.3 follow-on
+- **Unknown:** Cause/effect asked for a packet capture showing no
+  8.8.8.8 / 1.1.1.1. We proved construction: last peer is 127.0.0.1 and
+  there is no forward `sendto`. TCP bind to the same ephemeral UDP port
+  failed on this Windows host; UDP still answers. POSIX should bind both.
+- **Must not invent:** a pcap we did not take.
+- **Unblock by:** run tcpdump/windump in BN; bind TCP to a second port
+  or SO_REUSEPORT DEC if we need TCP on Windows tests.
 
 ## ISS-0011 — `application/x-www-form-urlencoded` percent-decoding not implemented
 
@@ -124,14 +133,11 @@ Status: `open` | `closed`
 
 ## ISS-0004 — ARM binaries not executed on the current builder
 
-- **Status:** open
+- **Status:** closed
 - **Opened:** 2026-09-04
+- **Closed:** 2026-09-04 — GitHub job `linux-aarch64` on
+  https://github.com/blkph0x/athanor/actions/runs/33851841144
+  ran `make test` and `make lib` successfully on `ubuntu-24.04-arm`.
+  This Windows builder still has no ARM compiler; public ARM execution
+  is the evidence.
 - **REQ:** REQ-1.1 portability (DEC-0004)
-- **Unknown:** This host has `gcc -dumpmachine` = `x86_64-w64-mingw32`, no
-  `aarch64-linux-gnu-gcc` / `arm-linux-gnueabihf-gcc`, and WSL has zero
-  distros. We cannot compile-or-run ARM here.
-- **Must not invent:** a green ARM checkbox from an x86 run.
-- **Unblock by:** run `make test` on an aarch64 Linux box, an ARM Windows
-  box, or an Android NDK adb-run, and append BUILD_NOTES with that
-  dumpmachine and `ALL PASSED`. GitHub job `linux-aarch64`
-  (`ubuntu-24.04-arm`) is the public attempt (DEC-0006).
