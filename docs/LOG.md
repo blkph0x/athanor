@@ -4,6 +4,15 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — REQ-3.2 memory tree (DEC-0012)
+
+- AVL tree of length-prefixed blobs. Snapshot is nonce||ct||tag.
+- tests/test_tree ALL PASSED (BN-0010). SoT REQ-3.2 [X].
+- Next legal: REQ-3.1 replication (T-0301). Heartbeat waits on 3.1+3.3
+  depends (2.3 and 3.2 now green; 3.1 still open).
+
+---
+
 ## 2026-09-04 — REQ-2.3 DNS + GitHub Actions actually ran
 
 - Billing unlocked. Run 33851841144 executed: Linux x64 and ARM green.

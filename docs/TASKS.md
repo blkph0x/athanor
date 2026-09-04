@@ -11,7 +11,7 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
-| T-0300 | open | REQ-3.2 | In-process memory tree (insert/get/delete/scan) |
+| T-0301 | open | REQ-3.1 | Block replication over the UDP tunnel |
 
 ---
 
@@ -42,3 +42,4 @@ Phase 4–6 tasks here until their depends-on items are `[X]`.
 | T-0200 | done | REQ-2.1 | HTTP/1.1 listener on loopback TCP + DEC-0007 records (`atnhttp`) |
 | T-0201 | done | REQ-2.2 | Embedded admin console, POST + CSRF + 2FA on mutate |
 | T-0202 | done | REQ-2.3 | Authoritative DNS RFC 1035, zone `atn.test`, no recursion |
+| T-0300 | done | REQ-3.2 | AVL memory tree + ChaCha20-Poly1305 snapshot |

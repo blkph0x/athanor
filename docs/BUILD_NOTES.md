@@ -4,6 +4,16 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0010 — REQ-3.2 AVL tree (2026-09-04)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0
+- **Command:** `tests/test_tree.exe` (then full `make test`)
+- **Result:** ALL PASSED — put/get/del/ordered scan, 64 reverse-order
+  inserts, snapshot AEAD hides `TREE-SECRET-VALUE-NOT-ON-DISK`, restore
+  recovers the value. No database library.
+
+---
+
 ## BN-0009 — REQ-2.3 DNS + CI compiler fixes (2026-09-04)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0

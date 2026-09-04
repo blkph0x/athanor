@@ -127,12 +127,14 @@ TUN_SRC = src/tun/atn_tun.c
 AUTH_SRC = src/auth/atn_2fa.c
 HTTP_SRC = src/http/atn_http.c
 DNS_SRC  = src/dns/atn_dns.c
+TREE_SRC = src/store/atn_tree.c
 
 TEST_BIN = tests/test_crypto$(EXE)
 TEST_TUN = tests/test_tun$(EXE)
 TEST_2FA = tests/test_2fa$(EXE)
 TEST_HTTP = tests/test_http$(EXE)
 TEST_DNS = tests/test_dns$(EXE)
+TEST_TREE = tests/test_tree$(EXE)
 CLI_2FA  = atn2fa$(EXE)
 CLI_HTTP = atnhttp$(EXE)
 CLI_DNS  = atndns$(EXE)
@@ -140,7 +142,7 @@ LIB_BIN  = libatn_crypto.a
 
 .PHONY: all test lib info clean ci test-unsigned-char
 
-all: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS)
+all: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS)
 
 info:
 	$(info CC=$(CC))
@@ -176,7 +178,10 @@ $(TEST_DNS): $(SRC) $(TUN_SRC) $(DNS_SRC) tests/test_dns.c include/atn_dns.h
 $(CLI_DNS): $(SRC) $(TUN_SRC) $(DNS_SRC) src/dns/atn_dns_cli.c include/atn_dns.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(DNS_SRC) src/dns/atn_dns_cli.c $(LDFLAGS)
 
-test: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS)
+$(TEST_TREE): $(SRC) $(TREE_SRC) tests/test_tree.c include/atn_tree.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(TREE_SRC) tests/test_tree.c $(LDFLAGS)
+
+test: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS)
 ifeq ($(CROSS),1)
 	@echo "cross-compiled for $(MACHINE) ($(ATN_TARGET_OS)-$(ATN_ARCH))"
 	@echo "run binaries on the target; not executing them on the builder"
@@ -186,6 +191,7 @@ else
 	$(TEST_2FA)
 	$(TEST_HTTP)
 	$(TEST_DNS)
+	$(TEST_TREE)
 	./$(CLI_2FA) demo
 	./$(CLI_HTTP) demo
 	./$(CLI_DNS) demo
@@ -199,10 +205,10 @@ test-unsigned-char:
 
 lib: $(LIB_BIN)
 
-$(LIB_BIN): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) include/atn_crypto.h include/atn_platform.h include/atn_tun.h include/atn_2fa.h include/atn_http.h include/atn_dns.h
-	$(CC) $(CFLAGS) -c $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC)
-	$(AR) rcs $@ atn_platform.o atn_secure.o atn_sha256.o atn_sha512.o atn_hmac.o atn_hkdf.o atn_fips202.o atn_mlkem.o atn_chacha20.o atn_poly1305.o atn_aead.o atn_nonce.o atn_tun.o atn_2fa.o atn_http.o atn_dns.o
+$(LIB_BIN): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(TREE_SRC) include/atn_crypto.h include/atn_platform.h include/atn_tun.h include/atn_2fa.h include/atn_http.h include/atn_dns.h include/atn_tree.h
+	$(CC) $(CFLAGS) -c $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(TREE_SRC)
+	$(AR) rcs $@ atn_platform.o atn_secure.o atn_sha256.o atn_sha512.o atn_hmac.o atn_hkdf.o atn_fips202.o atn_mlkem.o atn_chacha20.o atn_poly1305.o atn_aead.o atn_nonce.o atn_tun.o atn_2fa.o atn_http.o atn_dns.o atn_tree.o
 
 clean:
-	-rm -f $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(LIB_BIN) atn_*.o
-	-cmd /c "del /Q tests\test_crypto.exe tests\test_tun.exe tests\test_2fa.exe tests\test_http.exe tests\test_dns.exe atn2fa.exe atnhttp.exe atndns.exe libatn_crypto.a atn_*.o 2>NUL"
+	-rm -f $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(LIB_BIN) atn_*.o
+	-cmd /c "del /Q tests\test_crypto.exe tests\test_tun.exe tests\test_2fa.exe tests\test_http.exe tests\test_dns.exe tests\test_tree.exe atn2fa.exe atnhttp.exe atndns.exe libatn_crypto.a atn_*.o 2>NUL"

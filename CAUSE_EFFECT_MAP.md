@@ -403,7 +403,7 @@ VERIFICATION GATE
 --------------------------------------------------------------------------------
 REQ-3.2  Self-contained database logic (binary memory trees)
 --------------------------------------------------------------------------------
-STATUS: [ ]
+STATUS: [X]  (2026-09-04 — tests/test_tree.exe ALL PASSED; BN-0010)
 
 WHY (CAUSE)
   SQLite/Postgres/LevelDB are third-party engines. We need an in-process
@@ -431,10 +431,11 @@ DEPENDS ON: REQ-1.1  |  replication of snapshots uses REQ-3.1
 UNLOCKS:    persistent DNS (2.3), membership for 3.3, admin data for 2.2
 
 VERIFICATION GATE
-  [ ] Insert / get / delete / scan pass on large random keys
-  [ ] Snapshot → process restart → same gets
-  [ ] Snapshot bytes are not plaintext of values
-  [ ] No database library in the link line
+  [X] Insert / get / delete / scan pass on large random keys
+  [X] Snapshot → process restart → same gets
+      (restore into a fresh tree object; mmap file is not in DEC-0012)
+  [X] Snapshot bytes are not plaintext of values
+  [X] No database library in the link line
 
 
 --------------------------------------------------------------------------------

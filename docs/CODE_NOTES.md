@@ -28,6 +28,8 @@ same commit.
 | `include/atn_dns.h` / `src/dns/atn_dns.c` | REQ-2.3 | RFC 1035 | Authoritative zone `atn.test`. Reuses `atn_net_init`. |
 | `src/dns/atn_dns_cli.c` | REQ-2.3 | DEC-0011 | `atndns` binary |
 | `tests/test_dns.c` | REQ-2.3 | gates | In-zone A, REFUSED, NXDOMAIN, loopback querier |
+| `include/atn_tree.h` / `src/store/atn_tree.c` | REQ-3.2 | DEC-0012 | AVL blobs + AEAD snapshot |
+| `tests/test_tree.c` | REQ-3.2 | gates | put/get/del/scan, snapshot hides plaintext, restore |
 | `src/crypto/atn_hmac.c` | REQ-1.1 | RFC 2104 | HMAC-SHA-256 |
 | `src/crypto/atn_hkdf.c` | REQ-1.1 | RFC 5869 §§2.2–2.3 | Extract then expand, SHA-256 |
 | `src/crypto/atn_chacha20.c` | REQ-1.1 | RFC 8439 §§2.1–2.4 | IETF 32-bit counter, 96-bit nonce |

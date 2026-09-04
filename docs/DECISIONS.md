@@ -244,3 +244,28 @@ A decision is recorded **before** code that depends on it is written.
 - **Consequences:** `atndns` is the binary. AAAA dual-stack waits on
   ISS-0007. Console DNS forms wait on a small HTTP route; the zone
   mutate API is in the DNS module now.
+
+---
+
+## DEC-0012 — REQ-3.2 store is an in-process AVL tree of length-prefixed blobs
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** Cause/effect REQ-3.2 forbids SQLite/Postgres/LevelDB and
+  requires insert/get/delete/ordered scan on length-prefixed blobs, plus
+  an optional encrypted snapshot. AVL is a published balanced BST
+  (Adelson-Velsky & Landis, 1962); we are not inventing a data structure.
+  AEAD for the snapshot is already in-tree (RFC 8439).
+- **Decision:**
+  - One AVL tree. Keys compared as unsigned bytes, then by length
+    (memcmp of min length; shorter first if prefix).
+  - Values are opaque blobs. Max key/value 4096 bytes (DEC constant).
+  - Nodes allocated with libc `malloc`; freed nodes `atn_memzero` then
+    `free`. No mmap in this DEC.
+  - Snapshot: serialize `count || (klen||key||vlen||val)*` as big-endian
+    32-bit lengths, then ChaCha20-Poly1305 with a caller-supplied 32-byte
+    key and a random nonce prefixed to the ciphertext. Restore decrypts
+    and rebuilds the tree.
+  - No SQL. No third-party pager.
+- **Consequences:** DNS/2FA persistence can later sit on this tree.
+  Replication of snapshots is REQ-3.1, not this DEC.
