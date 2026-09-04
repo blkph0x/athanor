@@ -15,7 +15,7 @@ The OS CSPRNG is chosen by **compiler macros**, not by `uname`.
 | Linux armv7 | same | `make test` |
 | Any builder with a cross compiler | Linux aarch64 | `make CC=aarch64-linux-gnu-gcc` |
 | Any builder | Linux armhf | `make CC=arm-linux-gnueabihf-gcc` |
-| Android NDK | Android aarch64 | `make CC=aarch64-linux-android21-clang` |
+| Android NDK | Android aarch64 | `make android-so` (r27d on this host) or `make CC=aarch64-linux-android21-clang` |
 | macOS Apple Silicon | Darwin aarch64 | `make test` |
 | macOS Intel | Darwin x86_64 | `make test` |
 

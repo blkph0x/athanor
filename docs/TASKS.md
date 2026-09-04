@@ -11,7 +11,7 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
-| T-0400 | blocked | REQ-4.1 | Knox daemon — needs Samsung Knox SDK on the builder |
+| T-0400 | blocked | REQ-4.1 | Drop `vendor/knox/knoxsdk.jar` (Partner login) then device-enroll |
 
 ---
 

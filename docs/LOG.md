@@ -4,6 +4,18 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — Knox toolchain: NDK in, jar still Partner-only
+
+- User asked to download/install so Phase 4 can start.
+- Installed Android cmdline-tools 14742923 and NDK r27d (hash verified).
+- Native mesh cross-compiles to aarch64 `libatn.so`. Daemon Java compiles
+  against documented Knox API names via stubs.
+- Cannot obtain knoxsdk.jar without a Knox Partner login (ISS-0016).
+  REQ-4.1 SoT checkbox stays open. Next human step: drop the jar at
+  `vendor/knox/knoxsdk.jar` and enroll a phone as Device Owner.
+
+---
+
 ## 2026-09-04 — REQ-3.1 + REQ-3.3
 
 - DEC-0013 replication: SHA3-256 shard, vector clocks, factor 2,

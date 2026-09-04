@@ -85,6 +85,29 @@ Status: `open` | `closed`
   what we did (or did not) measure. SoT gate "constant-time checks" stays
   honest.
 
+## ISS-0016 — knoxsdk.jar is not downloadable without a Knox Partner login
+
+- **Status:** open
+- **Opened:** 2026-09-04
+- **REQ:** REQ-4.1
+- **Unknown:** Samsung hosts the SDK behind partner.samsungknox.com. This
+  session cannot complete that login. NDK r27d and cmdline-tools **were**
+  installed. Daemon Java compiles against in-tree stubs.
+- **Must not invent:** a fake Knox jar, or a SoT [X] for 4.1 without a
+  device run.
+- **Unblock by:** user signs in, drops `vendor/knox/knoxsdk.jar`, enrolls
+  an S24–S26 as Device Owner / Profile Owner.
+
+## ISS-0017 — Builder LAN DNS does not resolve dl.google.com / github.com
+
+- **Status:** open
+- **Opened:** 2026-09-04
+- **REQ:** toolchain
+- **Evidence:** `nslookup` via `mydevice.lan` (10.1.1.1) timed out.
+  `1.1.1.1` resolved the names. Install used curl `--resolve`.
+- **Must not invent:** product code that talks to 8.8.8.8.
+- **Unblock by:** fix LAN DNS or keep `--resolve` in the builder notes.
+
 ## ISS-0015 — Three-node heartbeat mesh is not three UDP sockets
 
 - **Status:** open

@@ -29,6 +29,9 @@ dist/
 Thumbs.db
 .DS_Store
 
+# Knox SDK — Samsung license, drop in vendor/knox/ locally
+vendor/knox/*.jar
+
 # Secrets — never commit
 *.pem
 *.p12

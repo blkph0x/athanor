@@ -313,3 +313,40 @@ A decision is recorded **before** code that depends on it is written.
   - Wire on tunnel DATA: `0x48 ('H') || bucket || epoch || head || mac`.
 - **Consequences:** REQ-4.4 mobile notify is a stub return until Knox.
   DNS seeding of addresses is optional; tests use an explicit roster.
+
+---
+
+## DEC-0015 — Knox is attach-via-SDK; Android NDK compiles our C; knox.jar is not vendored
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** SoT HARDWARE REALITY and cause/effect REQ-4.x: we attach
+  to Knox/TIMA through Samsung’s supported APIs, we do not patch
+  firmware. Samsung distributes the Knox SDK only through the Knox
+  Partner Program (docs.samsungknox.com get-started: sign-in required).
+  This host’s LAN DNS (`10.1.1.1`) does not resolve `dl.google.com` /
+  `github.com`; public resolvers do. Android SDK already present at
+  `%LOCALAPPDATA%\Android\Sdk` (platform 31, build-tools 31, adb 31.0.3).
+  Java 11 and 19 are installed. Cited Knox APIs (not invented):
+  `EnterpriseDeviceManager.getInstance`, `RestrictionPolicy.setUsbMediaPlayerAvailability(false)`,
+  `setUsbDebuggingEnabled(false)`, `allowUsbHostStorage(false)`,
+  `PasswordPolicy.setBiometricAuthenticationEnabled`,
+  `DevicePolicyManager.setPasswordMinimumLength` / `PASSWORD_QUALITY_ALPHANUMERIC`
+  (Knox docs + AOSP DPM). Android 15+ requires Device Owner or Profile
+  Owner (Knox FAQ, 2024-06-20).
+- **Decision:**
+  - Native mesh (crypto/tun/hb/2fa) is compiled with the Android NDK
+    (`aarch64-linux-android`) into `libatn.so`. Same C99 tree (DEC-0004).
+  - Java daemon calls **only** APIs named in this DEC / `docs/KNOX.md`.
+  - `knoxsdk.jar` is **not** committed (Samsung license). Drop it at
+    `vendor/knox/knoxsdk.jar` after Partner download. Without the jar,
+    we compile against in-tree **stubs** that throw; that binary is not
+    a device build.
+  - USB charge-only = MTP off + USB debugging off + USB host storage
+    off (cited RestrictionPolicy methods). Smart Switch is a known
+    bypass (KBA); we blacklist `com.sec.android.easyMover` if that API
+    is present — recorded as ISS if the jar lacks it.
+- **Consequences:** REQ-4.1 cannot be SoT-checked until (1) knoxsdk.jar
+  is on disk, (2) an S24–S26 is enrolled as DO/PO, (3) the service
+  starts on that device. NDK compile of `libatn.so` can be gated on
+  this builder without a phone.

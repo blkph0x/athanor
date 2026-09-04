@@ -4,6 +4,27 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0012 — Android NDK r27d installed; Knox jar still Partner-gated (2026-09-04)
+
+- **Host:** Windows x86_64. LAN DNS (`10.1.1.1`) does not resolve
+  `dl.google.com` / `github.com`. Used `curl --resolve` with 1.1.1.1 answers.
+- **cmdline-tools:** `commandlinetools-win-14742923_latest.zip` (150532528 bytes)
+  → `%LOCALAPPDATA%\Android\Sdk\cmdline-tools\latest`. sdkmanager 20.0 with
+  JDK 19.
+- **NDK r27d:** `android-ndk-r27d-windows.zip` SHA1
+  `56607cbccd3642d4a1991f6bb3114a00f884f426` matches Google’s published
+  checksum. Installed at
+  `Sdk\ndk\27.3.13750724`. clang 18.0.4,
+  `aarch64-linux-android21-clang`.
+- **`make CC=<ndk clang> lib`:** aarch64 android objects + `libatn_crypto.a`.
+- **`make android-so`:** `android/libatn.so` linked with `-llog`.
+- **`make android-java`:** daemon classes compile against
+  `platforms/android-31/android.jar` + in-tree Knox **stubs**.
+- **Not installed:** `knoxsdk.jar` (ISS-0016). Not a device APK. SoT 4.1
+  stays `[ ]`.
+
+---
+
 ## BN-0011 — REQ-3.1 replication + REQ-3.3 heartbeat (2026-09-04)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0
