@@ -291,7 +291,7 @@ int atn_tun_init_responder(atn_tun *t, const uint8_t own_dk[ATN_MLKEM1024_DK_LEN
     return ATN_OK;
 }
 
-int atn_tun_bind(atn_tun *t, uint16_t port)
+static int tun_bind_host(atn_tun *t, uint32_t ipv4_host, uint16_t port)
 {
     atn_sock s;
     struct sockaddr_in sa;
@@ -310,7 +310,7 @@ int atn_tun_bind(atn_tun *t, uint16_t port)
     memset(&sa, 0, sizeof(sa));
     sa.sin_family = AF_INET;
     sa.sin_port = htons(port);
-    sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    sa.sin_addr.s_addr = htonl(ipv4_host);
     if (bind(s, (struct sockaddr *)&sa, sizeof(sa)) != 0) {
 #if defined(ATN_OS_WINDOWS)
         closesocket(s);
@@ -331,6 +331,16 @@ int atn_tun_bind(atn_tun *t, uint16_t port)
     t->sock = (intptr_t)s;
     t->local_port = ntohs(sa.sin_port);
     return ATN_OK;
+}
+
+int atn_tun_bind(atn_tun *t, uint16_t port)
+{
+    return tun_bind_host(t, 0x7f000001u, port);
+}
+
+int atn_tun_bind_any(atn_tun *t, uint16_t port)
+{
+    return tun_bind_host(t, 0u, port); /* INADDR_ANY, DEC-0021 */
 }
 
 int atn_tun_set_peer(atn_tun *t, uint32_t ipv4_host, uint16_t port)

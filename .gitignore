@@ -35,9 +35,11 @@ vendor/knox/*.jar
 # Builder-only NIST JSON dumps; KATs live in tests/kat_*.h
 docs/refs/
 
-# Generated manifest (atnsign manifest tools/src.list)
+# Generated manifest / report (atnsign)
 MANIFEST
 MANIFEST.sig
+REPORT
+REPORT.sig
 
 # Secrets — never commit
 *.pem

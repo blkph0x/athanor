@@ -5,6 +5,7 @@
  *   atnsign sign   <sk-file> <msg-file> <sig-file>
  *   atnsign verify <pk-file> <msg-file> <sig-file>
  *   atnsign manifest <list-file> <out-file>
+ *   atnsign report   PASS|FAIL <out-file>
  */
 #include "atn_sign.h"
 
@@ -250,6 +251,23 @@ int main(int argc, char **argv)
     if (strcmp(argv[1], "manifest") == 0 && argc == 4) {
         return cmd_manifest(argv[2], argv[3]);
     }
-    fprintf(stderr, "usage: atnsign demo|keygen|sign|verify|manifest ...\n");
+    if (strcmp(argv[1], "report") == 0 && argc == 4) {
+        uint8_t buf[256];
+        size_t n = 0;
+        int pass;
+        if (strcmp(argv[2], "PASS") == 0) {
+            pass = 1;
+        } else if (strcmp(argv[2], "FAIL") == 0) {
+            pass = 0;
+        } else {
+            return 1;
+        }
+        if (atn_report_encode(pass, atn_platform_id(), buf, &n, sizeof(buf))
+            != ATN_OK) {
+            return 1;
+        }
+        return write_all(argv[3], buf, n) == 0 ? 0 : 1;
+    }
+    fprintf(stderr, "usage: atnsign demo|keygen|sign|verify|manifest|report ...\n");
     return 1;
 }

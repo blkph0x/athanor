@@ -49,7 +49,8 @@ void atn_net_fini(void);
 
 int atn_tun_init_initiator(atn_tun *t, const uint8_t peer_ek[ATN_MLKEM1024_EK_LEN]);
 int atn_tun_init_responder(atn_tun *t, const uint8_t own_dk[ATN_MLKEM1024_DK_LEN]);
-int atn_tun_bind(atn_tun *t, uint16_t port);           /* 0 = ephemeral */
+int atn_tun_bind(atn_tun *t, uint16_t port);           /* loopback, 0 = ephemeral */
+int atn_tun_bind_any(atn_tun *t, uint16_t port);       /* INADDR_ANY, DEC-0021 */
 int atn_tun_set_peer(atn_tun *t, uint32_t ipv4_host, uint16_t port);
 int atn_tun_hs_send_init(atn_tun *t);
 int atn_tun_pump(atn_tun *t, int timeout_ms);          /* recv one datagram */

@@ -319,7 +319,7 @@ Java_com_athanor_daemon_AtnNative_tunBind(JNIEnv *env, jclass cls, jint port)
     if (port < 0 || port > 65535) {
         return ATN_ERR_PARAM;
     }
-    return atn_dmon_tun_bind(&g_dmon, (uint16_t)port);
+    return atn_dmon_tun_bind_any(&g_dmon, (uint16_t)port);
 }
 
 JNIEXPORT jint JNICALL

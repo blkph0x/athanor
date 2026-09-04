@@ -35,4 +35,17 @@ int  atn_mf_verify(const uint8_t pk[ATN_MLDSA87_PK_LEN],
                    const uint8_t *mf, size_t n,
                    const uint8_t sig[ATN_MLDSA87_SIG_LEN]);
 
+#define ATN_RP_HDR     "ATN-REPORT-1\n"
+#define ATN_RP_CTX     "atn-rp-v1"
+#define ATN_RP_CTX_LEN 8u
+
+int atn_report_encode(int pass, const char *platform,
+                      uint8_t *out, size_t *n, size_t max);
+int atn_report_sign(const uint8_t sk[ATN_MLDSA87_SK_LEN],
+                    const uint8_t *rp, size_t n,
+                    uint8_t sig[ATN_MLDSA87_SIG_LEN]);
+int atn_report_verify(const uint8_t pk[ATN_MLDSA87_PK_LEN],
+                      const uint8_t *rp, size_t n,
+                      const uint8_t sig[ATN_MLDSA87_SIG_LEN]);
+
 #endif

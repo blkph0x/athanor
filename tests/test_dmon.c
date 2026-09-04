@@ -136,6 +136,22 @@ int main(void)
         atn_net_fini();
     }
 
+    /* DEC-0021: INADDR_ANY bind returns an ephemeral port. */
+    {
+        atn_dmon dany;
+        uint8_t ek[ATN_MLKEM1024_EK_LEN], dkb[ATN_MLKEM1024_DK_LEN];
+        atn_dmon_init(&dany);
+        check("any net", atn_net_init() == ATN_OK);
+        check("any load", atn_dmon_load(&dany, dk, ck) == ATN_OK);
+        check("any kem", atn_mlkem1024_keygen(ek, dkb) == ATN_OK);
+        check("any init", atn_dmon_tun_initiator(&dany, ek) == ATN_OK);
+        check("bind_any",
+              atn_dmon_tun_bind_any(&dany, 0) == ATN_OK &&
+              atn_dmon_tun_port(&dany) != 0);
+        atn_dmon_flush(&dany);
+        atn_net_fini();
+    }
+
     atn_dmon_flush(&d);
 
     if (g_fail == 0) {

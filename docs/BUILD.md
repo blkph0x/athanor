@@ -26,8 +26,10 @@ the target and run it there.
 make info          # print CC, dumpmachine, OS, arch, CROSS
 make               # tests/test_crypto[.exe]
 make test          # build + run (native only)
+make report        # make test, then unsigned ATN-REPORT-1 (DEC-0021)
 make lib           # libatn_crypto.a  (link this into later binaries)
 make clean
+# Lab responder (DEC-0021): atnnode listen [port]
 ```
 
 ## What gets linked (and nothing else)

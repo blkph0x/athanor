@@ -15,6 +15,7 @@ android/java/com/athanor/daemon/AtnKeystore.java
 android/java/com/athanor/daemon/AtnKnoxBuild.java
 android/java/com/athanor/daemon/AtnKnoxPolicy.java
 android/java/com/athanor/daemon/AtnNative.java
+android/java/com/athanor/daemon/AtnNodeConfig.java
 android/java/com/athanor/daemon/AtnPowerReceiver.java
 android/jni/atn_jni.c
 android/res/xml/device_admin.xml
@@ -38,6 +39,7 @@ docs/SPEC_INDEX.md
 docs/TASKS.md
 docs/TUNNEL.md
 include/atn_2fa.h
+include/atn_cfg.h
 include/atn_crypto.h
 include/atn_dmon.h
 include/atn_dns.h
@@ -50,6 +52,7 @@ include/atn_tree.h
 include/atn_tun.h
 src/auth/atn_2fa.c
 src/auth/atn_2fa_cli.c
+src/cfg/atn_cfg.c
 src/crypto/atn_aead.c
 src/crypto/atn_chacha20.c
 src/crypto/atn_fips202.c
@@ -69,6 +72,7 @@ src/dns/atn_dns_cli.c
 src/hb/atn_hb.c
 src/http/atn_http.c
 src/http/atn_http_cli.c
+src/node/atn_node_cli.c
 src/repl/atn_repl.c
 src/sign/atn_sign.c
 src/sign/atn_sign_cli.c
@@ -77,6 +81,7 @@ src/tun/atn_tun.c
 tests/kat_mldsa87.h
 tests/kat_mlkem1024.h
 tests/test_2fa.c
+tests/test_cfg.c
 tests/test_crypto.c
 tests/test_dmon.c
 tests/test_dns.c

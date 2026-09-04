@@ -4,6 +4,17 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0018 — lab cfg + report + bind-any (2026-09-04)
+
+- **Host:** Windows x86_64, gcc 11.3.0
+- **`make test`:** ALL PASSED. New gates: `test_cfg` (parse/ready/unknown
+  keys/CRLF/upper hex), `test_sign` report encode/sign/verify/tamper,
+  `test_dmon` bind_any, `atnnode demo` cfg roundtrip + INADDR_ANY bind.
+- **`make android-java`:** STUB BUILD (no knoxsdk.jar). javac includes
+  `AtnNodeConfig.java`. Deprecation notes on DPM password APIs only.
+
+---
+
 ## BN-0017 — dmon tunnel + recipe-check (2026-09-04)
 
 - **Host:** Windows x86_64

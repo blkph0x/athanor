@@ -51,3 +51,5 @@ compiler) is still unmeasured.
 | T-0402 | done | REQ-4.1 | Stub/real knoxsdk.jar classpath switch; ATN_STUB marker |
 | T-0403 | done | REQ-4.1 | dmon owns DEC-0007 tunnel; two-dmon loopback handshake (DEC-0020) |
 | T-0511 | done | REQ-5.1 | `atnsign manifest` + `tools/src.list` + Makefile recipe-check |
+| T-0404 | done | REQ-4.1 | Lab `atn-node.conf` + `bind_any` + `atnnode` responder (DEC-0021). Device SoT still blocked on T-0400. |
+| T-0512 | done | REQ-5.2 | `ATN-REPORT-1` + `atnsign report` / `make report`. Emulator/S24 still open. |

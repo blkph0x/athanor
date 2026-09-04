@@ -185,6 +185,14 @@ int atn_dmon_tun_bind(atn_dmon *d, uint16_t port)
     return atn_tun_bind(&d->tun, port);
 }
 
+int atn_dmon_tun_bind_any(atn_dmon *d, uint16_t port)
+{
+    if (atn_dmon_require(d) != ATN_OK || !d->tun_ready) {
+        return ATN_ERR_STATE;
+    }
+    return atn_tun_bind_any(&d->tun, port);
+}
+
 int atn_dmon_tun_set_peer(atn_dmon *d, uint32_t ipv4_host, uint16_t port)
 {
     if (atn_dmon_require(d) != ATN_OK || !d->tun_ready) {

@@ -23,12 +23,17 @@ public class AtnDaemonService extends Service {
     private static final long BUCKET_MS = 60L * 1000L;
 
     private final Handler tickHandler = new Handler(Looper.getMainLooper());
+    private boolean labTun;
     private final Runnable ticker = new Runnable() {
         @Override
         public void run() {
             long bucket = System.currentTimeMillis() / BUCKET_MS;
             AtnNative.dmonHbTick(bucket);
+            if (labTun) {
+                AtnNative.tunPump(0);
+            }
             if (AtnNative.dmonRequire() != 0) {
+                labTun = false;
                 AtnKeystore.deleteWrap(AtnDaemonService.this);
                 Log.w(TAG, "hb UNTRUSTED/DEAD: wrap deleted");
             }
@@ -62,31 +67,31 @@ public class AtnDaemonService extends Service {
         boolean usb = AtnKnoxPolicy.applyUsbChargeOnly(this);
         boolean pw = AtnKnoxPolicy.applyPasswordPolicy(this, admin);
         Log.i(TAG, "usb=" + usb + " password=" + pw + " (false on stub)");
-        if (ks) {
-            loadNative();
+        if (ks && loadNative()) {
+            startLabTunnel();
         }
         tickHandler.postDelayed(ticker, BUCKET_MS);
     }
 
-    private void loadNative() {
+    private boolean loadNative() {
         byte[] blob = AtnKeystore.loadWrap(this);
         byte[] pt;
         if (blob == null) {
             pt = new byte[AtnKeystore.PLAIN_LEN];
             if (AtnNative.randomBytes(pt) != 0) {
                 Log.e(TAG, "rng failed");
-                return;
+                return false;
             }
             byte[] wrapped = AtnKeystore.wrap(pt);
             if (wrapped == null || !AtnKeystore.storeWrap(this, wrapped)) {
                 Log.e(TAG, "wrap store failed");
-                return;
+                return false;
             }
         } else {
             pt = AtnKeystore.unwrap(blob);
             if (pt == null) {
                 Log.e(TAG, "unwrap failed");
-                return;
+                return false;
             }
         }
         byte[] dk = new byte[32];
@@ -110,6 +115,67 @@ public class AtnDaemonService extends Service {
         for (int i = 0; i < ck.length; i++) {
             ck[i] = 0;
         }
+        return rc == 0;
+    }
+
+    /* DEC-0021: filesDir/atn-node.conf. Missing/incomplete = do not connect. */
+    private void startLabTunnel() {
+        java.io.File f = new java.io.File(getFilesDir(), "atn-node.conf");
+        if (!f.isFile()) {
+            Log.i(TAG, "no atn-node.conf (do not connect)");
+            return;
+        }
+        long sz = f.length();
+        if (sz <= 0L || sz > 8192L) {
+            Log.e(TAG, "atn-node.conf size");
+            return;
+        }
+        byte[] raw = new byte[(int) sz];
+        java.io.FileInputStream in = null;
+        try {
+            in = new java.io.FileInputStream(f);
+            if (in.read(raw) != raw.length) {
+                Log.e(TAG, "atn-node.conf short read");
+                return;
+            }
+        } catch (java.io.IOException e) {
+            Log.e(TAG, "atn-node.conf", e);
+            return;
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (java.io.IOException e) {
+                    /* ignore */
+                }
+            }
+        }
+        String text;
+        try {
+            text = new String(raw, "UTF-8");
+        } catch (java.io.UnsupportedEncodingException e) {
+            return;
+        }
+        AtnNodeConfig c = AtnNodeConfig.parse(text);
+        if (c == null || !c.ready()) {
+            Log.e(TAG, "atn-node.conf not ready");
+            return;
+        }
+        int rc = AtnNative.tunInitiator(c.ek);
+        if (rc == 0) {
+            rc = AtnNative.tunBind(0);
+        }
+        if (rc == 0) {
+            rc = AtnNative.tunSetPeer(c.ipv4Host, c.port);
+        }
+        if (rc == 0) {
+            rc = AtnNative.tunHsSend();
+        }
+        for (int i = 0; i < c.ek.length; i++) {
+            c.ek[i] = 0;
+        }
+        labTun = rc == 0;
+        Log.i(TAG, "lab tun rc=" + rc + " port=" + AtnNative.tunPort());
     }
 
     @Override

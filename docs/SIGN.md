@@ -28,6 +28,26 @@ atnsign verify keys/mldsa87.pk MANIFEST MANIFEST.sig
 
 `make manifest` runs the third command. `tools/src.list` is the frozen path list (DEC-0020).
 
+## Test report (DEC-0021)
+
+```
+ATN-REPORT-1
+status=PASS|FAIL
+platform=<atn_platform_id()>
+```
+
+Signature: ML-DSA-87 over those exact bytes, context `atn-rp-v1`.
+
+```
+atnsign report PASS REPORT
+atnsign sign   keys/mldsa87.sk REPORT REPORT.sig
+atnsign verify keys/mldsa87.pk REPORT REPORT.sig
+```
+
+`make report` runs `make test` then writes an unsigned PASS `REPORT`.
+Signing is a separate step when a key exists. This is the report format
+for REQ-5.2, not an emulator/S24 run.
+
 `keys/` is gitignored. Lab keys on this builder are not the production
 air-gap key.
 

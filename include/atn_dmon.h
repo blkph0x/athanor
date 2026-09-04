@@ -54,6 +54,7 @@ int  atn_dmon_tun_initiator(atn_dmon *d,
 int  atn_dmon_tun_responder(atn_dmon *d,
                             const uint8_t own_dk[ATN_MLKEM1024_DK_LEN]);
 int  atn_dmon_tun_bind(atn_dmon *d, uint16_t port);
+int  atn_dmon_tun_bind_any(atn_dmon *d, uint16_t port);
 int  atn_dmon_tun_set_peer(atn_dmon *d, uint32_t ipv4_host, uint16_t port);
 int  atn_dmon_tun_hs_send(atn_dmon *d);
 int  atn_dmon_tun_pump(atn_dmon *d, int timeout_ms);

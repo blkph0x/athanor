@@ -66,7 +66,14 @@ wiped by `atn_dmon_flush`.
 
 `android/jni/` links crypto, tun, 2fa, hb, dmon into `libatn.so`.
 Java talks to it with JNI (`AtnNative.tun*`, DEC-0020). No OkHttp, no
-Play services. Peer IPv4 is supplied by the caller, not baked in.
+Play services. Peer IPv4 is supplied by `filesDir/atn-node.conf`
+(`peer_ipv4` / `peer_port` / `peer_ek`), not baked in (DEC-0021).
+JNI `tunBind` uses `INADDR_ANY`. INTERNET permission is for that UDP
+socket, not a CDN.
+
+Lab PC: `atnnode listen [port]` prints `peer_port` and `peer_ek`. Put
+those plus this machine's IPv4 into the phone's `atn-node.conf`. Missing
+or incomplete file means the daemon does not connect.
 
 ## Daemon session (DEC-0017)
 

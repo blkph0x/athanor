@@ -74,3 +74,8 @@ REKEY is not implemented. If `seq` would exceed 2^64−2 the session closes
 
 IPv4 UDP only, OS sockets (`sendto`/`recvfrom`). IPv6 is ISS-0007.
 Windows links `ws2_32`; POSIX uses BSD sockets. No libuv, no boost.asio.
+
+`atn_tun_bind` is loopback (`127.0.0.1`) — tests stay here. `atn_tun_bind_any`
+binds `INADDR_ANY` so a mesh member can receive from a LAN lab node
+(DEC-0021). JNI `tunBind` uses bind-any. The product still does not
+guess a peer IP; `atn-node.conf` supplies it.

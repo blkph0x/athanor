@@ -1,7 +1,8 @@
 /*
  * Module: atn_sign.c
  * REQ:    REQ-5.1
- * Spec:   DEC-0019. SHA3-256 lines, ML-DSA-87 ctx atn-mf-v1.
+ * Spec:   DEC-0019 / DEC-0021. SHA3-256 lines, ML-DSA-87 ctx atn-mf-v1.
+ *         Reports: ATN-REPORT-1, ctx atn-rp-v1.
  */
 
 #include "atn_sign.h"
@@ -167,4 +168,52 @@ int atn_mf_verify(const uint8_t pk[ATN_MLDSA87_PK_LEN],
     }
     return atn_mldsa87_verify(pk, mf, n,
                               (const uint8_t *)ATN_MF_CTX, ATN_MF_CTX_LEN, sig);
+}
+
+int atn_report_encode(int pass, const char *platform,
+                      uint8_t *out, size_t *n, size_t max)
+{
+    size_t used = 0, plen;
+    const char *st;
+    if (out == NULL || n == NULL || platform == NULL || platform[0] == 0) {
+        return ATN_ERR_PARAM;
+    }
+    plen = strlen(platform);
+    st = pass ? "status=PASS\n" : "status=FAIL\n";
+    if (used + strlen(ATN_RP_HDR) + strlen(st) + 9u + plen + 1u > max) {
+        return ATN_ERR_LEN;
+    }
+    memcpy(out + used, ATN_RP_HDR, strlen(ATN_RP_HDR));
+    used += strlen(ATN_RP_HDR);
+    memcpy(out + used, st, strlen(st));
+    used += strlen(st);
+    memcpy(out + used, "platform=", 9);
+    used += 9;
+    memcpy(out + used, platform, plen);
+    used += plen;
+    out[used++] = '\n';
+    *n = used;
+    return ATN_OK;
+}
+
+int atn_report_sign(const uint8_t sk[ATN_MLDSA87_SK_LEN],
+                    const uint8_t *rp, size_t n,
+                    uint8_t sig[ATN_MLDSA87_SIG_LEN])
+{
+    if (sk == NULL || rp == NULL || n == 0 || sig == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    return atn_mldsa87_sign(sk, rp, n,
+                            (const uint8_t *)ATN_RP_CTX, ATN_RP_CTX_LEN, sig);
+}
+
+int atn_report_verify(const uint8_t pk[ATN_MLDSA87_PK_LEN],
+                      const uint8_t *rp, size_t n,
+                      const uint8_t sig[ATN_MLDSA87_SIG_LEN])
+{
+    if (pk == NULL || rp == NULL || n == 0 || sig == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    return atn_mldsa87_verify(pk, rp, n,
+                              (const uint8_t *)ATN_RP_CTX, ATN_RP_CTX_LEN, sig);
 }

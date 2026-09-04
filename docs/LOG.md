@@ -4,6 +4,21 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — Lab node file + signed report + bind-any (DEC-0021)
+
+- User: keep rolling what we can (still waiting on PTR / Knox Partner).
+- `atn_tun_bind` stays loopback. `atn_tun_bind_any` is INADDR_ANY.
+  JNI `tunBind` uses bind-any. Tests keep loopback.
+- `atn-node.conf`: `peer_ipv4` / `peer_port` / `peer_ek`. Unknown keys
+  fail. Incomplete file means do not connect. Daemon reads
+  `filesDir/atn-node.conf` and initiates. INTERNET is for that UDP hop.
+- `atnnode listen [port]` is the lab responder; `atnnode demo` gates
+  cfg roundtrip + bind-any.
+- Report: `ATN-REPORT-1` / `atnsign report` / `make report`, ctx
+  `atn-rp-v1`. SoT 4.1 / 5.1 / 5.2 stay `[ ]`.
+
+---
+
 ## 2026-09-04 — Daemon tunnel + source manifest list (DEC-0020)
 
 - `atn_dmon` embeds the UDP tunnel. Two-dmon loopback handshake + echo

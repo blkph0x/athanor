@@ -54,6 +54,17 @@ int main(void)
     body[20] ^= 1;
     sig[0] ^= 1;
     check("tamper sig", atn_mf_verify(pk, body, n, sig) == ATN_ERR_AUTH);
+
+    check("report encode",
+          atn_report_encode(1, atn_platform_id(), body, &n, sizeof(body) - 1u)
+          == ATN_OK);
+    body[n] = 0;
+    check("report hdr", memcmp(body, "ATN-REPORT-1\n", 13) == 0);
+    check("report pass", strstr((const char *)body, "status=PASS") != NULL);
+    check("report sign", atn_report_sign(sk, body, n, sig) == ATN_OK);
+    check("report verify", atn_report_verify(pk, body, n, sig) == ATN_OK);
+    body[14] ^= 1;
+    check("report tamper", atn_report_verify(pk, body, n, sig) == ATN_ERR_AUTH);
     atn_memzero(sk, sizeof(sk));
 
     if (g_fail == 0) {

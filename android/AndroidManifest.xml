@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- REQ-4.1 daemon. No internet permission for CDNs. -->
+<!-- REQ-4.1 daemon. INTERNET is DEC-0007 UDP to a configured lab node, not a CDN. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.athanor.daemon">
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />

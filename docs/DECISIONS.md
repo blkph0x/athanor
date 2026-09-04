@@ -496,3 +496,34 @@ A decision is recorded **before** code that depends on it is written.
     `actions/checkout` — that is transparency CI, not the product recipe.
 - **Consequences:** In-process two-dmon handshake can be proven on this
   PC. A device-to-lab hop still needs an enrolled phone (ISS-0016).
+
+---
+
+## DEC-0021 — Lab node file + signed test report; mesh bind may be INADDR_ANY
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** DEC-0007 bind is loopback (safe default for tests).
+  REQ-4.1 needs the phone to speak to a lab node, which loopback cannot
+  receive. REQ-5.2 wants a signed PASS/FAIL artifact. We already have
+  ML-DSA-87 and `atnsign sign`.
+- **Decision:**
+  - `atn_tun_bind` stays loopback. New `atn_tun_bind_any` binds IPv4
+    `INADDR_ANY` so a mesh member can receive from a non-local peer.
+    JNI `tunBind` uses bind-any. Tests keep loopback bind.
+  - Lab file `atn-node.conf` (LF or CRLF), comments `#`, keys only:
+    `peer_ipv4` (dotted quad), `peer_port` (1–65535), `peer_ek`
+    (3136 lowercase or uppercase hex chars = ML-KEM-1024 ek). Unknown
+    keys are an error. Incomplete file means “do not connect”.
+  - Test report bytes: `ATN-REPORT-1\nstatus=PASS|FAIL\nplatform=<id>\n`
+    signed with ML-DSA-87 ctx `atn-rp-v1`. `make report` writes the
+    unsigned report after `make test`; signing uses `atnsign sign` when
+    a key exists.
+  - Lab PC binary `atnnode listen [port]` is the responder: ML-KEM-1024
+    keygen, `bind_any`, prints `peer_port`/`peer_ek`. Operator fills
+    `peer_ipv4` (we do not guess the LAN address). After handshake it
+    echoes DATA. `atnnode demo` is the non-blocking gate.
+- **Consequences:** A phone with `atn-node.conf` can initiate to a lab
+  node without a hardcoded IP. REQ-5.2 SoT still needs an emulator/lab
+  S24 run; this only gates the signed-report format. REQ-4.1 SoT still
+  needs knoxsdk.jar + an enrolled device.
