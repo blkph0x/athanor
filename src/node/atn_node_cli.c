@@ -161,10 +161,58 @@ static int cmd_listen(uint16_t port)
     }
 }
 
+static int cmd_connect(const char *path)
+{
+    atn_cfg c;
+    atn_tun t;
+    uint8_t hello[4], back[64];
+    size_t n = 0;
+    int rc;
+
+    if (atn_cfg_load_file(path, &c) != ATN_OK || !atn_cfg_ready(&c)) {
+        fprintf(stderr, "conf not ready\n");
+        return 1;
+    }
+    if (atn_tun_init_initiator(&t, c.ek) != ATN_OK ||
+        atn_tun_bind_any(&t, 0) != ATN_OK ||
+        atn_tun_set_peer(&t, c.ipv4_host, c.port) != ATN_OK) {
+        atn_tun_wipe(&t);
+        return 1;
+    }
+    if (atn_tun_hs_send_init(&t) != ATN_OK) {
+        atn_tun_wipe(&t);
+        return 1;
+    }
+    for (;;) {
+        rc = atn_tun_pump(&t, 3000);
+        if (t.state == ATN_TUN_ESTABLISHED) {
+            break;
+        }
+        if (rc != ATN_OK && rc != ATN_ERR_STATE) {
+            atn_tun_wipe(&t);
+            return 1;
+        }
+        if (atn_tun_hs_retry(&t) != ATN_OK && t.state != ATN_TUN_ESTABLISHED) {
+            atn_tun_wipe(&t);
+            return 1;
+        }
+    }
+    memcpy(hello, "lab!", 4);
+    if (atn_tun_send(&t, hello, 4) != ATN_OK ||
+        atn_tun_recv_data(&t, back, &n, sizeof(back), 3000) != ATN_OK ||
+        n != 4 || memcmp(back, hello, 4) != 0) {
+        atn_tun_wipe(&t);
+        return 1;
+    }
+    atn_tun_wipe(&t);
+    printf("atnnode connect: echo OK\n");
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
-        fprintf(stderr, "usage: atnnode demo|listen [port]\n");
+        fprintf(stderr, "usage: atnnode demo|listen [port]|connect <file>\n");
         return 1;
     }
     if (strcmp(argv[1], "demo") == 0) {
@@ -195,6 +243,9 @@ int main(int argc, char **argv)
         }
         return cmd_listen((uint16_t)port);
     }
-    fprintf(stderr, "usage: atnnode demo|listen [port]\n");
+    if (strcmp(argv[1], "connect") == 0 && argc == 3) {
+        return cmd_connect(argv[2]);
+    }
+    fprintf(stderr, "usage: atnnode demo|listen [port]|connect <file>\n");
     return 1;
 }

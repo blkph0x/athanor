@@ -6,6 +6,7 @@
 
 #include "atn_cfg.h"
 
+#include <stdio.h>
 #include <string.h>
 
 void atn_cfg_init(atn_cfg *c)
@@ -160,6 +161,31 @@ int atn_cfg_parse(const char *text, size_t n, atn_cfg *c)
         }
     }
     return ATN_OK;
+}
+
+int atn_cfg_load_file(const char *path, atn_cfg *c)
+{
+    FILE *f;
+    char buf[8192];
+    size_t n;
+    int rc;
+
+    if (path == NULL || c == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    f = fopen(path, "rb");
+    if (f == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    n = fread(buf, 1, sizeof(buf), f);
+    if (ferror(f) || n == sizeof(buf)) {
+        fclose(f);
+        return ATN_ERR_LEN;
+    }
+    fclose(f);
+    rc = atn_cfg_parse(buf, n, c);
+    atn_memzero(buf, n);
+    return rc;
 }
 
 int atn_cfg_ready(const atn_cfg *c)

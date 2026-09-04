@@ -20,6 +20,7 @@ typedef struct {
 
 void atn_cfg_init(atn_cfg *c);
 int  atn_cfg_parse(const char *text, size_t n, atn_cfg *c);
+int  atn_cfg_load_file(const char *path, atn_cfg *c);
 int  atn_cfg_ready(const atn_cfg *c);
 
 #endif

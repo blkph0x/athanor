@@ -223,6 +223,7 @@ int main(void)
           rc == ATN_OK && rcode_of(resp) == (int)ATN_DNS_RCODE_NXDOMAIN);
 
     check("listen", atn_dns_listen(&s, 0) == ATN_OK && atn_dns_port(&s) != 0);
+    check("tcp port", atn_dns_tcp_port(&s) != 0);
     rc = ask_udp(&s, "node1.atn.test", ATN_DNS_TYPE_A, resp, &n);
     check("udp A rc", rc == ATN_OK);
     check("udp A loopback", rc == ATN_OK && rcode_of(resp) == 0 && a_is_loopback(resp, n));
@@ -247,6 +248,85 @@ int main(void)
     rc = ask_udp(&s, "n2.atn.test", ATN_DNS_TYPE_A, resp, &n);
     check("udp deleted NXDOMAIN",
           rc == ATN_OK && rcode_of(resp) == (int)ATN_DNS_RCODE_NXDOMAIN);
+
+    /* DEC-0024: TCP query on tcp_port (may differ from UDP). */
+    {
+        atn_sock c;
+        struct sockaddr_in sa;
+        uint8_t q[64], lenb[2];
+        size_t pos = 12, qn;
+        const char *name = "node1.atn.test";
+        const char *p;
+        int r;
+#if defined(ATN_OS_WINDOWS)
+        int slen = (int)sizeof(sa);
+#else
+        socklen_t slen = (socklen_t)sizeof(sa);
+#endif
+        (void)slen;
+        memset(q, 0, sizeof(q));
+        q[0] = 0x12;
+        q[1] = 0x34;
+        q[5] = 1;
+        p = name;
+        while (*p) {
+            const char *dot = p;
+            size_t lab;
+            while (*dot && *dot != '.') {
+                dot++;
+            }
+            lab = (size_t)(dot - p);
+            q[pos++] = (uint8_t)lab;
+            memcpy(q + pos, p, lab);
+            pos += lab;
+            p = *dot ? dot + 1 : dot;
+        }
+        q[pos++] = 0;
+        q[pos++] = 0;
+        q[pos++] = 1;
+        q[pos++] = 0;
+        q[pos++] = 1;
+        qn = pos;
+        lenb[0] = (uint8_t)(qn >> 8);
+        lenb[1] = (uint8_t)qn;
+        c = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        memset(&sa, 0, sizeof(sa));
+        sa.sin_family = AF_INET;
+        sa.sin_port = htons(atn_dns_tcp_port(&s));
+        sa.sin_addr.s_addr = htonl(0x7f000001u);
+        check("tcp connect",
+              c != ATN_INV &&
+              connect(c, (struct sockaddr *)&sa, sizeof(sa)) == 0);
+#if defined(ATN_OS_WINDOWS)
+        r = send(c, (const char *)lenb, 2, 0);
+        if (r == 2) {
+            r = send(c, (const char *)q, (int)qn, 0);
+        }
+#else
+        r = (int)send(c, lenb, 2, 0);
+        if (r == 2) {
+            r = (int)send(c, q, qn, 0);
+        }
+#endif
+        check("tcp send", r == (int)qn);
+        rc = atn_dns_serve_one(&s, 3000);
+        check("tcp serve", rc == ATN_OK);
+#if defined(ATN_OS_WINDOWS)
+        r = recv(c, (char *)lenb, 2, 0);
+        if (r == 2) {
+            r = recv(c, (char *)resp, (int)ATN_DNS_MAX_MSG, 0);
+        }
+        closesocket(c);
+#else
+        r = (int)recv(c, lenb, 2, 0);
+        if (r == 2) {
+            r = (int)recv(c, resp, ATN_DNS_MAX_MSG, 0);
+        }
+        close(c);
+#endif
+        n = (r > 0) ? (size_t)r : 0;
+        check("tcp A", n >= 12 && rcode_of(resp) == 0);
+    }
 
     atn_dns_close(&s);
     if (g_fail == 0) {

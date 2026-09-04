@@ -28,6 +28,7 @@
 #define ATN_HTTP_M_GET       1
 #define ATN_HTTP_M_HEAD      2
 #define ATN_HTTP_M_POST      3
+#define ATN_HTTP_KA_MAX      8u  /* DEC-0024: max requests per TCP session */
 
 typedef struct {
     int      method;                         /* GET / HEAD / POST */
@@ -37,6 +38,7 @@ typedef struct {
     unsigned content_length;
     size_t   body_off;
     size_t   body_len;
+    uint8_t  conn_close;                     /* Connection: close (DEC-0024) */
 } atn_http_req;
 
 typedef struct {
@@ -79,6 +81,7 @@ typedef struct {
     uint8_t  confirm[32];
     uint8_t  last_wire[16u + ATN_HTTP_MAX_PT + 16u];
     size_t   last_wire_len;
+    uint8_t  persist; /* DEC-0024: omit Connection: close */
 } atn_http_cli;
 
 /*
@@ -109,7 +112,7 @@ int atn_http_listen(atn_http_srv *s, uint16_t port,
 uint16_t atn_http_port(const atn_http_srv *s);
 
 /*
- * Purpose:  Accept one TCP client, handshake, one HTTP request, close.
+ * Purpose:  Accept one TCP client, handshake, up to KA_MAX HTTP requests.
  * Spec:     docs/HTTP.md process model. timeout_ms applies to accept/recv.
  * Returns:  ATN_OK if a response was sent; ATN_ERR_STATE if the peer was
  *           unauthenticated (no page bytes written).
@@ -131,6 +134,8 @@ int atn_http_cli_send_req(atn_http_cli *c, const char *method, const char *path,
                          const char *sid_hex, const char *body);
 int atn_http_cli_finish(atn_http_cli *c, uint8_t *resp, size_t *n, size_t max,
                         int timeout_ms);
+int atn_http_cli_recv_http(atn_http_cli *c, uint8_t *resp, size_t *n, size_t max,
+                           int timeout_ms);
 void atn_http_cli_wipe(atn_http_cli *c);
 
 /*

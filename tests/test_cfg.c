@@ -63,6 +63,19 @@ int main(void)
           atn_cfg_ready(&c) && c.ipv4_host == 0x0a010203u &&
           c.ek[0] == 0xba);
 
+    {
+        FILE *tf = fopen("atn-cfg.tmp", "wb");
+        check("tmp write", tf != NULL);
+        if (tf != NULL) {
+            fwrite("peer_port=9\n", 1, 12, tf);
+            fclose(tf);
+        }
+        check("load file",
+              atn_cfg_load_file("atn-cfg.tmp", &c) == ATN_OK && c.port == 9 &&
+              !atn_cfg_ready(&c));
+        remove("atn-cfg.tmp");
+    }
+
     if (g_fail == 0) {
         printf("ALL PASSED\n");
         return 0;

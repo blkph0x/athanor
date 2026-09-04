@@ -154,8 +154,10 @@ Status: `open` | `closed`
   there is no forward `sendto`. TCP bind to the same ephemeral UDP port
   failed on this Windows host; UDP still answers. POSIX should bind both.
 - **Must not invent:** a pcap we did not take.
-- **Unblock by:** run tcpdump/windump in BN; bind TCP to a second port
-  or SO_REUSEPORT DEC if we need TCP on Windows tests.
+- **Progress:** DEC-0024 binds a second TCP port when same-port bind
+  fails; `atn_dns_tcp_port` + TCP A query in `test_dns`.
+- **Unblock remaining:** run tcpdump/windump in BN (pcap still not
+  taken).
 
 ## ISS-0011 — `application/x-www-form-urlencoded` percent-decoding not implemented
 
@@ -182,13 +184,13 @@ Status: `open` | `closed`
 
 ## ISS-0010 — HTTP/1.1 keep-alive and pipelining are not implemented
 
-- **Status:** open
+- **Status:** closed
 - **Opened:** 2026-09-04
+- **Closed:** 2026-09-04 — DEC-0024: HTTP/1.1 persist, max 8 requests,
+  honor `Connection: close`. No pipelining we emit. `tests/test_http`
+  two-GET keep-alive. Pipelining as a client feature is still not
+  offered.
 - **REQ:** REQ-2.1 follow-on
-- **Unknown:** DEC-0009 closes after one request. RFC 9112 persistent
-  connections are unspecified here.
-- **Must not invent:** a multiplexed stream protocol.
-- **Unblock by:** DEC for keep-alive limits, then code.
 
 ## ISS-0004 — ARM binaries not executed on the current builder
 

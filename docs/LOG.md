@@ -4,6 +4,17 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — Non-Knox operator path (DEC-0024)
+
+- HTTP keep-alive (max 8; Connection: close still one-shot). ISS-0010
+  closed.
+- DNS TCP binds a second port when the UDP port is taken. TCP A query
+  gated. ISS-0012 pcap still open.
+- `atnnode connect <file>`, `atn_cfg_load_file`.
+- `docs/ISOLATION.md`, `tools/export.ps1`. SoT 4.x/5.x/6.x stay `[ ]`.
+
+---
+
 ## 2026-09-04 — Headless pipeline gates (DEC-0023)
 
 - User: keep working on what we can (Knox / air-gap / Faraday still blocked).

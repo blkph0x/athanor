@@ -583,18 +583,28 @@ int atn_dns_listen(atn_dns_srv *s, uint16_t port)
      * bind fails (observed on this Windows builder with ephemeral ports). */
     rc = bind_loopback(SOCK_STREAM, pu, &pt, &t);
     if (rc != ATN_OK) {
-        t = ATN_INV;
+        /* DEC-0024: Windows often refuses TCP on the UDP ephemeral port. */
+        rc = bind_loopback(SOCK_STREAM, 0, &pt, &t);
+        if (rc != ATN_OK) {
+            t = ATN_INV;
+            pt = 0;
+        }
     }
     s->udp = (intptr_t)u;
     s->tcp = (intptr_t)t;
     s->port = pu;
-    (void)pt;
+    s->tcp_port = pt;
     return ATN_OK;
 }
 
 uint16_t atn_dns_port(const atn_dns_srv *s)
 {
     return s == NULL ? 0 : s->port;
+}
+
+uint16_t atn_dns_tcp_port(const atn_dns_srv *s)
+{
+    return s == NULL ? 0 : s->tcp_port;
 }
 
 void atn_dns_close(atn_dns_srv *s)
@@ -837,5 +847,79 @@ int atn_dns_query_udp(uint16_t port, const char *qname, uint16_t qtype,
         return ATN_ERR_SOCK;
     }
     *n = (size_t)r;
+    return ATN_OK;
+}
+
+int atn_dns_query_tcp(uint16_t port, const char *qname, uint16_t qtype,
+                      uint8_t *resp, size_t *n, size_t max, int timeout_ms)
+{
+    atn_sock s;
+    struct sockaddr_in sa;
+    uint8_t q[ATN_DNS_MAX_MSG + 2u], lenb[2];
+    size_t qn = 0;
+    uint16_t ln;
+    fd_set rfds;
+    struct timeval tv;
+    int r, rc;
+
+    if (port == 0 || qname == NULL || resp == NULL || n == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    rc = atn_net_init();
+    if (rc != ATN_OK) {
+        return rc;
+    }
+    rc = build_query(q + 2, &qn, sizeof(q) - 2u, 0x4242, qname, qtype);
+    if (rc != ATN_OK) {
+        return rc;
+    }
+    wr16(q, (uint16_t)qn);
+    s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (s == ATN_INV) {
+        return ATN_ERR_SOCK;
+    }
+    memset(&sa, 0, sizeof(sa));
+    sa.sin_family = AF_INET;
+    sa.sin_port = htons(port);
+    sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    if (connect(s, (struct sockaddr *)&sa, sizeof(sa)) != 0) {
+        sock_close(s);
+        return ATN_ERR_SOCK;
+    }
+#if defined(ATN_OS_WINDOWS)
+    if (send(s, (const char *)q, (int)(qn + 2u), 0) != (int)(qn + 2u)) {
+        sock_close(s);
+        return ATN_ERR_SOCK;
+    }
+#else
+    if (send(s, q, qn + 2u, 0) != (ssize_t)(qn + 2u)) {
+        sock_close(s);
+        return ATN_ERR_SOCK;
+    }
+#endif
+    FD_ZERO(&rfds);
+    FD_SET(s, &rfds);
+    tv.tv_sec = timeout_ms / 1000;
+    tv.tv_usec = (long)(timeout_ms % 1000) * 1000L;
+    r = select((int)s + 1, &rfds, NULL, NULL, &tv);
+    if (r <= 0) {
+        sock_close(s);
+        return (r == 0) ? ATN_ERR_STATE : ATN_ERR_SOCK;
+    }
+    if (tcp_read_n(s, lenb, 2) != ATN_OK) {
+        sock_close(s);
+        return ATN_ERR_SOCK;
+    }
+    ln = rd16(lenb);
+    if (ln == 0 || ln > max || ln > ATN_DNS_MAX_MSG) {
+        sock_close(s);
+        return ATN_ERR_LEN;
+    }
+    if (tcp_read_n(s, resp, (size_t)ln) != ATN_OK) {
+        sock_close(s);
+        return ATN_ERR_SOCK;
+    }
+    sock_close(s);
+    *n = (size_t)ln;
     return ATN_OK;
 }

@@ -153,6 +153,18 @@ int main(void)
           atn_http_parse_request(nohost, sizeof(nohost) - 1u, &req) == ATN_ERR_PARAM);
     check("parse HTTP/1.0",
           atn_http_parse_request(http10, sizeof(http10) - 1u, &req) == ATN_ERR_PARAM);
+    {
+        static const uint8_t ka[] =
+            "GET / HTTP/1.1\r\nHost: x\r\nConnection: keep-alive\r\n\r\n";
+        static const uint8_t cl[] =
+            "GET / HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n";
+        check("parse ka",
+              atn_http_parse_request(ka, sizeof(ka) - 1u, &req) == ATN_OK &&
+              !req.conn_close);
+        check("parse close",
+              atn_http_parse_request(cl, sizeof(cl) - 1u, &req) == ATN_OK &&
+              req.conn_close);
+    }
 
     memset(huge, 'A', sizeof(huge));
     memcpy(huge, "GET / HTTP/1.1\r\nHost: x\r\nX-Pad: ", 32);
@@ -191,6 +203,28 @@ int main(void)
 
     rc = roundtrip(&srv, ek, "GET", "/nope", resp, &n, sizeof(resp));
     check("GET unknown 404", rc == ATN_OK && status_is(resp, n, "404"));
+
+    /* DEC-0024: two GETs on one TCP session. */
+    {
+        atn_http_cli c;
+        uint8_t r2[ATN_HTTP_MAX_PT];
+        size_t n2 = 0;
+        check("ka open", atn_http_cli_open(&c, atn_http_port(&srv), ek) == ATN_OK);
+        c.persist = 1;
+        check("ka init", atn_http_cli_send_init(&c) == ATN_OK);
+        check("ka send1", atn_http_cli_send_http(&c, "GET", "/") == ATN_OK);
+        c.persist = 0;
+        check("ka send2", atn_http_cli_send_http(&c, "GET", "/") == ATN_OK);
+        check("ka serve", atn_http_serve_one(&srv, 3000) == ATN_OK);
+        n = 0;
+        check("ka finish1",
+              atn_http_cli_finish(&c, resp, &n, sizeof(resp), 3000) == ATN_OK &&
+              status_is(resp, n, "200"));
+        check("ka recv2",
+              atn_http_cli_recv_http(&c, r2, &n2, sizeof(r2), 3000) == ATN_OK &&
+              status_is(r2, n2, "200"));
+        atn_http_cli_wipe(&c);
+    }
 
     /* Unauthenticated raw HTTP: connect, send GET /admin, then serve_one. */
     {

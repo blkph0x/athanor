@@ -529,6 +529,24 @@ int atn_http_parse_request(const uint8_t *buf, size_t n, atn_http_req *out)
             } else {
                 return ATN_ERR_PARAM;
             }
+        } else if (hdr_name_eq(buf + pos, hn, "connection")) {
+            size_t k = vs;
+            while (k < ve) {
+                size_t ts, te;
+                while (k < ve && (buf[k] == ' ' || buf[k] == '\t' ||
+                                  buf[k] == ',')) {
+                    k++;
+                }
+                ts = k;
+                while (k < ve && buf[k] != ',' && buf[k] != ' ' &&
+                       buf[k] != '\t') {
+                    k++;
+                }
+                te = k;
+                if (te > ts && hdr_name_eq(buf + ts, te - ts, "close")) {
+                    out->conn_close = 1;
+                }
+            }
         } else if (hdr_name_eq(buf + pos, hn, "cookie")) {
             size_t k;
             for (k = vs; k + 8u + 32u <= ve; k++) {
@@ -578,30 +596,31 @@ int atn_http_parse_request(const uint8_t *buf, size_t n, atn_http_req *out)
 
 static size_t build_resp(uint8_t *out, size_t max, int status, const char *reason,
                          const uint8_t *body, size_t body_len, int head_only,
-                         const char *sid_hex)
+                         const char *sid_hex, int persist)
 {
     char hdr[384];
     int hn;
     size_t total;
+    const char *conn = persist ? "keep-alive" : "close";
     if (sid_hex != NULL && sid_hex[0] != 0) {
         hn = snprintf(hdr, sizeof(hdr),
                       "HTTP/1.1 %d %s\r\n"
                       "Content-Type: text/html; charset=us-ascii\r\n"
                       "Content-Length: %u\r\n"
-                      "Connection: close\r\n"
+                      "Connection: %s\r\n"
                       "Cache-Control: no-store\r\n"
                       "Set-Cookie: ATN-SID=%s; Path=/; HttpOnly\r\n"
                       "\r\n",
-                      status, reason, (unsigned)body_len, sid_hex);
+                      status, reason, (unsigned)body_len, conn, sid_hex);
     } else {
         hn = snprintf(hdr, sizeof(hdr),
                       "HTTP/1.1 %d %s\r\n"
                       "Content-Type: text/html; charset=us-ascii\r\n"
                       "Content-Length: %u\r\n"
-                      "Connection: close\r\n"
+                      "Connection: %s\r\n"
                       "Cache-Control: no-store\r\n"
                       "\r\n",
-                      status, reason, (unsigned)body_len);
+                      status, reason, (unsigned)body_len, conn);
     }
     if (hn < 0 || (size_t)hn >= sizeof(hdr)) {
         return 0;
@@ -955,7 +974,8 @@ static int issue_chal(atn_http_srv *s, atn_http_sess *se, char chal_hex[65])
 
 static int route_and_respond(atn_http_srv *s, atn_sock cs, uint8_t *last,
                              size_t *last_len, const uint8_t k_send[32],
-                             uint64_t *send_seq, const uint8_t *req, size_t reqn)
+                             uint64_t *send_seq, const uint8_t *req, size_t reqn,
+                             unsigned ka_left, int *persist)
 {
     atn_http_req r;
     const uint8_t *body = (const uint8_t *)"";
@@ -975,6 +995,9 @@ static int route_and_respond(atn_http_srv *s, atn_sock cs, uint8_t *last,
     size_t rn;
     int rc, head_only = 0;
     int pr = atn_http_parse_request(req, reqn, &r);
+    if (persist != NULL) {
+        *persist = (pr == ATN_OK && !r.conn_close && ka_left > 1u);
+    }
 
     sid_hex[0] = 0;
     csrf_hex[0] = 0;
@@ -1156,7 +1179,8 @@ static int route_and_respond(atn_http_srv *s, atn_sock cs, uint8_t *last,
         }
     }
     rn = build_resp(resp, sizeof(resp), status, reason, body, blen, head_only,
-                    sid_hex[0] ? sid_hex : NULL);
+                    sid_hex[0] ? sid_hex : NULL,
+                    persist != NULL && *persist);
     if (rn == 0) {
         return ATN_ERR_LEN;
     }
@@ -1259,35 +1283,59 @@ int atn_http_serve_one(atn_http_srv *s, int timeout_ms)
         return rc;
     }
 
-    rc = rec_recv(cs, dg, &n, sizeof(dg), timeout_ms);
-    if (rc != ATN_OK) {
-        sock_close(cs);
-        s->last_rc = rc;
-        return rc;
+    {
+        unsigned ka_left = ATN_HTTP_KA_MAX;
+        int persist = 0;
+        for (;;) {
+            rc = rec_recv(cs, dg, &n, sizeof(dg), timeout_ms);
+            if (rc != ATN_OK) {
+                sock_close(cs);
+                atn_memzero(k_ack, 32);
+                atn_memzero(k_i2r, 32);
+                atn_memzero(k_r2i, 32);
+                s->last_rc = rc;
+                return rc;
+            }
+            rc = hdr_parse(dg, &type, &len, &seq);
+            if (rc != ATN_OK || type != ATN_TUN_DATA) {
+                sock_close(cs);
+                atn_memzero(k_ack, 32);
+                atn_memzero(k_i2r, 32);
+                atn_memzero(k_r2i, 32);
+                s->last_rc = ATN_ERR_STATE;
+                return ATN_ERR_STATE;
+            }
+            if (!replay_ok(&recv_max, &recv_win, seq)) {
+                sock_close(cs);
+                atn_memzero(k_ack, 32);
+                atn_memzero(k_i2r, 32);
+                atn_memzero(k_r2i, 32);
+                s->last_rc = ATN_ERR_NONCE;
+                return ATN_ERR_NONCE;
+            }
+            rc = aead_open(dg, n, len, seq, k_i2r, 1u, pt, &ptn, sizeof(pt));
+            if (rc != ATN_OK) {
+                sock_close(cs);
+                atn_memzero(k_ack, 32);
+                atn_memzero(k_i2r, 32);
+                atn_memzero(k_r2i, 32);
+                s->last_rc = ATN_ERR_AUTH;
+                return ATN_ERR_AUTH;
+            }
+            persist = 0;
+            rc = route_and_respond(s, cs, s->last_wire, &s->last_wire_len,
+                                   k_r2i, &send_seq, pt, ptn, ka_left,
+                                   &persist);
+            atn_memzero(pt, sizeof(pt));
+            if (rc != ATN_OK) {
+                break;
+            }
+            ka_left--;
+            if (!persist || ka_left == 0) {
+                break;
+            }
+        }
     }
-    rc = hdr_parse(dg, &type, &len, &seq);
-    if (rc != ATN_OK || type != ATN_TUN_DATA) {
-        sock_close(cs);
-        s->last_rc = ATN_ERR_STATE;
-        return ATN_ERR_STATE;
-    }
-    if (!replay_ok(&recv_max, &recv_win, seq)) {
-        sock_close(cs);
-        s->last_rc = ATN_ERR_NONCE;
-        return ATN_ERR_NONCE;
-    }
-    rc = aead_open(dg, n, len, seq, k_i2r, 1u, pt, &ptn, sizeof(pt));
-    if (rc != ATN_OK) {
-        sock_close(cs);
-        atn_memzero(k_ack, 32);
-        atn_memzero(k_i2r, 32);
-        atn_memzero(k_r2i, 32);
-        s->last_rc = ATN_ERR_AUTH;
-        return ATN_ERR_AUTH;
-    }
-    rc = route_and_respond(s, cs, s->last_wire, &s->last_wire_len,
-                           k_r2i, &send_seq, pt, ptn);
-    atn_memzero(pt, sizeof(pt));
     atn_memzero(k_ack, 32);
     atn_memzero(k_i2r, 32);
     atn_memzero(k_r2i, 32);
@@ -1390,25 +1438,28 @@ int atn_http_cli_send_req(atn_http_cli *c, const char *method, const char *path,
             return ATN_ERR_LEN;
         }
     }
-    if (blen > 0) {
-        n = snprintf(req, sizeof(req),
-                     "%s %s HTTP/1.1\r\n"
-                     "Host: 127.0.0.1\r\n"
-                     "Connection: close\r\n"
-                     "%s"
-                     "Content-Type: application/x-www-form-urlencoded\r\n"
-                     "Content-Length: %u\r\n"
-                     "\r\n"
-                     "%s",
-                     method, path, cookie, (unsigned)blen, body);
-    } else {
-        n = snprintf(req, sizeof(req),
-                     "%s %s HTTP/1.1\r\n"
-                     "Host: 127.0.0.1\r\n"
-                     "Connection: close\r\n"
-                     "%s"
-                     "\r\n",
-                     method, path, cookie);
+    {
+        const char *conn = (c->persist) ? "keep-alive" : "close";
+        if (blen > 0) {
+            n = snprintf(req, sizeof(req),
+                         "%s %s HTTP/1.1\r\n"
+                         "Host: 127.0.0.1\r\n"
+                         "Connection: %s\r\n"
+                         "%s"
+                         "Content-Type: application/x-www-form-urlencoded\r\n"
+                         "Content-Length: %u\r\n"
+                         "\r\n"
+                         "%s",
+                         method, path, conn, cookie, (unsigned)blen, body);
+        } else {
+            n = snprintf(req, sizeof(req),
+                         "%s %s HTTP/1.1\r\n"
+                         "Host: 127.0.0.1\r\n"
+                         "Connection: %s\r\n"
+                         "%s"
+                         "\r\n",
+                         method, path, conn, cookie);
+        }
     }
     if (n < 0 || (size_t)n >= sizeof(req)) {
         return ATN_ERR_LEN;
@@ -1463,6 +1514,49 @@ int atn_http_cli_finish(atn_http_cli *c, uint8_t *resp, size_t *n, size_t max,
     atn_memzero(pt, 32);
     c->state = ATN_TUN_ESTABLISHED;
 
+    rc = rec_recv(sock_cast(c->sock), dg, &got, sizeof(dg), timeout_ms);
+    if (rc != ATN_OK) {
+        return rc;
+    }
+    rc = hdr_parse(dg, &type, &len, &seq);
+    if (rc != ATN_OK || type != ATN_TUN_DATA) {
+        return ATN_ERR_STATE;
+    }
+    if (!replay_ok(&c->recv_max, &c->recv_win, seq)) {
+        return ATN_ERR_NONCE;
+    }
+    rc = aead_open(dg, got, len, seq, c->k_recv, 2u, pt, &ptn, sizeof(pt));
+    if (rc != ATN_OK) {
+        c->state = ATN_TUN_CLOSED;
+        return ATN_ERR_AUTH;
+    }
+    if (ptn > max) {
+        atn_memzero(pt, sizeof(pt));
+        return ATN_ERR_LEN;
+    }
+    memcpy(resp, pt, ptn);
+    *n = ptn;
+    atn_memzero(pt, sizeof(pt));
+    return ATN_OK;
+}
+
+int atn_http_cli_recv_http(atn_http_cli *c, uint8_t *resp, size_t *n, size_t max,
+                           int timeout_ms)
+{
+    uint8_t dg[16u + ATN_HTTP_MAX_PT + 16u];
+    uint8_t pt[ATN_HTTP_MAX_PT];
+    size_t got = 0, ptn = 0;
+    uint8_t type;
+    uint32_t len;
+    uint64_t seq;
+    int rc;
+
+    if (c == NULL || resp == NULL || n == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    if (c->state != ATN_TUN_ESTABLISHED) {
+        return ATN_ERR_STATE;
+    }
     rc = rec_recv(sock_cast(c->sock), dg, &got, sizeof(dg), timeout_ms);
     if (rc != ATN_OK) {
         return rc;

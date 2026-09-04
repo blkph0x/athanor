@@ -56,3 +56,7 @@ compiler) is still unmeasured.
 | T-0303 | done | REQ-3.3 | ISS-0015: three UDP pairs + lossy AC drop in `test_hb` |
 | T-0103 | done | REQ-1.2 | DEC-0022: IPv4 required path; pin source; HS retry; KA 15s |
 | T-0513 | done | REQ-5.2 | DEC-0023: in-house fuzz + isolation scan + wrong-ek handshake. SoT still open. |
+| T-0203 | done | REQ-2.1 | HTTP/1.1 keep-alive max 8 (DEC-0024). ISS-0010 closed. |
+| T-0204 | done | REQ-2.3 | DNS TCP on recorded tcp_port when UDP port is busy (DEC-0024). |
+| T-0405 | done | REQ-4.1 | `atnnode connect <file>` initiator (DEC-0024). Device SoT still blocked. |
+| T-0600 | done | REQ-6.2 | `docs/ISOLATION.md` + export.ps1 scaffolding. SoT 6.x still open. |

@@ -12,7 +12,9 @@ IPv4 only (ISS-0007 covers AAAA/IPv6 dual-stack). OS sockets.
 - UDP: one query = one datagram, max **512** bytes (RFC 1035 §4.2.1).
   Larger answers set TC and wait for TCP.
 - TCP: 2-byte big-endian length prefix, then the message
-  (RFC 1035 §4.2.2).
+  (RFC 1035 §4.2.2). If TCP cannot bind the UDP port (observed on
+  Windows ephemeral), bind a second port and publish `tcp_port`
+  (DEC-0024). UDP stays up.
 
 Default bind: `127.0.0.1`. Tests use port 0. CLI default **1053**
 (unprivileged; 53 needs a DEC for production bind and is not the

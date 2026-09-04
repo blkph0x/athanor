@@ -4,6 +4,15 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0022 — keep-alive / DNS TCP / connect (DEC-0024) (2026-09-04)
+
+- **Host:** Windows x86_64
+- **`make test`:** ALL PASSED. New gates: HTTP `parse ka`/`parse close`,
+  two-GET keep-alive, DNS `tcp port` + `tcp A`, cfg `load file`.
+- **`tools/export.ps1`:** `export ok ...\export\athanor-src`
+
+---
+
 ## BN-0021 — fuzz / isolation / wrong-ek (DEC-0023) (2026-09-04)
 
 - **Host:** Windows x86_64

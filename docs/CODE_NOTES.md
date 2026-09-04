@@ -23,7 +23,8 @@ same commit.
 | `src/auth/atn_2fa_cli.c` | REQ-1.3 | DEC-0008 | `atn2fa` standalone binary |
 | `tests/test_tun.c` | REQ-1.2 | gates | Loopback handshake, echo, replay, bad MAC |
 | `tests/test_2fa.c` | REQ-1.3 | gates | Enroll, wrong key, replay, lockout |
-| `docs/HTTP.md` | REQ-2.1 | DEC-0009 | Listener spec. Not TLS 1.3. |
+| `docs/HTTP.md` | REQ-2.1 | DEC-0009 / 0024 | Listener spec. Keep-alive max 8. Not TLS 1.3. |
+| `docs/ISOLATION.md` | REQ-6.2 | DEC-0024 | Measured URL scan; not a disconnected-NIC proof |
 | `include/atn_http.h` / `src/http/atn_http.c` | REQ-2.1 | DEC-0009 | Loopback TCP + DEC-0007 records + HTTP/1.1. Reuses `atn_net_init` in `atn_tun.c`. |
 | `src/http/atn_http_cli.c` | REQ-2.1 | DEC-0009 | `atnhttp` standalone binary |
 | `tests/test_http.c` | REQ-2.1/2.2 | gates | Parse, GET exact `/`, unauth close, login/2FA/wipe mutate |
@@ -43,6 +44,7 @@ same commit.
 | `vendor/knox/README.md` | REQ-4.1 | DEC-0015 | Drop-in path for knoxsdk.jar |
 | `include/atn_dmon.h` / `src/dmon/atn_dmon.c` | REQ-4.1/4.4 | DEC-0016/0017/0020/0021 | Native session; hb/2FA flush; DEC-0007 tunnel; bind_any |
 | `tools/src.list` | REQ-5.1 | DEC-0020 | Frozen path list for `atnsign manifest` |
+| `tools/export.ps1` | REQ-6.3 | DEC-0024 | Copy src.list to export/; refuse jars |
 | `tests/test_recipe.c` | REQ-5.1 / 6.2 | DEC-0020 / 0023 | Makefile + src/include/android: no fetch URLs |
 | `tests/test_fuzz.c` | REQ-6.1 | DEC-0023 | In-house HTTP/DNS/cfg mutator; not N-hour fuzz |
 | `tests/test_dmon.c` | REQ-4.4 | gates | flush zeros keys; silence UNTRUSTED; 2FA lockout |

@@ -56,6 +56,7 @@ typedef struct {
     intptr_t udp;
     intptr_t tcp;
     uint16_t port;
+    uint16_t tcp_port; /* DEC-0024: may differ from port on Windows */
     atn_dns_zone zone;
     uint8_t  last_wire[ATN_DNS_MAX_MSG + 2u];
     size_t   last_wire_len;
@@ -84,10 +85,13 @@ int atn_dns_respond(const atn_dns_zone *z, const atn_dns_q *q,
 
 int atn_dns_listen(atn_dns_srv *s, uint16_t port);
 uint16_t atn_dns_port(const atn_dns_srv *s);
+uint16_t atn_dns_tcp_port(const atn_dns_srv *s);
 int atn_dns_serve_one(atn_dns_srv *s, int timeout_ms);
 void atn_dns_close(atn_dns_srv *s);
 
 int atn_dns_query_udp(uint16_t port, const char *qname, uint16_t qtype,
+                      uint8_t *resp, size_t *n, size_t max, int timeout_ms);
+int atn_dns_query_tcp(uint16_t port, const char *qname, uint16_t qtype,
                       uint8_t *resp, size_t *n, size_t max, int timeout_ms);
 
 #endif

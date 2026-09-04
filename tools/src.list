@@ -29,6 +29,7 @@ docs/CODE_NOTES.md
 docs/DECISIONS.md
 docs/DNS.md
 docs/HTTP.md
+docs/ISOLATION.md
 docs/ISSUES.md
 docs/KNOX.md
 docs/LOG.md
@@ -100,5 +101,6 @@ tools/build.sh
 tools/build_crypto.bat
 tools/ci_local.ps1
 tools/ci_local.sh
+tools/export.ps1
 tools/src.list
 vendor/knox/README.md

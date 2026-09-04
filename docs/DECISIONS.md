@@ -593,3 +593,33 @@ A decision is recorded **before** code that depends on it is written.
     `atn-node.conf` (same keys the phone will use).
 - **Consequences:** REQ-5.2 / 6.1 / 6.2 SoT stay `[ ]`. We have
   runnable scaffolding, not an air-gap factory or a Faraday proof.
+
+---
+
+## DEC-0024 — HTTP keep-alive, DNS TCP port, lab connect, isolation export
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** User: finish everything that does not need Knox. ISS-0010
+  is RFC 9112 persistent connections (unspecified here). ISS-0012: TCP
+  bind to the UDP ephemeral port fails on this Windows host. Lab phone
+  is still blocked; a PC initiator reading `atn-node.conf` is not.
+  REQ-6.2/6.3 want an isolation write-up and an export of `src.list`.
+- **Decision:**
+  - HTTP/1.1 default persist (RFC 9112 §9.3). `Connection: close` from
+    the client (our existing test client) still ends the session after
+    that response. Max **8** requests per TCP session. No pipelining
+    we emit; we will process a second DATA already in the socket
+    buffer. Idle wait for a *missing* next request is not added to
+    `serve_one` when the client asked to close (existing tests stay
+    one-shot).
+  - DNS: if TCP cannot bind the UDP port, bind an ephemeral TCP port
+    and publish it (`tcp_port`). UDP remains the required path.
+    `atn_dns_query_tcp` is the TCP querier. No pcap (ISS-0012 pcap
+    stays open).
+  - `atn_cfg_load_file` + `atnnode connect <file>`: initiator from a
+    conf on disk. Operator fills `peer_ipv4`.
+  - `docs/ISOLATION.md` records the measured URL scan. `tools/export.ps1`
+    copies `tools/src.list` into `export/` and refuses `*.jar`.
+- **Consequences:** ISS-0010 closed. ISS-0012 TCP gap closed; pcap is
+  still not taken. SoT 4.x / 5.x / 6.x stay `[ ]`.

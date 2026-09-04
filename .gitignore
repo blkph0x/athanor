@@ -40,6 +40,8 @@ MANIFEST
 MANIFEST.sig
 REPORT
 REPORT.sig
+atn-cfg.tmp
+export/
 
 # Secrets — never commit
 *.pem

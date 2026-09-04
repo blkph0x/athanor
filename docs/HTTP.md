@@ -78,7 +78,7 @@ We emit:
 HTTP/1.1 <code> <reason>\r\n
 Content-Type: text/html; charset=us-ascii\r\n
 Content-Length: <n>\r\n
-Connection: close\r\n
+Connection: close|keep-alive\r\n
 Cache-Control: no-store\r\n
 \r\n
 <body>          (omitted for HEAD; Content-Length still the GET size)
@@ -102,8 +102,10 @@ Session cookie: `Set-Cookie: ATN-SID=<32 hex>; Path=/; HttpOnly`.
 CSRF: `HMAC-SHA-512(server_secret, sid ‖ "atn-csrf-v1")` first 32 bytes,
 hex field `csrf`. Compared with `atn_ct_equal`.
 
-One request, then `Connection: close`. No pipelining, no keep-alive
-(ISS-0010).
+HTTP/1.1 persist (RFC 9112 §9.3 / DEC-0024). `Connection: close` ends
+the session after that response (our test client still sends close).
+Max 8 requests per TCP session. We do not emit pipelined requests.
+ISS-0010 closed.
 
 ## Unauthenticated sockets
 
