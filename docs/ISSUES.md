@@ -89,6 +89,17 @@ Status: `open` | `closed`
   what we did (or did not) measure. SoT gate "constant-time checks" stays
   honest.
 
+## ISS-0011 — `application/x-www-form-urlencoded` percent-decoding not implemented
+
+- **Status:** open
+- **Opened:** 2026-09-04
+- **REQ:** REQ-2.2
+- **Unknown:** DEC-0010 rejects `%` and `+` so we do not ship a guessed
+  decoder. Field values are hex or tokens (`wipe`).
+- **Must not invent:** a partial `%XX` decoder “good enough for now”.
+- **Unblock by:** transcribe application/x-www-form-urlencoded from the
+  WHATWG URL spec or RFC 1866 §8.2.1 with tests, then a DEC.
+
 ## ISS-0009 — Listener is not RFC 8446 TLS; browsers cannot connect
 
 - **Status:** open

@@ -4,6 +4,16 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — REQ-2.2 console (DEC-0010)
+
+- Handwritten HTML+CSS, zero JS, compiled into `atnhttp`.
+- POST `application/x-www-form-urlencoded`, CSRF HMAC-SHA-512, 2FA on
+  login and on `POST /admin/do`. Unauthed mutate leaves wipe idle.
+- `make test` ALL PASSED (BN-0008). SoT REQ-2.2 [X].
+- Next legal: REQ-2.3 DNS (T-0202). Phase 3 panels wait on REQ-3.x.
+
+---
+
 ## 2026-09-04 — REQ-2.1 listener (DEC-0009)
 
 - Did not implement TLS 1.3 (no ML-DSA yet, would be a guess).

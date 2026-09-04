@@ -157,11 +157,11 @@ $(TEST_2FA): $(SRC) $(AUTH_SRC) tests/test_2fa.c include/atn_2fa.h
 $(CLI_2FA): $(SRC) $(AUTH_SRC) src/auth/atn_2fa_cli.c include/atn_2fa.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(AUTH_SRC) src/auth/atn_2fa_cli.c $(LDFLAGS)
 
-$(TEST_HTTP): $(SRC) $(TUN_SRC) $(HTTP_SRC) tests/test_http.c include/atn_http.h
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(HTTP_SRC) tests/test_http.c $(LDFLAGS)
+$(TEST_HTTP): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) tests/test_http.c include/atn_http.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) tests/test_http.c $(LDFLAGS)
 
-$(CLI_HTTP): $(SRC) $(TUN_SRC) $(HTTP_SRC) src/http/atn_http_cli.c include/atn_http.h
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(HTTP_SRC) src/http/atn_http_cli.c $(LDFLAGS)
+$(CLI_HTTP): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) src/http/atn_http_cli.c include/atn_http.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) src/http/atn_http_cli.c $(LDFLAGS)
 
 test: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(CLI_2FA) $(CLI_HTTP)
 ifeq ($(CROSS),1)

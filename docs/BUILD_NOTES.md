@@ -4,6 +4,19 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0008 — REQ-2.2 admin console (2026-09-04)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0
+- **Command:** `make test`
+- **Result:** `tests/test_http.exe` ALL PASSED including:
+  - GET `/admin` serves embedded login (ATN-LOGIN-PAGE)
+  - POST `/admin/do` without 2FA login returns 401 and does not arm wipe
+  - challenge → login → console (ATN-CONSOLE-PAGE) → wipe with fresh 2FA
+  - pages contain no cdn./googleapis/cloudflare/npmjs/unpkg
+- **Not claimed:** percent-decoding (ISS-0011), browser TLS (ISS-0009).
+
+---
+
 ## BN-0007 — REQ-2.1 HTTP/1.1 listener (2026-09-04)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0, `-lbcrypt -lws2_32`

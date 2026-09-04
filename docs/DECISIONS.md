@@ -192,3 +192,32 @@ A decision is recorded **before** code that depends on it is written.
 - **Consequences:** `atnhttp` is the listener binary. REQ-2.2 may add
   POST + 2FA. A real TLS 1.3 stack would need ISS-0005 closed and a new
   DEC; until then we do not claim browser TLS.
+
+---
+
+## DEC-0010 — Admin console is embedded HTML+CSS; POST + CSRF + 2FA
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** Cause/effect REQ-2.2 forbids frameworks/CDNs, requires
+  handwritten pages, POST to our listener, CSRF from REQ-1.1, and a
+  fresh 2FA response (REQ-1.3) on every mutating action. DEC-0009 only
+  allowed GET/HEAD. RFC 9110 form POST is `application/x-www-form-urlencoded`.
+  Percent-decoding is easy to get wrong; our field values are hex or
+  short tokens, so `%` and `+` are rejected until a later DEC.
+- **Decision:**
+  - Methods: GET, HEAD, POST. POST body max 1024 bytes, Content-Length
+    required, Content-Type `application/x-www-form-urlencoded` only.
+  - Session: 16-byte sid, cookie `ATN-SID=<32 hex>`. CSRF =
+    `HMAC-SHA-512(server_secret, sid ‖ "atn-csrf-v1")` truncated to 32
+    bytes, hex in a hidden form field. Compared with `atn_ct_equal`.
+  - Zero JavaScript. Inline CSS only. No `fopen` of a document root.
+  - 2FA store is the in-memory DEC-0008 store inside the listener.
+  - `POST /admin/do` is the only mutate. It requires an authenticated
+    session **and** a fresh 2FA verify. Login without 2FA cannot set
+    mutate flags.
+  - Phase 3–5 console panels render honest empty/waiting copy (no fake
+    node data).
+- **Consequences:** `docs/HTTP.md` gains the POST/session section.
+  Percent-encoded bodies are ISS-0011. Browser cookie jars are unused
+  until ISS-0009; our client sends `Cookie` explicitly.

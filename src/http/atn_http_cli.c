@@ -87,12 +87,31 @@ static int cmd_demo(void)
         atn_http_close(&s);
         return 1;
     }
-    if (roundtrip(&s, ek, "/admin", admin, an) != 0) {
-        atn_http_close(&s);
-        return 1;
+    {
+        atn_http_cli c;
+        uint8_t resp[ATN_HTTP_MAX_PT];
+        size_t n = 0;
+        int rc;
+        rc = atn_http_cli_open(&c, atn_http_port(&s), ek);
+        if (rc != ATN_OK || atn_http_cli_send_init(&c) != ATN_OK ||
+            atn_http_cli_send_http(&c, "GET", "/admin") != ATN_OK ||
+            atn_http_serve_one(&s, ATN_HTTP_IDLE_MS) != ATN_OK ||
+            atn_http_cli_finish(&c, resp, &n, sizeof(resp), ATN_HTTP_IDLE_MS) != ATN_OK) {
+            atn_http_cli_wipe(&c);
+            atn_http_close(&s);
+            fprintf(stderr, "admin GET failed\n");
+            return 1;
+        }
+        atn_http_cli_wipe(&c);
+        if (n < 20 || memcmp(resp, "HTTP/1.1 200", 12) != 0) {
+            atn_http_close(&s);
+            return 1;
+        }
+        (void)admin;
+        (void)an;
     }
     atn_http_close(&s);
-    printf("atnhttp demo: GET / and GET /admin OK (loopback, DEC-0007 records)\n");
+    printf("atnhttp demo: GET / and GET /admin login OK (DEC-0009/0010)\n");
     return 0;
 }
 

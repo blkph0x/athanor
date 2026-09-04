@@ -56,8 +56,8 @@ After ESTABLISHED, each DATA plaintext is one HTTP message.
 
 We accept:
 
-- Methods `GET` and `HEAD` only (RFC 9110 §9: method names are
-  case-sensitive). `POST` waits for REQ-2.2.
+- Methods `GET`, `HEAD`, and `POST` (RFC 9110 §9: method names are
+  case-sensitive). `POST` is DEC-0010 (REQ-2.2).
 - Version `HTTP/1.1` only.
 - Origin-form target (`/…`), max 127 bytes, charset
   `A–Z a–z 0–9 / . _ -`. Must start with `/`. No `..`, no `//`, no `?`
@@ -66,7 +66,10 @@ We accept:
 - `Host` header required (RFC 9112 §3.2 / RFC 9110 §7.2). Duplicate
   `Host` is rejected.
 - `Transfer-Encoding` is rejected (we do not implement chunked).
-- `Content-Length`, if present, must be `0` for GET/HEAD.
+- `Content-Length`, if present, must be `0` for GET/HEAD. POST requires
+  Content-Length in `1..1024` (or `0` only if we reject the empty mutate).
+  POST also requires `Content-Type: application/x-www-form-urlencoded`.
+  `%` and `+` in the body are rejected (ISS-0011).
 - Strict CRLF. Bare LF is rejected.
 
 We emit:
@@ -83,12 +86,21 @@ Cache-Control: no-store\r\n
 
 | Condition | Status |
 |---|---|
-| `GET`/`HEAD` `/` | 200, memory page `ATN-PUBLIC-PLACEHOLDER` |
-| `GET`/`HEAD` `/admin` | 200, memory page `ATN-ADMIN-PLACEHOLDER` |
+| `GET`/`HEAD` `/` | 200, public page `ATN-PUBLIC-PLACEHOLDER` |
+| `GET`/`HEAD` `/admin` | 200, login (`ATN-LOGIN-PAGE`) or console (`ATN-CONSOLE-PAGE`) |
+| `POST /admin/challenge` | issue 2FA challenge for `id` (not a mesh mutate) |
+| `POST /admin/login` | verify 2FA, mark session authed |
+| `POST /admin/do` | mutate (`action=wipe`); requires authed + fresh 2FA + CSRF |
 | unknown path | 404 |
 | unknown method | 405 |
 | malformed | 400 |
+| unauthenticated mutate | 401 |
+| bad CSRF / bad 2FA on mutate | 403 |
 | header block > 8192 or unterminated at the cap | 431 |
+
+Session cookie: `Set-Cookie: ATN-SID=<32 hex>; Path=/; HttpOnly`.
+CSRF: `HMAC-SHA-512(server_secret, sid ‖ "atn-csrf-v1")` first 32 bytes,
+hex field `csrf`. Compared with `atn_ct_equal`.
 
 One request, then `Connection: close`. No pipelining, no keep-alive
 (ISS-0010).

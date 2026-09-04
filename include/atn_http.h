@@ -10,6 +10,7 @@
 #ifndef ATN_HTTP_H
 #define ATN_HTTP_H
 
+#include "atn_2fa.h"
 #include "atn_crypto.h"
 
 #define ATN_HTTP_MAX_HDR     8192u
@@ -19,15 +20,35 @@
 #define ATN_HTTP_BACKLOG     8
 #define ATN_HTTP_IDLE_MS     5000
 #define ATN_HTTP_CLI_PORT    2401u
+#define ATN_HTTP_SID_LEN     16u
+#define ATN_HTTP_CSRF_LEN    32u
+#define ATN_HTTP_SESS_MAX    8u
+#define ATN_HTTP_POST_MAX    1024u
 
 #define ATN_HTTP_M_GET       1
 #define ATN_HTTP_M_HEAD      2
+#define ATN_HTTP_M_POST      3
 
 typedef struct {
-    int      method;                         /* ATN_HTTP_M_GET or _HEAD */
+    int      method;                         /* GET / HEAD / POST */
     char     path[ATN_HTTP_PATH_MAX];
     char     host[ATN_HTTP_HOST_MAX];
+    char     sid_hex[ATN_HTTP_SID_LEN * 2u + 1u];
+    unsigned content_length;
+    size_t   body_off;
+    size_t   body_len;
 } atn_http_req;
+
+typedef struct {
+    uint8_t  sid[ATN_HTTP_SID_LEN];
+    uint8_t  csrf[ATN_HTTP_CSRF_LEN];
+    uint8_t  op_id[ATN_2FA_ID_LEN];
+    uint8_t  last_chal[ATN_2FA_CHAL_LEN];
+    uint8_t  in_use;
+    uint8_t  authed;
+    uint8_t  have_id;
+    uint8_t  have_chal;
+} atn_http_sess;
 
 typedef struct {
     intptr_t listen_sock;
@@ -37,6 +58,10 @@ typedef struct {
     uint8_t  last_wire[16u + ATN_HTTP_MAX_PT + 16u];
     size_t   last_wire_len;
     int      last_rc;
+    uint8_t  sess_secret[32];
+    atn_2fa_store twofa;
+    atn_http_sess sess[ATN_HTTP_SESS_MAX];
+    int      wipe_armed;
 } atn_http_srv;
 
 typedef struct {
@@ -102,8 +127,21 @@ int atn_http_cli_open(atn_http_cli *c, uint16_t port,
                       const uint8_t ek[ATN_MLKEM1024_EK_LEN]);
 int atn_http_cli_send_init(atn_http_cli *c);
 int atn_http_cli_send_http(atn_http_cli *c, const char *method, const char *path);
+int atn_http_cli_send_req(atn_http_cli *c, const char *method, const char *path,
+                         const char *sid_hex, const char *body);
 int atn_http_cli_finish(atn_http_cli *c, uint8_t *resp, size_t *n, size_t max,
                         int timeout_ms);
 void atn_http_cli_wipe(atn_http_cli *c);
+
+/*
+ * Purpose:  Enroll an operator 2FA key in the listener (test/demo hook).
+ * Spec:     DEC-0008 store lives inside the listener (DEC-0010).
+ */
+int atn_http_enroll_op(atn_http_srv *s, const uint8_t id[ATN_2FA_ID_LEN],
+                       uint8_t key_out[ATN_2FA_KEY_LEN]);
+int atn_http_wipe_armed(const atn_http_srv *s);
+
+int atn_http_form_get(const uint8_t *body, size_t n, const char *key,
+                      char *out, size_t max);
 
 #endif

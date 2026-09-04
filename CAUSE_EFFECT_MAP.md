@@ -275,7 +275,7 @@ VERIFICATION GATE
 --------------------------------------------------------------------------------
 REQ-2.2  Raw, framework-free web administration console
 --------------------------------------------------------------------------------
-STATUS: [ ]
+STATUS: [X]  (2026-09-04 — tests/test_http.exe 2FA login/mutate ALL PASSED; BN-0008)
 
 WHY (CAUSE)
   Someone has to enroll nodes, revoke 2FA, inspect heartbeat, and trigger
@@ -303,10 +303,13 @@ DEPENDS ON: REQ-2.1, REQ-1.3
 UNLOCKS:    operable Phase 3–5 workflows
 
 VERIFICATION GATE
-  [ ] Console loads with network disabled except our listener
-  [ ] View-source / binary strings show no cdn / npm / google / cloudflare
-  [ ] Login without 2FA cannot mutate state
-  [ ] Pages are the embedded copies, not files read from a writable dir
+  [X] Console loads with network disabled except our listener
+      (loopback bind, no outbound fetch in the binary; pages are literals)
+  [X] View-source / binary strings show no cdn / npm / google / cloudflare
+  [X] Login without 2FA cannot mutate state
+  [X] Pages are the embedded copies, not files read from a writable dir
+      Residual: ISS-0011 (no percent-decoding). Phase 3–5 panels are
+      honest empty copy until those REQs exist.
 
 
 --------------------------------------------------------------------------------

@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #if defined(ATN_OS_WINDOWS)
 #  include <winsock2.h>
@@ -134,18 +135,20 @@ int main(void)
     check("root page marker", rn > 0 && memmem_absent(root, rn,
           (const uint8_t *)"ATN-PUBLIC-PLACEHOLDER", 22) == 0);
     check("admin page marker", an > 0 && memmem_absent(admin, an,
-          (const uint8_t *)"ATN-ADMIN-PLACEHOLDER", 21) == 0);
+          (const uint8_t *)"ATN-LOGIN-PAGE", 14) == 0);
     check("pages have no cdn",
-          memmem_absent(root, rn, (const uint8_t *)"cdn", 3) &&
+          memmem_absent(root, rn, (const uint8_t *)"cdn.", 4) &&
           memmem_absent(admin, an, (const uint8_t *)"cdn.", 4) &&
           memmem_absent(admin, an, (const uint8_t *)"googleapis", 10) &&
-          memmem_absent(admin, an, (const uint8_t *)"cloudflare", 10));
+          memmem_absent(admin, an, (const uint8_t *)"cloudflare", 10) &&
+          memmem_absent(admin, an, (const uint8_t *)"npmjs", 5) &&
+          memmem_absent(admin, an, (const uint8_t *)"unpkg", 5));
 
     check("parse GET /",
           atn_http_parse_request(good, sizeof(good) - 1u, &req) == ATN_OK &&
           req.method == ATN_HTTP_M_GET && strcmp(req.path, "/") == 0);
-    check("parse POST rejected",
-          atn_http_parse_request(post, sizeof(post) - 1u, &req) == ATN_ERR_STATE);
+    check("parse POST needs type",
+          atn_http_parse_request(post, sizeof(post) - 1u, &req) == ATN_ERR_PARAM);
     check("parse no Host",
           atn_http_parse_request(nohost, sizeof(nohost) - 1u, &req) == ATN_ERR_PARAM);
     check("parse HTTP/1.0",
@@ -168,19 +171,23 @@ int main(void)
 
     rc = roundtrip(&srv, ek, "GET", "/admin", resp, &n, sizeof(resp));
     check("GET /admin rc", rc == ATN_OK);
-    check("GET /admin exact body", rc == ATN_OK && body_eq(resp, n, admin, an));
-    check("response ciphertext hides admin",
-          memmem_absent(srv.last_wire, srv.last_wire_len, admin, an));
+    check("GET /admin is login page",
+          rc == ATN_OK && status_is(resp, n, "200") &&
+          memmem_absent(resp, n, (const uint8_t *)"ATN-LOGIN-PAGE", 14) == 0);
+    check("response ciphertext hides login marker",
+          memmem_absent(srv.last_wire, srv.last_wire_len,
+                        (const uint8_t *)"ATN-LOGIN-PAGE", 14));
 
     rc = roundtrip(&srv, ek, "HEAD", "/", resp, &n, sizeof(resp));
     check("HEAD / 200 no body",
           rc == ATN_OK && status_is(resp, n, "200") &&
           memmem_absent(resp, n, root, rn));
 
-    rc = roundtrip(&srv, ek, "POST", "/admin", resp, &n, sizeof(resp));
-    check("POST 405", rc == ATN_OK && status_is(resp, n, "405"));
-    check("POST does not leak admin page",
-          rc == ATN_OK && memmem_absent(resp, n, admin, an));
+    rc = roundtrip(&srv, ek, "PUT", "/admin", resp, &n, sizeof(resp));
+    check("PUT 405", rc == ATN_OK && status_is(resp, n, "405"));
+    check("PUT does not leak console",
+          rc == ATN_OK &&
+          memmem_absent(resp, n, (const uint8_t *)"ATN-CONSOLE-PAGE", 16));
 
     rc = roundtrip(&srv, ek, "GET", "/nope", resp, &n, sizeof(resp));
     check("GET unknown 404", rc == ATN_OK && status_is(resp, n, "404"));
@@ -224,7 +231,158 @@ int main(void)
         check("unauth socket has no admin page",
               memmem_absent(raw, rawn, admin, an) &&
               memmem_absent(raw, rawn,
-                            (const uint8_t *)"ATN-ADMIN-PLACEHOLDER", 21));
+                            (const uint8_t *)"ATN-LOGIN-PAGE", 14) &&
+              memmem_absent(raw, rawn,
+                            (const uint8_t *)"ATN-CONSOLE-PAGE", 16));
+    }
+
+    /* REQ-2.2: 2FA login required to mutate. */
+    {
+        uint8_t id[ATN_2FA_ID_LEN], key[ATN_2FA_KEY_LEN];
+        uint8_t chal[ATN_2FA_CHAL_LEN], mac[ATN_2FA_RESP_LEN];
+        char sid[33], csrf[65], chal_hex[65], id_hex[65], mac_hex[129];
+        char form[512];
+        const uint8_t *p;
+        size_t i;
+        memset(id, 0x22, sizeof(id));
+        check("enroll op", atn_http_enroll_op(&srv, id, key) == ATN_OK);
+        check("wipe idle", atn_http_wipe_armed(&srv) == 0);
+
+        rc = roundtrip(&srv, ek, "GET", "/admin", resp, &n, sizeof(resp));
+        if (n < sizeof(resp)) {
+            resp[n] = 0;
+        }
+        check("login GET", rc == ATN_OK &&
+              memmem_absent(resp, n, (const uint8_t *)"ATN-LOGIN-PAGE", 14) == 0);
+        sid[0] = 0;
+        csrf[0] = 0;
+        for (i = 0; i + 12 < n; i++) {
+            if (memcmp(resp + i, "ATN-SID=", 8) == 0) {
+                memcpy(sid, resp + i + 8, 32);
+                sid[32] = 0;
+            }
+            if (memcmp(resp + i, "name=\"csrf\" value=\"", 19) == 0) {
+                memcpy(csrf, resp + i + 19, 64);
+                csrf[64] = 0;
+            }
+        }
+        check("session cookie", sid[0] != 0 && csrf[0] != 0);
+
+        /* Mutate without login must fail. */
+        {
+            atn_http_cli c;
+            snprintf(form, sizeof(form),
+                     "csrf=%s&action=wipe&resp=%s", csrf,
+                     "0000000000000000000000000000000000000000000000000000000000000000"
+                     "0000000000000000000000000000000000000000000000000000000000000000");
+            check("open mutate", atn_http_cli_open(&c, atn_http_port(&srv), ek) == ATN_OK);
+            check("init mutate", atn_http_cli_send_init(&c) == ATN_OK);
+            check("send mutate",
+                  atn_http_cli_send_req(&c, "POST", "/admin/do", sid, form) == ATN_OK);
+            check("serve mutate", atn_http_serve_one(&srv, 3000) == ATN_OK);
+            n = 0;
+            rc = atn_http_cli_finish(&c, resp, &n, sizeof(resp), 3000);
+            atn_http_cli_wipe(&c);
+            check("unauthed mutate 401", rc == ATN_OK && status_is(resp, n, "401"));
+            check("wipe still idle", atn_http_wipe_armed(&srv) == 0);
+        }
+
+        for (i = 0; i < 32; i++) {
+            static const char H[] = "0123456789abcdef";
+            id_hex[2 * i] = H[id[i] >> 4];
+            id_hex[2 * i + 1] = H[id[i] & 15];
+        }
+        id_hex[64] = 0;
+        snprintf(form, sizeof(form), "csrf=%s&id=%s", csrf, id_hex);
+        {
+            atn_http_cli c;
+            check("open chal", atn_http_cli_open(&c, atn_http_port(&srv), ek) == ATN_OK);
+            check("init chal", atn_http_cli_send_init(&c) == ATN_OK);
+            check("send chal",
+                  atn_http_cli_send_req(&c, "POST", "/admin/challenge", sid, form) == ATN_OK);
+            check("serve chal", atn_http_serve_one(&srv, 3000) == ATN_OK);
+            n = 0;
+            rc = atn_http_cli_finish(&c, resp, &n, sizeof(resp), 3000);
+            atn_http_cli_wipe(&c);
+            if (n < sizeof(resp)) {
+                resp[n] = 0;
+            }
+            check("challenge 200", rc == ATN_OK && status_is(resp, n, "200"));
+        }
+        chal_hex[0] = 0;
+        p = (const uint8_t *)strstr((const char *)resp, "id=\"chal\">");
+        check("chal in html", p != NULL);
+        if (p != NULL) {
+            memcpy(chal_hex, p + 10, 64);
+            chal_hex[64] = 0;
+        }
+        for (i = 0; i < 32; i++) {
+            int a = chal_hex[2 * i];
+            int b = chal_hex[2 * i + 1];
+            a = (a >= '0' && a <= '9') ? a - '0' : a - 'a' + 10;
+            b = (b >= '0' && b <= '9') ? b - '0' : b - 'a' + 10;
+            chal[i] = (uint8_t)((a << 4) | b);
+        }
+        check("2fa respond", atn_2fa_respond(key, chal, mac) == ATN_OK);
+        for (i = 0; i < 64; i++) {
+            static const char H[] = "0123456789abcdef";
+            mac_hex[2 * i] = H[mac[i] >> 4];
+            mac_hex[2 * i + 1] = H[mac[i] & 15];
+        }
+        mac_hex[128] = 0;
+        snprintf(form, sizeof(form), "csrf=%s&id=%s&resp=%s", csrf, id_hex, mac_hex);
+        {
+            atn_http_cli c;
+            check("open login", atn_http_cli_open(&c, atn_http_port(&srv), ek) == ATN_OK);
+            check("init login", atn_http_cli_send_init(&c) == ATN_OK);
+            check("send login",
+                  atn_http_cli_send_req(&c, "POST", "/admin/login", sid, form) == ATN_OK);
+            check("serve login", atn_http_serve_one(&srv, 3000) == ATN_OK);
+            n = 0;
+            rc = atn_http_cli_finish(&c, resp, &n, sizeof(resp), 3000);
+            atn_http_cli_wipe(&c);
+            if (n < sizeof(resp)) {
+                resp[n] = 0;
+            }
+            check("login console",
+                  rc == ATN_OK && status_is(resp, n, "200") &&
+                  memmem_absent(resp, n, (const uint8_t *)"ATN-CONSOLE-PAGE", 16) == 0);
+        }
+
+        p = (const uint8_t *)strstr((const char *)resp, "id=\"chal\">");
+        check("console chal", p != NULL);
+        if (p != NULL) {
+            memcpy(chal_hex, p + 10, 64);
+            chal_hex[64] = 0;
+        }
+        for (i = 0; i < 32; i++) {
+            int a = chal_hex[2 * i];
+            int b = chal_hex[2 * i + 1];
+            a = (a >= '0' && a <= '9') ? a - '0' : a - 'a' + 10;
+            b = (b >= '0' && b <= '9') ? b - '0' : b - 'a' + 10;
+            chal[i] = (uint8_t)((a << 4) | b);
+        }
+        check("2fa mutate respond", atn_2fa_respond(key, chal, mac) == ATN_OK);
+        for (i = 0; i < 64; i++) {
+            static const char H[] = "0123456789abcdef";
+            mac_hex[2 * i] = H[mac[i] >> 4];
+            mac_hex[2 * i + 1] = H[mac[i] & 15];
+        }
+        mac_hex[128] = 0;
+        snprintf(form, sizeof(form), "csrf=%s&action=wipe&resp=%s", csrf, mac_hex);
+        {
+            atn_http_cli c;
+            check("open wipe", atn_http_cli_open(&c, atn_http_port(&srv), ek) == ATN_OK);
+            check("init wipe", atn_http_cli_send_init(&c) == ATN_OK);
+            check("send wipe",
+                  atn_http_cli_send_req(&c, "POST", "/admin/do", sid, form) == ATN_OK);
+            check("serve wipe", atn_http_serve_one(&srv, 3000) == ATN_OK);
+            n = 0;
+            rc = atn_http_cli_finish(&c, resp, &n, sizeof(resp), 3000);
+            atn_http_cli_wipe(&c);
+            check("wipe 200", rc == ATN_OK && status_is(resp, n, "200"));
+            check("wipe armed", atn_http_wipe_armed(&srv) == 1);
+        }
     }
 
     atn_http_close(&srv);

@@ -36,12 +36,9 @@ static const uint8_t PAGE_ROOT[] =
     "<body><p>ATN-PUBLIC-PLACEHOLDER</p></body></html>";
 
 static const uint8_t PAGE_ADMIN[] =
-    "<!DOCTYPE html><html><head><title>Athanor admin</title>"
-    "<style>body{font-family:sans-serif;background:#111;color:#ddd;margin:2em}"
-    "h1{color:#c9a227}</style></head><body><h1>Athanor</h1>"
-    "<p>ATN-ADMIN-PLACEHOLDER</p>"
-    "<p>REQ-2.2 console will replace this page. No CDN.</p>"
-    "</body></html>";
+    "<!DOCTYPE html><html><head><title>Athanor</title></head>"
+    "<body><p>ATN-LOGIN-PAGE</p>"
+    "<p>In-tree assets only. No third-party hosts.</p></body></html>";
 
 #define PAGE_ROOT_LEN  (sizeof(PAGE_ROOT) - 1u)
 #define PAGE_ADMIN_LEN (sizeof(PAGE_ADMIN) - 1u)
@@ -356,6 +353,7 @@ int atn_http_parse_request(const uint8_t *buf, size_t n, atn_http_req *out)
     size_t meth_n, path_n, ver_n;
     int have_host = 0;
     int have_te = 0;
+    int have_ct = 0;
     unsigned long clen = 0;
     int have_cl = 0;
 
@@ -432,6 +430,8 @@ int atn_http_parse_request(const uint8_t *buf, size_t n, atn_http_req *out)
         out->method = ATN_HTTP_M_GET;
     } else if (meth_n == 4u && memcmp(buf, "HEAD", 4) == 0) {
         out->method = ATN_HTTP_M_HEAD;
+    } else if (meth_n == 4u && memcmp(buf, "POST", 4) == 0) {
+        out->method = ATN_HTTP_M_POST;
     } else {
         for (i = 0; i < meth_n; i++) {
             if (!is_tchar(buf[i])) {
@@ -517,34 +517,92 @@ int atn_http_parse_request(const uint8_t *buf, size_t n, atn_http_req *out)
                     return ATN_ERR_PARAM;
                 }
                 clen = clen * 10u + (unsigned long)(buf[k] - '0');
-                if (clen > 0u) {
-                    return ATN_ERR_PARAM; /* GET/HEAD body forbidden */
+                if (clen > ATN_HTTP_POST_MAX) {
+                    return ATN_ERR_LEN;
+                }
+            }
+        } else if (hdr_name_eq(buf + pos, hn, "content-type")) {
+            static const char urlenc[] = "application/x-www-form-urlencoded";
+            size_t ul = sizeof(urlenc) - 1u;
+            if (ve - vs == ul && hdr_name_eq(buf + vs, ve - vs, urlenc)) {
+                have_ct = 1;
+            } else {
+                return ATN_ERR_PARAM;
+            }
+        } else if (hdr_name_eq(buf + pos, hn, "cookie")) {
+            size_t k;
+            for (k = vs; k + 8u + 32u <= ve; k++) {
+                if ((k == vs || buf[k - 1u] == ' ' || buf[k - 1u] == ';') &&
+                    memcmp(buf + k, "ATN-SID=", 8) == 0) {
+                    size_t j;
+                    for (j = 0; j < 32u; j++) {
+                        unsigned char c = buf[k + 8u + j];
+                        int hex = (c >= '0' && c <= '9') ||
+                                  (c >= 'a' && c <= 'f') ||
+                                  (c >= 'A' && c <= 'F');
+                        if (!hex) {
+                            return ATN_ERR_PARAM;
+                        }
+                        out->sid_hex[j] = (char)c;
+                    }
+                    out->sid_hex[32] = 0;
+                    break;
                 }
             }
         }
         pos = he + 2u;
     }
-    if (!have_host || have_te || (have_cl && clen != 0u)) {
+    if (!have_host || have_te) {
         return ATN_ERR_PARAM;
     }
-    (void)clen;
+    if (out->method != ATN_HTTP_M_POST) {
+        if (have_cl && clen != 0u) {
+            return ATN_ERR_PARAM;
+        }
+        out->body_off = hdr_end;
+        out->body_len = 0;
+        out->content_length = 0;
+        return ATN_OK;
+    }
+    if (!have_cl || !have_ct) {
+        return ATN_ERR_PARAM;
+    }
+    if (hdr_end + (size_t)clen > n) {
+        return ATN_ERR_PARAM;
+    }
+    out->content_length = (unsigned)clen;
+    out->body_off = hdr_end;
+    out->body_len = (size_t)clen;
     return ATN_OK;
 }
 
 static size_t build_resp(uint8_t *out, size_t max, int status, const char *reason,
-                         const uint8_t *body, size_t body_len, int head_only)
+                         const uint8_t *body, size_t body_len, int head_only,
+                         const char *sid_hex)
 {
-    char hdr[256];
+    char hdr[384];
     int hn;
     size_t total;
-    hn = snprintf(hdr, sizeof(hdr),
-                  "HTTP/1.1 %d %s\r\n"
-                  "Content-Type: text/html; charset=us-ascii\r\n"
-                  "Content-Length: %u\r\n"
-                  "Connection: close\r\n"
-                  "Cache-Control: no-store\r\n"
-                  "\r\n",
-                  status, reason, (unsigned)body_len);
+    if (sid_hex != NULL && sid_hex[0] != 0) {
+        hn = snprintf(hdr, sizeof(hdr),
+                      "HTTP/1.1 %d %s\r\n"
+                      "Content-Type: text/html; charset=us-ascii\r\n"
+                      "Content-Length: %u\r\n"
+                      "Connection: close\r\n"
+                      "Cache-Control: no-store\r\n"
+                      "Set-Cookie: ATN-SID=%s; Path=/; HttpOnly\r\n"
+                      "\r\n",
+                      status, reason, (unsigned)body_len, sid_hex);
+    } else {
+        hn = snprintf(hdr, sizeof(hdr),
+                      "HTTP/1.1 %d %s\r\n"
+                      "Content-Type: text/html; charset=us-ascii\r\n"
+                      "Content-Length: %u\r\n"
+                      "Connection: close\r\n"
+                      "Cache-Control: no-store\r\n"
+                      "\r\n",
+                      status, reason, (unsigned)body_len);
+    }
     if (hn < 0 || (size_t)hn >= sizeof(hdr)) {
         return 0;
     }
@@ -605,6 +663,13 @@ int atn_http_listen(atn_http_srv *s, uint16_t port,
     s->port = ntohs(sa.sin_port);
     memcpy(s->ek, ek, ATN_MLKEM1024_EK_LEN);
     memcpy(s->dk, dk, ATN_MLKEM1024_DK_LEN);
+    atn_2fa_store_init(&s->twofa);
+    rc = atn_random_bytes(s->sess_secret, 32);
+    if (rc != ATN_OK) {
+        sock_close(ls);
+        s->listen_sock = (intptr_t)ATN_INV;
+        return rc;
+    }
     return ATN_OK;
 }
 
@@ -620,12 +685,277 @@ void atn_http_close(atn_http_srv *s)
     }
     sock_close(sock_cast(s->listen_sock));
     atn_memzero(s->dk, sizeof(s->dk));
+    atn_memzero(s->sess_secret, sizeof(s->sess_secret));
+    atn_memzero(s->sess, sizeof(s->sess));
+    atn_2fa_store_init(&s->twofa);
     s->listen_sock = (intptr_t)ATN_INV;
 }
 
-static int route_and_respond(atn_sock cs, uint8_t *last, size_t *last_len,
-                             const uint8_t k_send[32], uint64_t *send_seq,
-                             const uint8_t *req, size_t reqn)
+static int hex_nib(int c)
+{
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    }
+    if (c >= 'a' && c <= 'f') {
+        return c - 'a' + 10;
+    }
+    if (c >= 'A' && c <= 'F') {
+        return c - 'A' + 10;
+    }
+    return -1;
+}
+
+static int hex_decode(const char *s, uint8_t *out, size_t n)
+{
+    size_t i;
+    if (s == NULL || out == NULL || strlen(s) != n * 2u) {
+        return ATN_ERR_PARAM;
+    }
+    for (i = 0; i < n; i++) {
+        int a = hex_nib((unsigned char)s[2u * i]);
+        int b = hex_nib((unsigned char)s[2u * i + 1u]);
+        if (a < 0 || b < 0) {
+            return ATN_ERR_PARAM;
+        }
+        out[i] = (uint8_t)((a << 4) | b);
+    }
+    return ATN_OK;
+}
+
+static void hex_encode(const uint8_t *in, size_t n, char *out)
+{
+    static const char H[] = "0123456789abcdef";
+    size_t i;
+    for (i = 0; i < n; i++) {
+        out[2u * i] = H[in[i] >> 4];
+        out[2u * i + 1u] = H[in[i] & 15u];
+    }
+    out[2u * n] = 0;
+}
+
+static const uint8_t CSRF_CTX[11] = {
+    'a','t','n','-','c','s','r','f','-','v','1'
+};
+
+static const char CSS[] =
+    "body{font-family:sans-serif;background:#111;color:#ddd;margin:2em;max-width:42em}"
+    "h1{color:#c9a227}input,button{font:inherit;margin:.25em 0;padding:.3em}"
+    "label{display:block;margin-top:.8em}code{color:#c9a227}";
+
+int atn_http_form_get(const uint8_t *body, size_t n, const char *key,
+                      char *out, size_t max)
+{
+    size_t klen, i;
+    if (body == NULL || key == NULL || out == NULL || max == 0) {
+        return ATN_ERR_PARAM;
+    }
+    klen = strlen(key);
+    out[0] = 0;
+    i = 0;
+    while (i < n) {
+        size_t start = i, eq, end, vl;
+        while (i < n && body[i] != '=' && body[i] != '&') {
+            if (body[i] == '%' || body[i] == '+') {
+                return ATN_ERR_PARAM;
+            }
+            i++;
+        }
+        if (i >= n || body[i] != '=') {
+            return ATN_ERR_PARAM;
+        }
+        eq = i;
+        i++;
+        end = i;
+        while (end < n && body[end] != '&') {
+            if (body[end] == '%' || body[end] == '+') {
+                return ATN_ERR_PARAM;
+            }
+            end++;
+        }
+        vl = end - (eq + 1u);
+        if (eq - start == klen && memcmp(body + start, key, klen) == 0) {
+            if (vl >= max) {
+                return ATN_ERR_LEN;
+            }
+            memcpy(out, body + eq + 1u, vl);
+            out[vl] = 0;
+            return ATN_OK;
+        }
+        i = end;
+        if (i < n && body[i] == '&') {
+            i++;
+        }
+    }
+    return ATN_ERR_STATE;
+}
+
+int atn_http_enroll_op(atn_http_srv *s, const uint8_t id[ATN_2FA_ID_LEN],
+                       uint8_t key_out[ATN_2FA_KEY_LEN])
+{
+    if (s == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    return atn_2fa_enroll(&s->twofa, id, key_out);
+}
+
+int atn_http_wipe_armed(const atn_http_srv *s)
+{
+    return s != NULL && s->wipe_armed;
+}
+
+static int sess_csrf(atn_http_srv *s, atn_http_sess *se)
+{
+    uint8_t msg[ATN_HTTP_SID_LEN + 11u];
+    uint8_t mac[ATN_HMAC_SHA512_LEN];
+    int rc;
+    memcpy(msg, se->sid, ATN_HTTP_SID_LEN);
+    memcpy(msg + ATN_HTTP_SID_LEN, CSRF_CTX, 11);
+    rc = atn_hmac_sha512(s->sess_secret, 32, msg, sizeof(msg), mac);
+    if (rc != ATN_OK) {
+        return rc;
+    }
+    memcpy(se->csrf, mac, ATN_HTTP_CSRF_LEN);
+    atn_memzero(mac, sizeof(mac));
+    atn_memzero(msg, sizeof(msg));
+    return ATN_OK;
+}
+
+static atn_http_sess *sess_find(atn_http_srv *s, const char *sid_hex)
+{
+    uint8_t sid[ATN_HTTP_SID_LEN];
+    unsigned i;
+    if (sid_hex == NULL || sid_hex[0] == 0) {
+        return NULL;
+    }
+    if (hex_decode(sid_hex, sid, ATN_HTTP_SID_LEN) != ATN_OK) {
+        return NULL;
+    }
+    for (i = 0; i < ATN_HTTP_SESS_MAX; i++) {
+        if (s->sess[i].in_use &&
+            atn_ct_equal(s->sess[i].sid, sid, ATN_HTTP_SID_LEN)) {
+            return &s->sess[i];
+        }
+    }
+    return NULL;
+}
+
+static atn_http_sess *sess_new(atn_http_srv *s)
+{
+    unsigned i;
+    for (i = 0; i < ATN_HTTP_SESS_MAX; i++) {
+        if (!s->sess[i].in_use) {
+            atn_memzero(&s->sess[i], sizeof(s->sess[i]));
+            if (atn_random_bytes(s->sess[i].sid, ATN_HTTP_SID_LEN) != ATN_OK) {
+                return NULL;
+            }
+            if (sess_csrf(s, &s->sess[i]) != ATN_OK) {
+                return NULL;
+            }
+            s->sess[i].in_use = 1;
+            return &s->sess[i];
+        }
+    }
+    return NULL;
+}
+
+static int csrf_ok(const atn_http_sess *se, const char *hex)
+{
+    uint8_t got[ATN_HTTP_CSRF_LEN];
+    if (se == NULL || hex_decode(hex, got, ATN_HTTP_CSRF_LEN) != ATN_OK) {
+        return 0;
+    }
+    return atn_ct_equal(got, se->csrf, ATN_HTTP_CSRF_LEN);
+}
+
+static size_t html_login(char *out, size_t max, const char *csrf)
+{
+    int n = snprintf(out, max,
+                     "<!DOCTYPE html><html><head><title>Athanor</title>"
+                     "<style>%s</style></head><body>"
+                     "<h1>Athanor</h1><p>ATN-LOGIN-PAGE</p>"
+                     "<form method=\"POST\" action=\"/admin/challenge\">"
+                     "<input type=\"hidden\" name=\"csrf\" value=\"%s\">"
+                     "<label>operator id (64 hex)</label>"
+                     "<input name=\"id\" size=\"64\" maxlength=\"64\">"
+                     "<button type=\"submit\">challenge</button></form>"
+                     "<p>In-tree assets only. No third-party hosts.</p>"
+                     "</body></html>",
+                     CSS, csrf);
+    if (n < 0 || (size_t)n >= max) {
+        return 0;
+    }
+    return (size_t)n;
+}
+
+static size_t html_chal(char *out, size_t max, const char *csrf,
+                       const char *id_hex, const char *chal_hex)
+{
+    int n = snprintf(out, max,
+                     "<!DOCTYPE html><html><head><title>Athanor</title>"
+                     "<style>%s</style></head><body>"
+                     "<h1>Athanor</h1><p>ATN-LOGIN-PAGE</p>"
+                     "<p>challenge</p><code id=\"chal\">%s</code>"
+                     "<form method=\"POST\" action=\"/admin/login\">"
+                     "<input type=\"hidden\" name=\"csrf\" value=\"%s\">"
+                     "<input type=\"hidden\" name=\"id\" value=\"%s\">"
+                     "<label>2FA response (128 hex)</label>"
+                     "<input name=\"resp\" size=\"64\" maxlength=\"128\">"
+                     "<button type=\"submit\">login</button></form>"
+                     "</body></html>",
+                     CSS, chal_hex, csrf, id_hex);
+    if (n < 0 || (size_t)n >= max) {
+        return 0;
+    }
+    return (size_t)n;
+}
+
+static size_t html_console(char *out, size_t max, const char *csrf,
+                          const char *chal_hex, int wipe_armed)
+{
+    int n = snprintf(out, max,
+                     "<!DOCTYPE html><html><head><title>Athanor console</title>"
+                     "<style>%s</style></head><body>"
+                     "<h1>Athanor</h1><p>ATN-CONSOLE-PAGE</p>"
+                     "<p>nodes: none (REQ-3.1)</p>"
+                     "<p>heartbeat: none (REQ-3.3)</p>"
+                     "<p>replication: none (REQ-3.1)</p>"
+                     "<p>OTA: none (REQ-5.1)</p>"
+                     "<p>wipe: %s</p>"
+                     "<p>fresh challenge</p><code id=\"chal\">%s</code>"
+                     "<form method=\"POST\" action=\"/admin/do\">"
+                     "<input type=\"hidden\" name=\"csrf\" value=\"%s\">"
+                     "<input type=\"hidden\" name=\"action\" value=\"wipe\">"
+                     "<label>2FA response (128 hex)</label>"
+                     "<input name=\"resp\" size=\"64\" maxlength=\"128\">"
+                     "<button type=\"submit\">arm wipe</button></form>"
+                     "</body></html>",
+                     CSS, wipe_armed ? "armed" : "idle", chal_hex, csrf);
+    if (n < 0 || (size_t)n >= max) {
+        return 0;
+    }
+    return (size_t)n;
+}
+
+static int issue_chal(atn_http_srv *s, atn_http_sess *se, char chal_hex[65])
+{
+    uint8_t chal[ATN_2FA_CHAL_LEN];
+    int rc;
+    if (!se->have_id) {
+        return ATN_ERR_STATE;
+    }
+    rc = atn_2fa_challenge(&s->twofa, se->op_id, chal);
+    if (rc != ATN_OK) {
+        return rc;
+    }
+    memcpy(se->last_chal, chal, ATN_2FA_CHAL_LEN);
+    se->have_chal = 1;
+    hex_encode(chal, ATN_2FA_CHAL_LEN, chal_hex);
+    return ATN_OK;
+}
+
+static int route_and_respond(atn_http_srv *s, atn_sock cs, uint8_t *last,
+                             size_t *last_len, const uint8_t k_send[32],
+                             uint64_t *send_seq, const uint8_t *req, size_t reqn)
 {
     atn_http_req r;
     const uint8_t *body = (const uint8_t *)"";
@@ -633,44 +963,200 @@ static int route_and_respond(atn_sock cs, uint8_t *last, size_t *last_len,
     int status = 200;
     const char *reason = "OK";
     uint8_t resp[ATN_HTTP_MAX_PT];
+    char html[ATN_HTTP_MAX_PT];
+    char sid_hex[33];
+    char csrf_hex[65];
+    char chal_hex[65];
+    char id_hex[65];
+    char resp_hex[129];
+    char action[16];
+    char csrf_in[65];
+    atn_http_sess *se = NULL;
     size_t rn;
-    int rc, head_only;
+    int rc, head_only = 0;
     int pr = atn_http_parse_request(req, reqn, &r);
+
+    sid_hex[0] = 0;
+    csrf_hex[0] = 0;
+    chal_hex[0] = 0;
 
     if (pr == ATN_ERR_LEN) {
         status = 431;
         reason = "Request Header Fields Too Large";
         body = (const uint8_t *)"<p>431</p>";
         blen = 10;
-        head_only = 0;
     } else if (pr == ATN_ERR_STATE) {
         status = 405;
         reason = "Method Not Allowed";
         body = (const uint8_t *)"<p>405</p>";
         blen = 10;
-        head_only = 0;
     } else if (pr != ATN_OK) {
         status = 400;
         reason = "Bad Request";
         body = (const uint8_t *)"<p>400</p>";
         blen = 10;
-        head_only = 0;
     } else {
         head_only = (r.method == ATN_HTTP_M_HEAD);
-        if (strcmp(r.path, "/") == 0) {
+        if (strcmp(r.path, "/") == 0 &&
+            (r.method == ATN_HTTP_M_GET || r.method == ATN_HTTP_M_HEAD)) {
             body = PAGE_ROOT;
             blen = PAGE_ROOT_LEN;
-        } else if (strcmp(r.path, "/admin") == 0) {
-            body = PAGE_ADMIN;
-            blen = PAGE_ADMIN_LEN;
+        } else if (strncmp(r.path, "/admin", 6) == 0) {
+            se = sess_find(s, r.sid_hex);
+            if (se == NULL && (r.method == ATN_HTTP_M_GET ||
+                               r.method == ATN_HTTP_M_HEAD)) {
+                se = sess_new(s);
+            }
+            if (se == NULL && r.method == ATN_HTTP_M_POST) {
+                status = 401;
+                reason = "Unauthorized";
+                body = (const uint8_t *)"<p>401</p>";
+                blen = 10;
+            } else if (se == NULL) {
+                status = 503;
+                reason = "Service Unavailable";
+                body = (const uint8_t *)"<p>503</p>";
+                blen = 10;
+            } else {
+                hex_encode(se->sid, ATN_HTTP_SID_LEN, sid_hex);
+                hex_encode(se->csrf, ATN_HTTP_CSRF_LEN, csrf_hex);
+                if (strcmp(r.path, "/admin") == 0 &&
+                    (r.method == ATN_HTTP_M_GET || r.method == ATN_HTTP_M_HEAD)) {
+                    if (se->authed && se->have_id &&
+                        issue_chal(s, se, chal_hex) == ATN_OK) {
+                        blen = html_console(html, sizeof(html), csrf_hex,
+                                           chal_hex, s->wipe_armed);
+                    } else {
+                        blen = html_login(html, sizeof(html), csrf_hex);
+                    }
+                    body = (const uint8_t *)html;
+                } else if (strcmp(r.path, "/admin/challenge") == 0 &&
+                           r.method == ATN_HTTP_M_POST) {
+                    if (atn_http_form_get(req + r.body_off, r.body_len, "csrf",
+                                          csrf_in, sizeof(csrf_in)) != ATN_OK ||
+                        !csrf_ok(se, csrf_in) ||
+                        atn_http_form_get(req + r.body_off, r.body_len, "id",
+                                          id_hex, sizeof(id_hex)) != ATN_OK ||
+                        hex_decode(id_hex, se->op_id, ATN_2FA_ID_LEN) != ATN_OK) {
+                        status = 400;
+                        reason = "Bad Request";
+                        body = (const uint8_t *)"<p>400</p>";
+                        blen = 10;
+                    } else {
+                        se->have_id = 1;
+                        rc = issue_chal(s, se, chal_hex);
+                        if (rc != ATN_OK) {
+                            status = 403;
+                            reason = "Forbidden";
+                            body = (const uint8_t *)"<p>403</p>";
+                            blen = 10;
+                        } else {
+                            blen = html_chal(html, sizeof(html), csrf_hex,
+                                             id_hex, chal_hex);
+                            body = (const uint8_t *)html;
+                        }
+                    }
+                } else if (strcmp(r.path, "/admin/login") == 0 &&
+                           r.method == ATN_HTTP_M_POST) {
+                    uint8_t mac[ATN_2FA_RESP_LEN];
+                    if (atn_http_form_get(req + r.body_off, r.body_len, "csrf",
+                                          csrf_in, sizeof(csrf_in)) != ATN_OK ||
+                        !csrf_ok(se, csrf_in) ||
+                        atn_http_form_get(req + r.body_off, r.body_len, "id",
+                                          id_hex, sizeof(id_hex)) != ATN_OK ||
+                        atn_http_form_get(req + r.body_off, r.body_len, "resp",
+                                          resp_hex, sizeof(resp_hex)) != ATN_OK ||
+                        hex_decode(id_hex, se->op_id, ATN_2FA_ID_LEN) != ATN_OK ||
+                        hex_decode(resp_hex, mac, ATN_2FA_RESP_LEN) != ATN_OK) {
+                        status = 400;
+                        reason = "Bad Request";
+                        body = (const uint8_t *)"<p>400</p>";
+                        blen = 10;
+                    } else {
+                        se->have_id = 1;
+                        rc = atn_2fa_verify(&s->twofa, se->op_id, se->last_chal, mac);
+                        atn_memzero(mac, sizeof(mac));
+                        if (rc != ATN_OK) {
+                            status = 403;
+                            reason = "Forbidden";
+                            body = (const uint8_t *)"<p>403</p>";
+                            blen = 10;
+                            se->authed = 0;
+                        } else {
+                            se->authed = 1;
+                            if (issue_chal(s, se, chal_hex) != ATN_OK) {
+                                chal_hex[0] = 0;
+                            }
+                            blen = html_console(html, sizeof(html), csrf_hex,
+                                               chal_hex, s->wipe_armed);
+                            body = (const uint8_t *)html;
+                        }
+                    }
+                } else if (strcmp(r.path, "/admin/do") == 0 &&
+                           r.method == ATN_HTTP_M_POST) {
+                    uint8_t mac[ATN_2FA_RESP_LEN];
+                    if (se == NULL || !se->authed) {
+                        status = 401;
+                        reason = "Unauthorized";
+                        body = (const uint8_t *)"<p>401</p>";
+                        blen = 10;
+                    } else if (atn_http_form_get(req + r.body_off, r.body_len,
+                                                 "csrf", csrf_in,
+                                                 sizeof(csrf_in)) != ATN_OK ||
+                               !csrf_ok(se, csrf_in)) {
+                        status = 403;
+                        reason = "Forbidden";
+                        body = (const uint8_t *)"<p>403</p>";
+                        blen = 10;
+                    } else if (atn_http_form_get(req + r.body_off, r.body_len,
+                                                 "action", action,
+                                                 sizeof(action)) != ATN_OK ||
+                               strcmp(action, "wipe") != 0 ||
+                               atn_http_form_get(req + r.body_off, r.body_len,
+                                                 "resp", resp_hex,
+                                                 sizeof(resp_hex)) != ATN_OK ||
+                               hex_decode(resp_hex, mac, ATN_2FA_RESP_LEN) != ATN_OK) {
+                        status = 400;
+                        reason = "Bad Request";
+                        body = (const uint8_t *)"<p>400</p>";
+                        blen = 10;
+                    } else {
+                        rc = atn_2fa_verify(&s->twofa, se->op_id, se->last_chal, mac);
+                        atn_memzero(mac, sizeof(mac));
+                        if (rc != ATN_OK) {
+                            status = 403;
+                            reason = "Forbidden";
+                            body = (const uint8_t *)"<p>403</p>";
+                            blen = 10;
+                        } else {
+                            s->wipe_armed = 1;
+                            if (issue_chal(s, se, chal_hex) != ATN_OK) {
+                                chal_hex[0] = 0;
+                            }
+                            blen = html_console(html, sizeof(html), csrf_hex,
+                                               chal_hex, s->wipe_armed);
+                            body = (const uint8_t *)html;
+                        }
+                    }
+                } else {
+                    status = 404;
+                    reason = "Not Found";
+                    body = (const uint8_t *)"<p>404</p>";
+                    blen = 10;
+                }
+            }
         } else {
             status = 404;
             reason = "Not Found";
             body = (const uint8_t *)"<p>404</p>";
             blen = 10;
         }
+        if (blen == 0 && status == 200) {
+            return ATN_ERR_LEN;
+        }
     }
-    rn = build_resp(resp, sizeof(resp), status, reason, body, blen, head_only);
+    rn = build_resp(resp, sizeof(resp), status, reason, body, blen, head_only,
+                    sid_hex[0] ? sid_hex : NULL);
     if (rn == 0) {
         return ATN_ERR_LEN;
     }
@@ -799,7 +1285,7 @@ int atn_http_serve_one(atn_http_srv *s, int timeout_ms)
         s->last_rc = ATN_ERR_AUTH;
         return ATN_ERR_AUTH;
     }
-    rc = route_and_respond(cs, s->last_wire, &s->last_wire_len,
+    rc = route_and_respond(s, cs, s->last_wire, &s->last_wire_len,
                            k_r2i, &send_seq, pt, ptn);
     atn_memzero(pt, sizeof(pt));
     atn_memzero(k_ack, 32);
@@ -879,23 +1365,51 @@ int atn_http_cli_send_init(atn_http_cli *c)
     return ATN_OK;
 }
 
-int atn_http_cli_send_http(atn_http_cli *c, const char *method, const char *path)
+int atn_http_cli_send_req(atn_http_cli *c, const char *method, const char *path,
+                         const char *sid_hex, const char *body)
 {
-    char req[512];
+    char req[ATN_HTTP_MAX_PT];
+    char cookie[80];
     int n;
     int rc;
+    size_t blen;
     if (c == NULL || method == NULL || path == NULL) {
         return ATN_ERR_PARAM;
     }
     if (c->state != ATN_TUN_HANDSHAKE && c->state != ATN_TUN_ESTABLISHED) {
         return ATN_ERR_STATE;
     }
-    n = snprintf(req, sizeof(req),
-                 "%s %s HTTP/1.1\r\n"
-                 "Host: 127.0.0.1\r\n"
-                 "Connection: close\r\n"
-                 "\r\n",
-                 method, path);
+    blen = (body == NULL) ? 0 : strlen(body);
+    if (blen > ATN_HTTP_POST_MAX) {
+        return ATN_ERR_LEN;
+    }
+    cookie[0] = 0;
+    if (sid_hex != NULL && sid_hex[0] != 0) {
+        n = snprintf(cookie, sizeof(cookie), "Cookie: ATN-SID=%s\r\n", sid_hex);
+        if (n < 0 || (size_t)n >= sizeof(cookie)) {
+            return ATN_ERR_LEN;
+        }
+    }
+    if (blen > 0) {
+        n = snprintf(req, sizeof(req),
+                     "%s %s HTTP/1.1\r\n"
+                     "Host: 127.0.0.1\r\n"
+                     "Connection: close\r\n"
+                     "%s"
+                     "Content-Type: application/x-www-form-urlencoded\r\n"
+                     "Content-Length: %u\r\n"
+                     "\r\n"
+                     "%s",
+                     method, path, cookie, (unsigned)blen, body);
+    } else {
+        n = snprintf(req, sizeof(req),
+                     "%s %s HTTP/1.1\r\n"
+                     "Host: 127.0.0.1\r\n"
+                     "Connection: close\r\n"
+                     "%s"
+                     "\r\n",
+                     method, path, cookie);
+    }
     if (n < 0 || (size_t)n >= sizeof(req)) {
         return ATN_ERR_LEN;
     }
@@ -906,6 +1420,11 @@ int atn_http_cli_send_http(atn_http_cli *c, const char *method, const char *path
         c->send_seq++;
     }
     return rc;
+}
+
+int atn_http_cli_send_http(atn_http_cli *c, const char *method, const char *path)
+{
+    return atn_http_cli_send_req(c, method, path, NULL, NULL);
 }
 
 int atn_http_cli_finish(atn_http_cli *c, uint8_t *resp, size_t *n, size_t max,

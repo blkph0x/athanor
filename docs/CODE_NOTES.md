@@ -23,7 +23,7 @@ same commit.
 | `docs/HTTP.md` | REQ-2.1 | DEC-0009 | Listener spec. Not TLS 1.3. |
 | `include/atn_http.h` / `src/http/atn_http.c` | REQ-2.1 | DEC-0009 | Loopback TCP + DEC-0007 records + HTTP/1.1. Reuses `atn_net_init` in `atn_tun.c`. |
 | `src/http/atn_http_cli.c` | REQ-2.1 | DEC-0009 | `atnhttp` standalone binary |
-| `tests/test_http.c` | REQ-2.1 | gates | Parse rejects, GET exact bytes, unauth close, ciphertext hides pages |
+| `tests/test_http.c` | REQ-2.1/2.2 | gates | Parse, GET exact `/`, unauth close, login/2FA/wipe mutate |
 | `src/crypto/atn_hmac.c` | REQ-1.1 | RFC 2104 | HMAC-SHA-256 |
 | `src/crypto/atn_hkdf.c` | REQ-1.1 | RFC 5869 §§2.2–2.3 | Extract then expand, SHA-256 |
 | `src/crypto/atn_chacha20.c` | REQ-1.1 | RFC 8439 §§2.1–2.4 | IETF 32-bit counter, 96-bit nonce |
