@@ -168,8 +168,12 @@ Law of sequencing: do not start a requirement whose dependencies are still open.
 |---|---|
 | [`SOURCE_OF_TRUTH.md`](SOURCE_OF_TRUTH.md) | Canonical specification. Non-negotiable. |
 | [`CAUSE_EFFECT_MAP.md`](CAUSE_EFFECT_MAP.md) | Why each requirement exists, how to finish it, what it unlocks, what breaks if skipped, and the verification gate. |
+| [`DEVELOPMENT_RULES.md`](DEVELOPMENT_RULES.md) | Never guess. Comment and document everything. Keep the task list current. |
+| [`docs/`](docs/README.md) | Living TASKS, ISSUES, DECISIONS, CODE_NOTES, BUILD_NOTES, LOG, SPEC_INDEX. |
 
-The README is orientation. The source of truth is law. The cause/effect map is how work is sequenced and proven.
+The README is orientation. The source of truth is law. The cause/effect map is how work is sequenced and proven. The development rules are how we type. The `docs/` desk is how we remember.
+
+**Never guess.** If a constant, API, or algorithm is not in `docs/SPEC_INDEX.md` or `docs/DECISIONS.md`, it does not go in the tree. Open `docs/ISSUES.md` instead.
 
 ---
 
@@ -185,7 +189,14 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 
 ## Status
 
-**Specification frozen at SF-ARCH v2.0.0.** Implementation of Phase 1 (cryptographic primitives) is the first compile target. Until a requirement’s gate is green, treat that capability as *intended*, not *done*.
+**Specification frozen at SF-ARCH v2.0.0.**
+
+| REQ | Status |
+|---|---|
+| REQ-1.1 crypto primitives | Done — KATs from RFC 6234 / 4231 / 5869 / 8439 pass (`tests/test_crypto`). Residual: ISS-0003. |
+| REQ-1.2 onward | Not started. Handshake primitive is ISS-0001 — do not guess. |
+
+Until a requirement’s gate is green, treat that capability as *intended*, not *done*.
 
 ---
 

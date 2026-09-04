@@ -46,7 +46,7 @@ the brackets from [ ] to [X] upon verification. Every milestone requires
 custom code compilation validation.
 
 PHASE 1: PROPRIETARY CORE BUILD & LOW-LEVEL CRYPTO
-[ ] REQ-1.1: Code and compile the custom low-level cryptographic math primitives.
+[X] REQ-1.1: Code and compile the custom low-level cryptographic math primitives.
 [ ] REQ-1.2: Build the proprietary UDP network tunneling engine from raw socket code.
 [ ] REQ-1.3: Build the custom 2FA challenge-response authentication binary.
 

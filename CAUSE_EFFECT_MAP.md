@@ -88,7 +88,7 @@ PHASE EFFECT: Later servers, replicas, 2FA, and mobile attestation all call
 --------------------------------------------------------------------------------
 REQ-1.1  Custom low-level cryptographic math primitives
 --------------------------------------------------------------------------------
-STATUS: [ ]
+STATUS: [X]  (2026-09-04 — tests/test_crypto.exe ALL PASSED; see docs/BUILD_NOTES.md BN-0002)
 
 WHY (CAUSE)
   The SoT forbids OpenSSL, libsodium, BoringSSL, Java crypto providers, and
@@ -126,11 +126,12 @@ DEPENDS ON: none (first compile target)
 UNLOCKS:    REQ-1.2, REQ-1.3, REQ-2.1, REQ-5.1
 
 VERIFICATION GATE (must all be true)
-  [ ] Static binary / object compiles with zero outside crypto libs
-  [ ] Encrypt → decrypt roundtrip on random payloads
-  [ ] Tampered ciphertext fails authentication 100% in tests
-  [ ] Nonce reuse is rejected or architecturally impossible
-  [ ] Secrets are wiped from buffers after use
+  [X] Static binary / object compiles with zero outside crypto libs
+  [X] Encrypt → decrypt roundtrip on random payloads
+  [X] Tampered ciphertext fails authentication 100% in tests
+  [X] Nonce reuse is rejected or architecturally impossible
+  [X] Secrets are wiped from buffers after use
+      Residual: ISS-0003 (Poly1305 timing not measured on target CPUs).
 
 
 --------------------------------------------------------------------------------
@@ -925,7 +926,7 @@ ROLL-UP CHECKLIST (MIRROR OF SoT, WITH CAUSE IN ONE LINE)
 ================================================================================
 
 PHASE 1
-[ ] REQ-1.1  Crypto primitives     — CAUSE: own the math; EFFECT: every secret derives here
+[X] REQ-1.1  Crypto primitives     — CAUSE: own the math; EFFECT: every secret derives here
 [ ] REQ-1.2  UDP tunnel            — CAUSE: own the pipe; EFFECT: no WireGuard/OpenVPN
 [ ] REQ-1.3  2FA binary            — CAUSE: own the second factor; EFFECT: password theft is not enough
 
