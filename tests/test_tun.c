@@ -87,6 +87,35 @@ int main(void)
 
     atn_tun_wipe(&a);
     atn_tun_wipe(&b);
+
+    /* DEC-0023: encapsulate to the wrong ek; initiator must not ESTABLISH. */
+    {
+        atn_tun wa, wb;
+        uint8_t ek_b[ATN_MLKEM1024_EK_LEN], dk_b[ATN_MLKEM1024_DK_LEN];
+        uint8_t ek_w[ATN_MLKEM1024_EK_LEN], dk_w[ATN_MLKEM1024_DK_LEN];
+        check("bad-ek kem",
+              atn_mlkem1024_keygen(ek_b, dk_b) == ATN_OK &&
+              atn_mlkem1024_keygen(ek_w, dk_w) == ATN_OK);
+        check("bad-ek init",
+              atn_tun_init_initiator(&wa, ek_w) == ATN_OK &&
+              atn_tun_init_responder(&wb, dk_b) == ATN_OK);
+        check("bad-ek bind",
+              atn_tun_bind(&wa, 0) == ATN_OK && atn_tun_bind(&wb, 0) == ATN_OK);
+        check("bad-ek peer",
+              atn_tun_set_peer(&wa, 0x7f000001u, wb.local_port) == ATN_OK &&
+              atn_tun_set_peer(&wb, 0x7f000001u, wa.local_port) == ATN_OK);
+        check("bad-ek hs", atn_tun_hs_send_init(&wa) == ATN_OK);
+        rc = atn_tun_pump(&wb, 3000);
+        check("bad-ek B INIT", rc == ATN_OK);
+        rc = atn_tun_pump(&wa, 3000);
+        check("bad-ek A not established",
+              rc == ATN_ERR_AUTH && wa.state == ATN_TUN_CLOSED);
+        atn_tun_wipe(&wa);
+        atn_tun_wipe(&wb);
+        atn_memzero(dk_b, sizeof(dk_b));
+        atn_memzero(dk_w, sizeof(dk_w));
+    }
+
     atn_net_fini();
     if (g_fail == 0) {
         printf("ALL PASSED\n");

@@ -46,7 +46,9 @@ atnsign verify keys/mldsa87.pk REPORT REPORT.sig
 
 `make report` runs `make test` then writes an unsigned PASS `REPORT`.
 Signing is a separate step when a key exists. This is the report format
-for REQ-5.2, not an emulator/S24 run.
+for REQ-5.2, not an emulator/S24 run. DEC-0023 adds a wrong-ek handshake
+fail and an in-house parser mutator to `make test`; that still does not
+checkbox SoT 5.2.
 
 `keys/` is gitignored. Lab keys on this builder are not the production
 air-gap key.

@@ -43,7 +43,8 @@ same commit.
 | `vendor/knox/README.md` | REQ-4.1 | DEC-0015 | Drop-in path for knoxsdk.jar |
 | `include/atn_dmon.h` / `src/dmon/atn_dmon.c` | REQ-4.1/4.4 | DEC-0016/0017/0020/0021 | Native session; hb/2FA flush; DEC-0007 tunnel; bind_any |
 | `tools/src.list` | REQ-5.1 | DEC-0020 | Frozen path list for `atnsign manifest` |
-| `tests/test_recipe.c` | REQ-5.1 | DEC-0020 | Makefile must not contain fetch URLs |
+| `tests/test_recipe.c` | REQ-5.1 / 6.2 | DEC-0020 / 0023 | Makefile + src/include/android: no fetch URLs |
+| `tests/test_fuzz.c` | REQ-6.1 | DEC-0023 | In-house HTTP/DNS/cfg mutator; not N-hour fuzz |
 | `tests/test_dmon.c` | REQ-4.4 | gates | flush zeros keys; silence UNTRUSTED; 2FA lockout |
 | `android/java/.../AtnKeystore.java` | REQ-4.1 | DEC-0016/0017 | AndroidKeyStore AES-256 GCM wrap, StrongBox then TEE |
 | `android/java/.../AtnPowerReceiver.java` | REQ-4.3 | DEC-0017 | Re-assert USB on ACTION_POWER_CONNECTED |
@@ -55,7 +56,7 @@ same commit.
 | `docs/SIGN.md` | REQ-5.1 | DEC-0019 / 0021 | Manifest + report wire format |
 | `include/atn_cfg.h` / `src/cfg/atn_cfg.c` | REQ-4.1 | DEC-0021 | Lab `atn-node.conf` parser |
 | `tests/test_cfg.c` | REQ-4.1 | gates | parse 127.0.0.1:2402, unknown keys fail |
-| `src/node/atn_node_cli.c` | REQ-4.1 | DEC-0021 | `atnnode` lab responder |
+| `src/node/atn_node_cli.c` | REQ-4.1 | DEC-0021 / 0023 | `atnnode` lab responder; demo = conf handshake |
 | `android/java/.../AtnNodeConfig.java` | REQ-4.1 | DEC-0021 | Java mirror of atn_cfg.c |
 | `src/crypto/atn_hmac.c` | REQ-1.1 | RFC 2104 | HMAC-SHA-256 |
 | `src/crypto/atn_hkdf.c` | REQ-1.1 | RFC 5869 §§2.2–2.3 | Extract then expand, SHA-256 |

@@ -4,6 +4,16 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0021 — fuzz / isolation / wrong-ek (DEC-0023) (2026-09-04)
+
+- **Host:** Windows x86_64
+- **`tests/test_fuzz.exe`:** ALL PASSED (4096 HTTP, 4096 DNS, 1024 cfg).
+- **`tests/test_recipe.exe`:** ALL PASSED (56 product paths; xmlns skipped).
+- **`tests/test_tun.exe`:** `bad-ek A not established`.
+- **`atnnode demo`:** conf handshake + echo OK.
+
+---
+
 ## BN-0020 — IPv4 heartbeat path (DEC-0022) (2026-09-04)
 
 - **Host:** Windows x86_64

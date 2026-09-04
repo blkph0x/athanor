@@ -23,20 +23,35 @@ static void print_hex(const uint8_t *p, size_t n)
 
 static int cmd_demo(void)
 {
-    atn_tun t;
+    atn_tun resp, init;
     atn_cfg c;
     uint8_t ek[ATN_MLKEM1024_EK_LEN], dk[ATN_MLKEM1024_DK_LEN];
+    uint8_t hello[4], back[64];
     char text[80 + ATN_MLKEM1024_EK_LEN * 2u];
-    size_t n, i;
-    uint16_t port;
+    char hdr[64];
+    size_t n, i, nrecv = 0;
+    int rc;
 
     if (atn_mlkem1024_keygen(ek, dk) != ATN_OK) {
         return 1;
     }
+    if (atn_tun_init_responder(&resp, dk) != ATN_OK) {
+        return 1;
+    }
+    atn_memzero(dk, sizeof(dk));
+    if (atn_tun_bind_any(&resp, 0) != ATN_OK || resp.local_port == 0) {
+        atn_tun_wipe(&resp);
+        return 1;
+    }
     {
-        static const char hdr[] = "peer_ipv4=127.0.0.1\npeer_port=2402\npeer_ek=";
-        memcpy(text, hdr, sizeof(hdr) - 1u);
-        n = sizeof(hdr) - 1u;
+        int hn = sprintf(hdr, "peer_ipv4=127.0.0.1\npeer_port=%u\npeer_ek=",
+                         (unsigned)resp.local_port);
+        if (hn < 0) {
+            atn_tun_wipe(&resp);
+            return 1;
+        }
+        memcpy(text, hdr, (size_t)hn);
+        n = (size_t)hn;
     }
     for (i = 0; i < ATN_MLKEM1024_EK_LEN; i++) {
         static const char hex[] = "0123456789abcdef";
@@ -44,26 +59,44 @@ static int cmd_demo(void)
         text[n++] = hex[ek[i] & 15u];
     }
     if (atn_cfg_parse(text, n, &c) != ATN_OK || !atn_cfg_ready(&c) ||
-        c.port != 2402 || c.ipv4_host != 0x7f000001u ||
-        memcmp(c.ek, ek, ATN_MLKEM1024_EK_LEN) != 0) {
+        c.port != resp.local_port || c.ipv4_host != 0x7f000001u) {
         fprintf(stderr, "cfg roundtrip failed\n");
+        atn_tun_wipe(&resp);
         return 1;
     }
-    if (atn_tun_init_responder(&t, dk) != ATN_OK) {
+    if (atn_tun_init_initiator(&init, c.ek) != ATN_OK ||
+        atn_tun_bind(&init, 0) != ATN_OK ||
+        atn_tun_set_peer(&init, c.ipv4_host, c.port) != ATN_OK) {
+        atn_tun_wipe(&init);
+        atn_tun_wipe(&resp);
         return 1;
     }
-    if (atn_tun_bind_any(&t, 0) != ATN_OK) {
-        atn_tun_wipe(&t);
+    if (atn_tun_hs_send_init(&init) != ATN_OK) {
+        atn_tun_wipe(&init);
+        atn_tun_wipe(&resp);
         return 1;
     }
-    port = t.local_port;
-    atn_tun_wipe(&t);
-    atn_memzero(dk, sizeof(dk));
-    if (port == 0) {
+    rc = atn_tun_pump(&resp, 3000);
+    if (rc != ATN_OK || atn_tun_pump(&init, 3000) != ATN_OK ||
+        init.state != ATN_TUN_ESTABLISHED ||
+        resp.state != ATN_TUN_ESTABLISHED) {
+        fprintf(stderr, "handshake failed\n");
+        atn_tun_wipe(&init);
+        atn_tun_wipe(&resp);
         return 1;
     }
-    printf("atnnode demo: cfg + bind_any port=%u OK (DEC-0021)\n",
-           (unsigned)port);
+    memcpy(hello, "lab!", 4);
+    if (atn_tun_send(&init, hello, 4) != ATN_OK ||
+        atn_tun_recv_data(&resp, back, &nrecv, sizeof(back), 3000) != ATN_OK ||
+        nrecv != 4 || memcmp(back, hello, 4) != 0) {
+        fprintf(stderr, "echo failed\n");
+        atn_tun_wipe(&init);
+        atn_tun_wipe(&resp);
+        return 1;
+    }
+    atn_tun_wipe(&init);
+    atn_tun_wipe(&resp);
+    printf("atnnode demo: conf handshake + echo OK (DEC-0023)\n");
     return 0;
 }
 

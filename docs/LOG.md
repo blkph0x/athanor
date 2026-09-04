@@ -4,6 +4,19 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — Headless pipeline gates (DEC-0023)
+
+- User: keep working on what we can (Knox / air-gap / Faraday still blocked).
+- `test_fuzz`: 4096 HTTP + 4096 DNS + 1024 cfg parse mutations
+  (SHA-256 counter). Not N-hour REQ-6.1.
+- `test_recipe` scans `src/` `include/` `android/` + Makefile for
+  fetch URLs.
+- Wrong-ek handshake: initiator AUTH-closes, does not ESTABLISH.
+- `atnnode demo` does conf-driven loopback handshake + echo.
+- SoT 5.2 / 6.1 / 6.2 stay `[ ]`.
+
+---
+
 ## 2026-09-04 — IPv4 is the required heartbeat path (DEC-0022)
 
 - User: must work on non-IPv6 networks; IPv4 reliably and safely; no

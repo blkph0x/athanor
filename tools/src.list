@@ -85,6 +85,7 @@ tests/test_cfg.c
 tests/test_crypto.c
 tests/test_dmon.c
 tests/test_dns.c
+tests/test_fuzz.c
 tests/test_hb.c
 tests/test_http.c
 tests/test_mldsa.c

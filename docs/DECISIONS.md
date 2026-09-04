@@ -565,3 +565,31 @@ A decision is recorded **before** code that depends on it is written.
     hb MAC does not close the tunnel. Tunnel AEAD fail still closes.
 - **Consequences:** IPv4-only networks keep the heartbeat. IPv6 is
   still ISS-0007. SoT 4.1 still needs an enrolled device.
+
+---
+
+## DEC-0023 — Headless pipeline gates: in-house fuzz, isolation scan, bad handshake
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** REQ-5.2 wants a signed report, a broken handshake that
+  fails, and no test-step package mirror. REQ-6.1 wants an in-house
+  mutator on our parsers. REQ-6.2 wants a strings/URL audit. Knox,
+  air-gap host, emulator S24, and N-hour fuzz are still unmeasured.
+  `atn_http_parse_request` and `atn_dns_parse_query` are public.
+- **Decision:**
+  - `tests/test_fuzz.c` mutates HTTP, DNS, and lab-cfg inputs with
+    SHA-256(counter) (deterministic). 4096 HTTP + 4096 DNS + 1024 cfg
+    iterations in `make test`. A crash fails the run. This is **not**
+    the REQ-6.1 “N hours” gate.
+  - Isolation scan: `tools/src.list` paths under `src/`, `include/`,
+    `android/` plus the product `Makefile` must not contain `http://`
+    or `https://` except Android XML `xmlns:` namespace URIs (not
+    fetches). Docs and GitHub Actions may still cite URLs (DEC-0020).
+  - Wrong-ek handshake: initiator encapsulates to a different ML-KEM
+    key than the responder holds; initiator must not reach
+    ESTABLISHED (`ATN_ERR_AUTH` on ACK).
+  - `atnnode demo` drives a loopback initiator from a parsed
+    `atn-node.conf` (same keys the phone will use).
+- **Consequences:** REQ-5.2 / 6.1 / 6.2 SoT stay `[ ]`. We have
+  runnable scaffolding, not an air-gap factory or a Faraday proof.
