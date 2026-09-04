@@ -53,8 +53,8 @@ custom code compilation validation.
 PHASE 1: PROPRIETARY CORE BUILD & LOW-LEVEL CRYPTO
 [X] REQ-1.1: Code and compile the custom low-level cryptographic math primitives.
 [X] REQ-1.1-PQ: ML-KEM-1024 + SHA-3/SHAKE + SHA-512 (FIPS 203/202/180-4).
-[ ] REQ-1.2: Build the proprietary UDP network tunneling engine from raw socket code.
-[ ] REQ-1.3: Build the custom 2FA challenge-response authentication binary.
+[X] REQ-1.2: Build the proprietary UDP network tunneling engine from raw socket code.
+[X] REQ-1.3: Build the custom 2FA challenge-response authentication binary.
 
 PHASE 2: SOVEREIGN WEB SERVER & GATEWAY ENGINE
 [ ] REQ-2.1: Compile the in-house HTTP/TLS listener binary (Zero outside dependencies).

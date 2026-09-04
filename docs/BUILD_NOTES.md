@@ -4,6 +4,20 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0006 — REQ-1.2 tunnel + REQ-1.3 2FA (2026-09-04)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0, `-lbcrypt -lws2_32`
+- **Command:** `make test`
+- **Result:**
+  - `tests/test_crypto.exe` ALL PASSED
+  - `tests/test_tun.exe` ALL PASSED (handshake, echo, no plaintext on wire,
+    replay drop, bad-MAC close)
+  - `tests/test_2fa.exe` ALL PASSED (enroll/verify/wrong key/replay/lockout)
+  - `atn2fa.exe demo` OK
+- **Link:** OS sockets only (ws2_32 / BSD sockets). No libuv.
+
+---
+
 ## BN-0005 — Local CI replay before GitHub Actions (2026-09-04)
 
 - **Host:** Windows x86_64 MinGW

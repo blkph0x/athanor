@@ -82,7 +82,7 @@ endif
 EXE :=
 ifeq ($(ATN_TARGET_OS),windows)
   EXE := .exe
-  LDFLAGS += -lbcrypt
+  LDFLAGS += -lbcrypt -lws2_32
 endif
 
 # POSIX feature macros: needed with -std=c99 so getrandom/open are declared.
@@ -119,12 +119,18 @@ SRC = \
 	src/crypto/atn_aead.c \
 	src/crypto/atn_nonce.c
 
+TUN_SRC = src/tun/atn_tun.c
+AUTH_SRC = src/auth/atn_2fa.c
+
 TEST_BIN = tests/test_crypto$(EXE)
+TEST_TUN = tests/test_tun$(EXE)
+TEST_2FA = tests/test_2fa$(EXE)
+CLI_2FA  = atn2fa$(EXE)
 LIB_BIN  = libatn_crypto.a
 
 .PHONY: all test lib info clean ci test-unsigned-char
 
-all: $(TEST_BIN)
+all: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(CLI_2FA)
 
 info:
 	$(info CC=$(CC))
@@ -139,13 +145,24 @@ info:
 $(TEST_BIN): $(SRC) tests/test_crypto.c include/atn_crypto.h include/atn_platform.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) tests/test_crypto.c $(LDFLAGS)
 
-test: $(TEST_BIN)
+$(TEST_TUN): $(SRC) $(TUN_SRC) tests/test_tun.c include/atn_tun.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) tests/test_tun.c $(LDFLAGS)
+
+$(TEST_2FA): $(SRC) $(AUTH_SRC) tests/test_2fa.c include/atn_2fa.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(AUTH_SRC) tests/test_2fa.c $(LDFLAGS)
+
+$(CLI_2FA): $(SRC) $(AUTH_SRC) src/auth/atn_2fa_cli.c include/atn_2fa.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(AUTH_SRC) src/auth/atn_2fa_cli.c $(LDFLAGS)
+
+test: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(CLI_2FA)
 ifeq ($(CROSS),1)
 	@echo "cross-compiled for $(MACHINE) ($(ATN_TARGET_OS)-$(ATN_ARCH))"
-	@echo "binary: $(TEST_BIN)"
-	@echo "run this file on the target; not executing it on the builder"
+	@echo "run binaries on the target; not executing them on the builder"
 else
 	$(TEST_BIN)
+	$(TEST_TUN)
+	$(TEST_2FA)
+	./$(CLI_2FA) demo
 endif
 
 # Same three commands GitHub Actions runs. Local pre-push runs `make test`.
@@ -156,10 +173,10 @@ test-unsigned-char:
 
 lib: $(LIB_BIN)
 
-$(LIB_BIN): $(SRC) include/atn_crypto.h include/atn_platform.h
-	$(CC) $(CFLAGS) -c $(SRC)
-	$(AR) rcs $@ atn_platform.o atn_secure.o atn_sha256.o atn_sha512.o atn_hmac.o atn_hkdf.o atn_fips202.o atn_mlkem.o atn_chacha20.o atn_poly1305.o atn_aead.o atn_nonce.o
+$(LIB_BIN): $(SRC) $(TUN_SRC) $(AUTH_SRC) include/atn_crypto.h include/atn_platform.h include/atn_tun.h include/atn_2fa.h
+	$(CC) $(CFLAGS) -c $(SRC) $(TUN_SRC) $(AUTH_SRC)
+	$(AR) rcs $@ atn_platform.o atn_secure.o atn_sha256.o atn_sha512.o atn_hmac.o atn_hkdf.o atn_fips202.o atn_mlkem.o atn_chacha20.o atn_poly1305.o atn_aead.o atn_nonce.o atn_tun.o atn_2fa.o
 
 clean:
-	-rm -f $(TEST_BIN) tests/test_crypto tests/test_crypto.exe $(LIB_BIN) atn_*.o
-	-cmd /c "del /Q tests\test_crypto.exe libatn_crypto.a atn_*.o 2>NUL"
+	-rm -f $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(CLI_2FA) $(LIB_BIN) atn_*.o
+	-cmd /c "del /Q tests\test_crypto.exe tests\test_tun.exe tests\test_2fa.exe atn2fa.exe libatn_crypto.a atn_*.o 2>NUL"

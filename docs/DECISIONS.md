@@ -138,3 +138,32 @@ A decision is recorded **before** code that depends on it is written.
 - **Consequences:** Adding a test means adding it to `make test`, never
   only to YAML. Local HEAD and `origin/main` match after every successful
   push.
+
+---
+
+## DEC-0007 — Tunnel packet format and one-way ML-KEM handshake
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** REQ-1.2 and T-0100 required a documented header before code.
+  DEC-0005 already chose ML-KEM-1024 + HKDF-SHA-512 + ChaCha20-Poly1305.
+  WireGuard-style static public keys (here: static ML-KEM ek) are a known
+  out-of-band identity model. ISS-0005 signatures are not ready.
+- **Decision:** Wire format and handshake as written in `docs/TUNNEL.md`.
+  IPv4 UDP only. Initiator encapsulates to responder ek. Identity = knowing
+  the correct ek. No tun/tap in this REQ — datagram API only.
+- **Consequences:** REQ-1.2 code must match TUNNEL.md. IPv6 is ISS-0007.
+  Rekey is ISS-0008.
+
+---
+
+## DEC-0008 — 2FA is HMAC-SHA-512 challenge-response, not TOTP
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** Cause/effect map prefers challenge-response so clock skew
+  cannot lock out. HMAC-SHA-512 is already in-tree (DEC-0005).
+- **Decision:** `HMAC-SHA-512(K, challenge ‖ "atn-2fa-v1")`. One-shot
+  challenges. Five failures lock the slot until revoke/re-enroll. Phase 1
+  store is in-memory; Knox replaces the backend in REQ-4.1.
+- **Consequences:** `atn2fa` CLI is the standalone binary. No TOTP.

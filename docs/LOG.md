@@ -4,6 +4,16 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — Phase 1 closed: tunnel + 2FA
+
+- DEC-0007 wire format in docs/TUNNEL.md. DEC-0008 HMAC-SHA-512 2FA.
+- UDP tunnel: ML-KEM-1024 handshake, ChaCha20-Poly1305 data, 64-seq window.
+- 2FA library + atn2fa CLI. make test ALL PASSED (BN-0006).
+- SoT REQ-1.2 and REQ-1.3 [X]. Next legal: REQ-2.1 listener (T-0200).
+- Residuals: ISS-0007 IPv6, ISS-0008 rekey, ISS-0005 ML-DSA.
+
+---
+
 ## 2026-09-04 — Actions queued then refused (ISS-0006)
 
 - Pushed 2ca2be9. Pre-push hook ran `make test` ALL PASSED. Local HEAD

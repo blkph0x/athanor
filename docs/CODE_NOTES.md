@@ -14,6 +14,12 @@ same commit.
 | `src/crypto/atn_fips202.c` | REQ-1.1-PQ | FIPS 202 | Keccak-f[1600], SHA3-256/512, SHAKE128/256 |
 | `src/crypto/atn_mlkem.c` | REQ-1.1-PQ | FIPS 203 | ML-KEM-1024 only |
 | `tests/kat_mlkem1024.h` | REQ-1.1-PQ | FIPS 203 KAT | First official-style ML-KEM-1024 vector |
+| `docs/TUNNEL.md` | REQ-1.2 | DEC-0007 | Wire format. Code must match. |
+| `include/atn_tun.h` / `src/tun/atn_tun.c` | REQ-1.2 | DEC-0007 | IPv4 UDP tunnel |
+| `include/atn_2fa.h` / `src/auth/atn_2fa.c` | REQ-1.3 | DEC-0008 | Challenge-response 2FA |
+| `src/auth/atn_2fa_cli.c` | REQ-1.3 | DEC-0008 | `atn2fa` standalone binary |
+| `tests/test_tun.c` | REQ-1.2 | gates | Loopback handshake, echo, replay, bad MAC |
+| `tests/test_2fa.c` | REQ-1.3 | gates | Enroll, wrong key, replay, lockout |
 | `src/crypto/atn_hmac.c` | REQ-1.1 | RFC 2104 | HMAC-SHA-256 |
 | `src/crypto/atn_hkdf.c` | REQ-1.1 | RFC 5869 §§2.2–2.3 | Extract then expand, SHA-256 |
 | `src/crypto/atn_chacha20.c` | REQ-1.1 | RFC 8439 §§2.1–2.4 | IETF 32-bit counter, 96-bit nonce |

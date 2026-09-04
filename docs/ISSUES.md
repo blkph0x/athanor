@@ -26,6 +26,25 @@ Status: `open` | `closed`
   line-by-line + KATs.
 - **Unblock by:** implement ML-DSA-87 from FIPS 204 with ACVP/KAT vectors.
 
+## ISS-0007 — Tunnel is IPv4-only
+
+- **Status:** open
+- **Opened:** 2026-09-04
+- **REQ:** REQ-1.2 follow-on
+- **Unknown:** DEC-0007 froze IPv4 UDP. IPv6 sockaddr layout is not specified.
+- **Must not invent:** dual-stack without a DEC.
+- **Unblock by:** DEC for IPv6 bind/send/recv, then code.
+
+## ISS-0008 — Tunnel rekey not implemented
+
+- **Status:** open
+- **Opened:** 2026-09-04
+- **REQ:** REQ-1.2 follow-on
+- **Unknown:** Cause/effect map lists REKEY in the state machine. DEC-0007
+  closes the session before seq wrap instead.
+- **Must not invent:** a rekey message type not in TUNNEL.md.
+- **Unblock by:** extend TUNNEL.md + DEC, then implement.
+
 ## ISS-0006 — GitHub Actions will not start: account billing lock
 
 - **Status:** open

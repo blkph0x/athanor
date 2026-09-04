@@ -137,7 +137,7 @@ VERIFICATION GATE (must all be true)
 --------------------------------------------------------------------------------
 REQ-1.2  Proprietary UDP network tunneling engine (raw sockets)
 --------------------------------------------------------------------------------
-STATUS: [ ]
+STATUS: [X]  (2026-09-04 — tests/test_tun.exe ALL PASSED; BN-0006)
 
 WHY (CAUSE)
   WireGuard/OpenVPN are foreign code and foreign packet formats. We need a
@@ -168,17 +168,18 @@ DEPENDS ON: REQ-1.1
 UNLOCKS:    REQ-2.1, REQ-2.3, REQ-3.1, REQ-3.3
 
 VERIFICATION GATE
-  [ ] Two processes on loopback complete handshake and echo payload
-  [ ] Packet capture shows no plaintext of the payload
-  [ ] Reordered / replayed packets are dropped
-  [ ] Session dies cleanly on MAC failure (no decrypt-anyway path)
-  [ ] Compiles with OS sockets only
+  [X] Two processes on loopback complete handshake and echo payload
+      (two endpoints, two UDP sockets, one test process — Windows has no fork)
+  [X] Packet capture shows no plaintext of the payload
+  [X] Reordered / replayed packets are dropped
+  [X] Session dies cleanly on MAC failure (no decrypt-anyway path)
+  [X] Compiles with OS sockets only
 
 
 --------------------------------------------------------------------------------
 REQ-1.3  Custom 2FA challenge-response authentication binary
 --------------------------------------------------------------------------------
-STATUS: [ ]
+STATUS: [X]  (2026-09-04 — tests/test_2fa.exe + atn2fa demo ALL PASSED; BN-0006)
 
 WHY (CAUSE)
   Passwords alone are stolen from consoles, notes, and shoulder-surf.
@@ -210,10 +211,10 @@ DEPENDS ON: REQ-1.1
 UNLOCKS:    REQ-2.2, REQ-4.2, node admission in REQ-3.3
 
 VERIFICATION GATE
-  [ ] Enroll → challenge → verify succeeds
-  [ ] Wrong key fails
-  [ ] Replay of a used response fails
-  [ ] Hash/MAC path is our REQ-1.1 code, not a system crypto provider
+  [X] Enroll → challenge → verify succeeds
+  [X] Wrong key fails
+  [X] Replay of a used response fails
+  [X] Hash/MAC path is our REQ-1.1 code, not a system crypto provider
 
 
 ================================================================================
@@ -928,8 +929,8 @@ ROLL-UP CHECKLIST (MIRROR OF SoT, WITH CAUSE IN ONE LINE)
 PHASE 1
 [X] REQ-1.1  Crypto primitives     — CAUSE: own the math; EFFECT: every secret derives here
 [X] REQ-1.1-PQ ML-KEM-1024 + SHA-3  — CAUSE: quantum computers; EFFECT: key establishment is FIPS 203 category 5
-[ ] REQ-1.2  UDP tunnel            — CAUSE: own the pipe; EFFECT: no WireGuard/OpenVPN
-[ ] REQ-1.3  2FA binary            — CAUSE: own the second factor; EFFECT: password theft is not enough
+[X] REQ-1.2  UDP tunnel            — CAUSE: own the pipe; EFFECT: no WireGuard/OpenVPN
+[X] REQ-1.3  2FA binary            — CAUSE: own the second factor; EFFECT: password theft is not enough
 
 PHASE 2
 [ ] REQ-2.1  HTTP/TLS listener     — CAUSE: own the socket; EFFECT: no Nginx/Node

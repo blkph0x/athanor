@@ -48,7 +48,10 @@ enum {
     ATN_ERR_AUTH    = 2, /* AEAD tag mismatch — treat as unauthenticated */
     ATN_ERR_NONCE   = 3, /* reused or non-monotonic nonce for this key/sender */
     ATN_ERR_ENTROPY = 4, /* OS CSPRNG failed */
-    ATN_ERR_LEN     = 5  /* output length exceeds construction limit */
+    ATN_ERR_LEN     = 5, /* output length exceeds construction limit */
+    ATN_ERR_SOCK    = 6, /* OS socket failure */
+    ATN_ERR_STATE   = 7, /* protocol/state machine refused the call */
+    ATN_ERR_LOCKOUT = 8  /* 2FA slot locked after ATN_2FA_FAIL_MAX */
 };
 
 /* ---- secure helpers (RFC 8439 §4; OS RNG) -------------------------------- */
