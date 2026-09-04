@@ -11,16 +11,15 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
-| T-0400 | blocked | REQ-4.1 | Drop `vendor/knox/knoxsdk.jar` (Partner login) then device-enroll |
+| T-0400 | blocked | REQ-4.1 | Drop `vendor/knox/knoxsdk.jar` (Partner / PTR) then device-enroll |
 
 ---
 
 ## Backlog (do not start early)
 
-Phase 4 needs the Knox SDK (not on this host). ML-DSA-87 is compiled
-(T-0500). Phase 5 is the air-gap build+sign factory that *uses* it.
-Do not spawn those implementation tasks until the blocker is a measured
-toolchain, not a guess.
+Phase 4 device enroll waits on T-0400 (real knoxsdk.jar). Stub
+classpath is in place. Phase 5 air-gap host (no default route, frozen
+compiler) is still unmeasured.
 
 ---
 
@@ -48,3 +47,5 @@ toolchain, not a guess.
 | T-0302 | done | REQ-3.3 | HMAC-SHA-512 heartbeat, UNTRUSTED + self-wipe |
 | T-0401 | done | REQ-4.4 | Native dmon binds hb/2FA lockout flush; Keystore wrap; DPM K=5 (DEC-0017). Device SoT still blocked on T-0400. |
 | T-0500 | done | ISS-0005 | ML-DSA-87 from FIPS 204; ACVP keyGen + Sign_internal KATs |
+| T-0510 | done | REQ-5.1 | `atnsign` SHA3-256 manifest + ML-DSA-87 (DEC-0019). Air-gap host still open. |
+| T-0402 | done | REQ-4.1 | Stub/real knoxsdk.jar classpath switch; ATN_STUB marker |

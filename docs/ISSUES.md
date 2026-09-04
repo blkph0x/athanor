@@ -116,8 +116,10 @@ Status: `open` | `closed`
   installed. Daemon Java compiles against in-tree stubs.
 - **Must not invent:** a fake Knox jar, or a SoT [X] for 4.1 without a
   device run.
-- **Unblock by:** user signs in, drops `vendor/knox/knoxsdk.jar`, enrolls
-  an S24–S26 as Device Owner / Profile Owner.
+- **Unblock by:** user signs in (after PTR/ISP if needed), drops
+  `vendor/knox/knoxsdk.jar`, enrolls an S24–S26 as Device Owner /
+  Profile Owner. Until then `make android-java` compiles
+  `android/stubs` (`ATN_STUB=true`). That is not a device build.
 
 ## ISS-0017 — Builder LAN DNS does not resolve dl.google.com / github.com
 

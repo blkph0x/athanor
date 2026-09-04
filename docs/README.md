@@ -19,6 +19,7 @@ In-tree trackers are canonical so work continues when GitHub is unreachable
 | [DNS.md](DNS.md) | REQ-2.3 RFC 1035 authoritative DNS (DEC-0011). |
 | [REPL.md](REPL.md) | REQ-3.1 shard/vector-clock replication (DEC-0013). |
 | [KNOX.md](KNOX.md) | REQ-4.x Knox attach + builder toolchain (DEC-0015). |
+| [SIGN.md](SIGN.md) | REQ-5.1 source manifest + `atnsign` (DEC-0019). |
 
 Rules: [`../DEVELOPMENT_RULES.md`](../DEVELOPMENT_RULES.md).
 Architecture: [`../SOURCE_OF_TRUTH.md`](../SOURCE_OF_TRUTH.md).

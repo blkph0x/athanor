@@ -46,6 +46,11 @@ same commit.
 | `android/java/.../AtnKeystore.java` | REQ-4.1 | DEC-0016/0017 | AndroidKeyStore AES-256 GCM wrap, StrongBox then TEE |
 | `android/java/.../AtnPowerReceiver.java` | REQ-4.3 | DEC-0017 | Re-assert USB on ACTION_POWER_CONNECTED |
 | `android/java/.../AtnBootReceiver.java` | REQ-4.1 | DEC-0015 | Start daemon on BOOT_COMPLETED |
+| `android/java/.../AtnKnoxBuild.java` | REQ-4.1 | DEC-0019 | `isStub()` via ATN_STUB field |
+| `include/atn_sign.h` / `src/sign/atn_sign.c` | REQ-5.1 | DEC-0019 | SHA3-256 manifest + ML-DSA-87 |
+| `src/sign/atn_sign_cli.c` | REQ-5.1 | DEC-0019 | `atnsign` CLI |
+| `tests/test_sign.c` | REQ-5.1 | gates | sort, sign, verify, tamper |
+| `docs/SIGN.md` | REQ-5.1 | DEC-0019 | Manifest wire format |
 | `src/crypto/atn_hmac.c` | REQ-1.1 | RFC 2104 | HMAC-SHA-256 |
 | `src/crypto/atn_hkdf.c` | REQ-1.1 | RFC 5869 §§2.2–2.3 | Extract then expand, SHA-256 |
 | `src/crypto/atn_chacha20.c` | REQ-1.1 | RFC 8439 §§2.1–2.4 | IETF 32-bit counter, 96-bit nonce |

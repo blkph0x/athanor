@@ -132,6 +132,7 @@ TREE_SRC = src/store/atn_tree.c
 REPL_SRC = src/repl/atn_repl.c
 HB_SRC   = src/hb/atn_hb.c
 DMON_SRC = src/dmon/atn_dmon.c
+SIGN_SRC = src/sign/atn_sign.c
 
 TEST_BIN = tests/test_crypto$(EXE)
 TEST_TUN = tests/test_tun$(EXE)
@@ -143,14 +144,16 @@ TEST_REPL = tests/test_repl$(EXE)
 TEST_HB   = tests/test_hb$(EXE)
 TEST_DMON = tests/test_dmon$(EXE)
 TEST_MLDSA = tests/test_mldsa$(EXE)
+TEST_SIGN = tests/test_sign$(EXE)
 CLI_2FA  = atn2fa$(EXE)
 CLI_HTTP = atnhttp$(EXE)
 CLI_DNS  = atndns$(EXE)
+CLI_SIGN = atnsign$(EXE)
 LIB_BIN  = libatn_crypto.a
 
-.PHONY: all test lib info clean ci test-unsigned-char android-so android-java
+.PHONY: all test lib info clean ci test-unsigned-char android-so android-java android
 
-all: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS)
+all: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN)
 
 info:
 	$(info CC=$(CC))
@@ -201,7 +204,13 @@ $(TEST_DMON): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(DMON_SRC) tests/test_dmo
 $(TEST_MLDSA): $(SRC) tests/test_mldsa.c include/atn_crypto.h tests/kat_mldsa87.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) tests/test_mldsa.c $(LDFLAGS)
 
-test: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS)
+$(TEST_SIGN): $(SRC) $(SIGN_SRC) tests/test_sign.c include/atn_sign.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(SIGN_SRC) tests/test_sign.c $(LDFLAGS)
+
+$(CLI_SIGN): $(SRC) $(SIGN_SRC) src/sign/atn_sign_cli.c include/atn_sign.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(SIGN_SRC) src/sign/atn_sign_cli.c $(LDFLAGS)
+
+test: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN)
 ifeq ($(CROSS),1)
 	@echo "cross-compiled for $(MACHINE) ($(ATN_TARGET_OS)-$(ATN_ARCH))"
 	@echo "run binaries on the target; not executing them on the builder"
@@ -216,9 +225,11 @@ else
 	$(TEST_HB)
 	$(TEST_DMON)
 	$(TEST_MLDSA)
+	$(TEST_SIGN)
 	./$(CLI_2FA) demo
 	./$(CLI_HTTP) demo
 	./$(CLI_DNS) demo
+	./$(CLI_SIGN) demo
 endif
 
 # Same three commands GitHub Actions runs. Local pre-push runs `make test`.
@@ -229,37 +240,50 @@ test-unsigned-char:
 
 lib: $(LIB_BIN)
 
-$(LIB_BIN): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(TREE_SRC) $(REPL_SRC) $(HB_SRC) $(DMON_SRC) include/atn_crypto.h include/atn_platform.h include/atn_tun.h include/atn_2fa.h include/atn_http.h include/atn_dns.h include/atn_tree.h include/atn_repl.h include/atn_hb.h include/atn_dmon.h
-	$(CC) $(CFLAGS) -c $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(TREE_SRC) $(REPL_SRC) $(HB_SRC) $(DMON_SRC)
-	$(AR) rcs $@ atn_platform.o atn_secure.o atn_sha256.o atn_sha512.o atn_hmac.o atn_hkdf.o atn_fips202.o atn_mlkem.o atn_mldsa.o atn_chacha20.o atn_poly1305.o atn_aead.o atn_nonce.o atn_tun.o atn_2fa.o atn_http.o atn_dns.o atn_tree.o atn_repl.o atn_hb.o atn_dmon.o
+$(LIB_BIN): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(TREE_SRC) $(REPL_SRC) $(HB_SRC) $(DMON_SRC) $(SIGN_SRC) include/atn_crypto.h include/atn_platform.h include/atn_tun.h include/atn_2fa.h include/atn_http.h include/atn_dns.h include/atn_tree.h include/atn_repl.h include/atn_hb.h include/atn_dmon.h include/atn_sign.h
+	$(CC) $(CFLAGS) -c $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(TREE_SRC) $(REPL_SRC) $(HB_SRC) $(DMON_SRC) $(SIGN_SRC)
+	$(AR) rcs $@ atn_platform.o atn_secure.o atn_sha256.o atn_sha512.o atn_hmac.o atn_hkdf.o atn_fips202.o atn_mlkem.o atn_mldsa.o atn_chacha20.o atn_poly1305.o atn_aead.o atn_nonce.o atn_tun.o atn_2fa.o atn_http.o atn_dns.o atn_tree.o atn_repl.o atn_hb.o atn_dmon.o atn_sign.o
 
 clean:
-	-rm -f $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(LIB_BIN) atn_*.o android/libatn.so
-	-cmd /c "del /Q tests\test_crypto.exe tests\test_tun.exe tests\test_2fa.exe tests\test_http.exe tests\test_dns.exe tests\test_tree.exe tests\test_repl.exe tests\test_hb.exe tests\test_dmon.exe tests\test_mldsa.exe atn2fa.exe atnhttp.exe atndns.exe libatn_crypto.a atn_*.o 2>NUL"
+	-rm -f $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN) $(LIB_BIN) atn_*.o android/libatn.so
+	-cmd /c "del /Q tests\test_crypto.exe tests\test_tun.exe tests\test_2fa.exe tests\test_http.exe tests\test_dns.exe tests\test_tree.exe tests\test_repl.exe tests\test_hb.exe tests\test_dmon.exe tests\test_mldsa.exe tests\test_sign.exe atn2fa.exe atnhttp.exe atndns.exe atnsign.exe libatn_crypto.a atn_*.o 2>NUL"
 
 # Android NDK aarch64 shared lib + javac against platform android.jar (DEC-0015).
-# knoxsdk.jar is optional: without it we compile stubs (not a device build).
+# Real Partner jar: vendor/knox/knoxsdk.jar (gitignored). Else in-tree stubs.
 ANDROID_NDK ?= $(LOCALAPPDATA)/Android/Sdk/ndk/27.3.13750724
 ANDROID_CC  ?= $(ANDROID_NDK)/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android21-clang.cmd
 ANDROID_AR  ?= $(ANDROID_NDK)/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ar.exe
 ANDROID_JAR ?= $(LOCALAPPDATA)/Android/Sdk/platforms/android-31/android.jar
+REAL_KNOX   := $(wildcard vendor/knox/knoxsdk.jar)
 
 JNI_SRC = android/jni/atn_jni.c
+DAEMON_JAVA = \
+	android/java/com/athanor/daemon/AtnNative.java \
+	android/java/com/athanor/daemon/AtnKnoxBuild.java \
+	android/java/com/athanor/daemon/AtnKnoxPolicy.java \
+	android/java/com/athanor/daemon/AtnKeystore.java \
+	android/java/com/athanor/daemon/AtnDeviceAdminReceiver.java \
+	android/java/com/athanor/daemon/AtnBootReceiver.java \
+	android/java/com/athanor/daemon/AtnPowerReceiver.java \
+	android/java/com/athanor/daemon/AtnDaemonService.java
+STUB_JAVA = \
+	android/stubs/com/samsung/android/knox/EnterpriseDeviceManager.java \
+	android/stubs/com/samsung/android/knox/restriction/RestrictionPolicy.java \
+	android/stubs/com/samsung/android/knox/devicesecurity/PasswordPolicy.java
 
 android-so:
 	$(MAKE) CC="$(ANDROID_CC)" AR="$(ANDROID_AR)" lib
 	$(ANDROID_CC) -shared -o android/libatn.so $(JNI_SRC) $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(DMON_SRC) -Iinclude -llog
 
 android-java:
-	@echo "javac against $(ANDROID_JAR) + android/stubs (STUB BUILD unless vendor/knox/knoxsdk.jar exists)"
+ifeq ($(REAL_KNOX),)
+	@echo "STUB BUILD: no vendor/knox/knoxsdk.jar - compiling android/stubs (not a device build)"
 	javac -source 8 -target 8 -bootclasspath "$(ANDROID_JAR)" -d android/out \
-		android/stubs/com/samsung/android/knox/EnterpriseDeviceManager.java \
-		android/stubs/com/samsung/android/knox/restriction/RestrictionPolicy.java \
-		android/stubs/com/samsung/android/knox/devicesecurity/PasswordPolicy.java \
-		android/java/com/athanor/daemon/AtnNative.java \
-		android/java/com/athanor/daemon/AtnKnoxPolicy.java \
-		android/java/com/athanor/daemon/AtnKeystore.java \
-		android/java/com/athanor/daemon/AtnDeviceAdminReceiver.java \
-		android/java/com/athanor/daemon/AtnBootReceiver.java \
-		android/java/com/athanor/daemon/AtnPowerReceiver.java \
-		android/java/com/athanor/daemon/AtnDaemonService.java
+		$(STUB_JAVA) $(DAEMON_JAVA)
+else
+	@echo "REAL knoxsdk.jar: $(REAL_KNOX)"
+	javac -source 8 -target 8 -bootclasspath "$(ANDROID_JAR)" -classpath "$(REAL_KNOX)" -d android/out \
+		$(DAEMON_JAVA)
+endif
+
+android: android-so android-java

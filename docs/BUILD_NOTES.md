@@ -4,6 +4,16 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0016 — Knox stub classpath + atnsign (2026-09-04)
+
+- **Host:** Windows x86_64. `vendor/knox/knoxsdk.jar` still absent
+  (Partner / PTR).
+- **`make android-java`:** STUB BUILD path (compiles `android/stubs` +
+  `AtnKnoxBuild`).
+- **`tests/test_sign.exe` + `atnsign demo`:** recorded with `make test`.
+
+---
+
 ## BN-0015 — ML-DSA-87 ACVP KATs (2026-09-04)
 
 - **Host:** Windows x86_64, gcc 11.3.0

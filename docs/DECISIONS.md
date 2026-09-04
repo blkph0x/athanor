@@ -442,3 +442,32 @@ A decision is recorded **before** code that depends on it is written.
 - **Consequences:** REQ-5.1 can sign artifacts with this primitive once
   the air-gap pipeline exists. Handshake transcripts may be signed
   later; that is not this commit. ISS-0005 closes when those KATs pass.
+
+---
+
+## DEC-0019 — Source manifest is SHA3-256 lines, signed ML-DSA-87
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** Cause/effect REQ-5.1: “Hash list of every source file
+  goes into the signed manifest.” DEC-0018 closed the signature
+  primitive. SHA3-256 is already in-tree (FIPS 202). ML-DSA-87 `ctx`
+  is an application string ≤255 bytes (FIPS 204 Algorithm 2).
+- **Decision:**
+  - Manifest bytes (UTF-8, LF newlines, no BOM):
+    `ATN-MANIFEST-1\n` then one line per file, paths sorted by
+    `strcmp`, each line `lowercase-hex(SHA3-256(file))` + one space +
+    path + `\n`. Paths use `/`, no spaces, no newlines.
+  - Signature is `atn_mldsa87_sign(sk, manifest, n, ctx="atn-mf-v1", 8)`.
+  - Signing key is a 32-byte seed expanded by KeyGen_internal, stored
+    off-tree (`keys/`, gitignored). This builder may generate a lab
+    key; that is not the air-gap production key.
+  - Knox: `vendor/knox/knoxsdk.jar` is the real Partner jar (gitignored).
+    In-tree `android/stubs` compile when the real jar is absent and
+    export `ATN_STUB=true` so the daemon can tell. Dropping the real
+    jar is a classpath switch, not a code rewrite. Stub builds are
+    not device builds (DEC-0015).
+- **Consequences:** `atnsign` can prove “these bytes were signed by
+  our ML-DSA-87”. REQ-5.1 still needs an air-gapped host and a frozen
+  toolchain before the SoT checkbox. SoT 4.1 still needs the real jar
+  plus an enrolled S24–S26.

@@ -10,6 +10,7 @@
 
 #include "atn_crypto.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #define Q          8380417
@@ -908,21 +909,31 @@ int atn_mldsa87_sign(const uint8_t sk[ATN_MLDSA87_SK_LEN],
                      uint8_t sig[ATN_MLDSA87_SIG_LEN])
 {
     uint8_t rnd[32];
-    uint8_t mp[2 + 255 + 4096];
-    size_t mp_len = 0;
+    uint8_t *mp;
+    size_t cap, mp_len = 0;
     int rc;
-    if (n > 4096) {
+    if (n > ATN_MLDSA87_MSG_MAX) {
         return ATN_ERR_LEN;
     }
-    rc = encode_mprime(mp, &mp_len, sizeof(mp), msg, n, ctx, ctx_len);
+    cap = 2u + 255u + n;
+    mp = (uint8_t *)malloc(cap);
+    if (mp == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    rc = encode_mprime(mp, &mp_len, cap, msg, n, ctx, ctx_len);
     if (rc != ATN_OK) {
+        free(mp);
         return rc;
     }
     if (atn_random_bytes(rnd, 32) != ATN_OK) {
+        atn_memzero(mp, cap);
+        free(mp);
         return ATN_ERR_ENTROPY;
     }
     rc = atn_mldsa87_sign_internal(sk, mp, mp_len, rnd, sig);
     atn_memzero(rnd, 32);
+    atn_memzero(mp, cap);
+    free(mp);
     return rc;
 }
 
@@ -931,15 +942,24 @@ int atn_mldsa87_verify(const uint8_t pk[ATN_MLDSA87_PK_LEN],
                        const uint8_t *ctx, size_t ctx_len,
                        const uint8_t sig[ATN_MLDSA87_SIG_LEN])
 {
-    uint8_t mp[2 + 255 + 4096];
-    size_t mp_len = 0;
+    uint8_t *mp;
+    size_t cap, mp_len = 0;
     int rc;
-    if (n > 4096) {
+    if (n > ATN_MLDSA87_MSG_MAX) {
         return ATN_ERR_LEN;
     }
-    rc = encode_mprime(mp, &mp_len, sizeof(mp), msg, n, ctx, ctx_len);
+    cap = 2u + 255u + n;
+    mp = (uint8_t *)malloc(cap);
+    if (mp == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    rc = encode_mprime(mp, &mp_len, cap, msg, n, ctx, ctx_len);
     if (rc != ATN_OK) {
+        free(mp);
         return rc;
     }
-    return atn_mldsa87_verify_internal(pk, mp, mp_len, sig);
+    rc = atn_mldsa87_verify_internal(pk, mp, mp_len, sig);
+    atn_memzero(mp, cap);
+    free(mp);
+    return rc;
 }

@@ -54,12 +54,14 @@ public class AtnDaemonService extends Service {
             startForeground(1, n);
         }
         Log.i(TAG, "platform=" + AtnNative.platformId());
+        boolean stub = AtnKnoxBuild.isStub();
+        Log.i(TAG, "knoxStub=" + stub);
         boolean ks = AtnKeystore.ensureKey();
         Log.i(TAG, "keystore=" + ks);
         ComponentName admin = new ComponentName(this, AtnDeviceAdminReceiver.class);
         boolean usb = AtnKnoxPolicy.applyUsbChargeOnly(this);
         boolean pw = AtnKnoxPolicy.applyPasswordPolicy(this, admin);
-        Log.i(TAG, "usb=" + usb + " password=" + pw);
+        Log.i(TAG, "usb=" + usb + " password=" + pw + " (false on stub)");
         if (ks) {
             loadNative();
         }

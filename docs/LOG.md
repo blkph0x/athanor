@@ -4,6 +4,19 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — Knox stub switch + atnsign (DEC-0019)
+
+- User: keep moving; stub knox.jar until PTR + Partner account; patch
+  the real jar in later.
+- `make android-java` uses `vendor/knox/knoxsdk.jar` when present,
+  otherwise `android/stubs` with `ATN_STUB=true`. Daemon logs
+  `knoxStub=`. SoT 4.1 stays `[ ]`.
+- `atnsign`: SHA3-256 path-sorted manifest, ML-DSA-87 ctx `atn-mf-v1`.
+  Demo + `tests/test_sign` gate sort/sign/verify/tamper. REQ-5.1 still
+  needs an air-gapped host.
+
+---
+
 ## 2026-09-04 — ML-DSA-87 (FIPS 204)
 
 - DEC-0018: category-5 signatures are ML-DSA-87 only. Pure ML-DSA,

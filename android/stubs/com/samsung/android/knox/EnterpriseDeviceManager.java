@@ -10,6 +10,9 @@ import com.samsung.android.knox.restriction.RestrictionPolicy;
 import com.samsung.android.knox.devicesecurity.PasswordPolicy;
 
 public class EnterpriseDeviceManager {
+    /* Marker the real knoxsdk.jar does not have. Daemon fail-closes. */
+    public static final boolean ATN_STUB = true;
+
     private EnterpriseDeviceManager() {}
 
     public static EnterpriseDeviceManager getInstance(Context context) {

@@ -26,8 +26,10 @@ Samsung will not give us the zip without a Knox Developer account:
 4. Copy `knoxsdk.jar` to `vendor/knox/knoxsdk.jar`
 5. License key goes in a local file that is gitignored, never in source
 
-Until that file exists, `make android` builds a **stub** APK/classes
-that refuse to apply policy. Do not flash a stub build.
+Until that file exists, `make android-java` compiles **in-tree stubs**
+(`ATN_STUB=true`, every policy call throws). Dropping the real jar at
+the path above is a classpath switch (DEC-0019). Do not flash a stub
+build. The daemon logs `knoxStub=true` so we cannot pretend policy stuck.
 
 ## APIs we are allowed to call (cited)
 

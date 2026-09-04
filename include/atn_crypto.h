@@ -48,6 +48,7 @@
 #define ATN_MLDSA87_SIG_LEN    4627u
 #define ATN_MLDSA87_SEED_LEN   32u
 #define ATN_MLDSA87_RND_LEN    32u
+#define ATN_MLDSA87_MSG_MAX    65536u /* DEC-0019 source manifest fits */
 
 enum {
     ATN_OK          = 0,
