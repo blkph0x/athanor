@@ -4,6 +4,19 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0011 — REQ-3.1 replication + REQ-3.3 heartbeat (2026-09-04)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0
+- **Command:** `tests/test_repl.exe` and `tests/test_hb.exe`
+- **Result:** both ALL PASSED
+  - repl: shard deterministic, put A → get B, wipe A / B still serves,
+    flipped tag AUTH, catch-up after offline put
+  - hb: 3 nodes LIVE, forged MAC AUTH, silence → C DEAD and key
+    zeroed, A/B LIVE, one tunnel emit/pump
+- **CI (prior commit a127344):** all four jobs success.
+
+---
+
 ## BN-0010 — REQ-3.2 AVL tree (2026-09-04)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0

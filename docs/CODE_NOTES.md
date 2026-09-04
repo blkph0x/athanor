@@ -30,6 +30,11 @@ same commit.
 | `tests/test_dns.c` | REQ-2.3 | gates | In-zone A, REFUSED, NXDOMAIN, loopback querier |
 | `include/atn_tree.h` / `src/store/atn_tree.c` | REQ-3.2 | DEC-0012 | AVL blobs + AEAD snapshot |
 | `tests/test_tree.c` | REQ-3.2 | gates | put/get/del/scan, snapshot hides plaintext, restore |
+| `docs/REPL.md` | REQ-3.1 | DEC-0013 | Block, shard, vector clock, PUT/CATCHUP |
+| `include/atn_repl.h` / `src/repl/atn_repl.c` | REQ-3.1 | DEC-0013 | Replicate AEAD blocks over the tunnel |
+| `tests/test_repl.c` | REQ-3.1 | gates | A→B, kill A, tamper AUTH, catch-up, shard |
+| `include/atn_hb.h` / `src/hb/atn_hb.c` | REQ-3.3 | DEC-0014 | HMAC-SHA-512 heartbeat |
+| `tests/test_hb.c` | REQ-3.3 | gates | 3-node live, forge, silence wipe, one UDP hop |
 | `src/crypto/atn_hmac.c` | REQ-1.1 | RFC 2104 | HMAC-SHA-256 |
 | `src/crypto/atn_hkdf.c` | REQ-1.1 | RFC 5869 §§2.2–2.3 | Extract then expand, SHA-256 |
 | `src/crypto/atn_chacha20.c` | REQ-1.1 | RFC 8439 §§2.1–2.4 | IETF 32-bit counter, 96-bit nonce |

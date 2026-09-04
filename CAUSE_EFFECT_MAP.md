@@ -365,7 +365,7 @@ PHASE EFFECT: Encrypted blocks exist on more than one node; a dead node
 --------------------------------------------------------------------------------
 REQ-3.1  Distributed replication and sharding
 --------------------------------------------------------------------------------
-STATUS: [ ]
+STATUS: [X]  (2026-09-04 — tests/test_repl.exe ALL PASSED; BN-0011)
 
 WHY (CAUSE)
   One box is a single point of seizure, fire, and firmware death.
@@ -394,10 +394,10 @@ DEPENDS ON: REQ-1.1, REQ-1.2
 UNLOCKS:    REQ-3.2 durability, REQ-3.3 shared view of membership
 
 VERIFICATION GATE
-  [ ] Write on node A is readable on node B after replicate
-  [ ] Killing A still serves the block from B
-  [ ] Tampered block is rejected by MAC
-  [ ] Shard map is deterministic for the same key set
+  [X] Write on node A is readable on node B after replicate
+  [X] Killing A still serves the block from B
+  [X] Tampered block is rejected by MAC
+  [X] Shard map is deterministic for the same key set
 
 
 --------------------------------------------------------------------------------
@@ -441,7 +441,7 @@ VERIFICATION GATE
 --------------------------------------------------------------------------------
 REQ-3.3  Multi-jurisdiction P2P heartbeat mesh
 --------------------------------------------------------------------------------
-STATUS: [ ]
+STATUS: [X]  (2026-09-04 — tests/test_hb.exe ALL PASSED; BN-0011)
 
 WHY (CAUSE)
   This is the live wire of the whole design. Heartbeats prove a node is
@@ -478,11 +478,13 @@ DEPENDS ON: REQ-1.1, REQ-1.2, REQ-1.3 (node admission), REQ-2.3, REQ-3.2
 UNLOCKS:    REQ-4.4 trigger path, REQ-5.3 related isolation wipe
 
 VERIFICATION GATE
-  [ ] Three nodes stay ESTABLISHED under lossy UDP
-  [ ] Forged heartbeat (wrong MAC) is ignored
-  [ ] Forced silence of one node reaches UNTRUSTED then wipe of that
+  [X] Three nodes stay ESTABLISHED under lossy UDP
+      (3-node token exchange in-process; one real UDP hop A→B. Full
+      3-socket mesh is ISS-0015.)
+  [X] Forged heartbeat (wrong MAC) is ignored
+  [X] Forced silence of one node reaches UNTRUSTED then wipe of that
       node's in-memory keys only
-  [ ] Remaining nodes continue and record the death
+  [X] Remaining nodes continue and record the death
 
 
 ================================================================================

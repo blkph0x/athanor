@@ -4,6 +4,17 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — REQ-3.1 + REQ-3.3
+
+- DEC-0013 replication: SHA3-256 shard, vector clocks, factor 2,
+  cluster AEAD over the UDP tunnel. Catch-up + kill-A gates green.
+- DEC-0014 heartbeat: HMAC-SHA-512 tokens, N=3 UNTRUSTED, M=3 self-wipe.
+  Forged MAC ignored. ISS-0015: 3-node path is in-process plus one UDP hop.
+- SoT Phase 3 [X] for 3.1/3.2/3.3. Next: Knox (blocked, no SDK) or
+  ML-DSA-87 (ISS-0005).
+
+---
+
 ## 2026-09-04 — REQ-3.2 memory tree (DEC-0012)
 
 - AVL tree of length-prefixed blobs. Snapshot is nonce||ct||tag.

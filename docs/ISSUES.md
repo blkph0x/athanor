@@ -85,6 +85,17 @@ Status: `open` | `closed`
   what we did (or did not) measure. SoT gate "constant-time checks" stays
   honest.
 
+## ISS-0015 — Three-node heartbeat mesh is not three UDP sockets
+
+- **Status:** open
+- **Opened:** 2026-09-04
+- **REQ:** REQ-3.3 follow-on
+- **Unknown:** The 3-node LIVE/UNTRUSTED/wipe gate ran in-process
+  (token ingest). One real tunnel hop was tested (A emit → B pump).
+  A 3-pair UDP mesh was not executed.
+- **Must not invent:** a “3-node UDP” badge from in-process delivery.
+- **Unblock by:** three `atn_tun` pairs and lossy drop in `test_hb`.
+
 ## ISS-0012 — No tcpdump of DNS; TCP may not share the UDP ephemeral port on Windows
 
 - **Status:** open

@@ -269,3 +269,47 @@ A decision is recorded **before** code that depends on it is written.
   - No SQL. No third-party pager.
 - **Consequences:** DNS/2FA persistence can later sit on this tree.
   Replication of snapshots is REQ-3.1, not this DEC.
+
+---
+
+## DEC-0013 — Replication is sharded AEAD blocks over the UDP tunnel
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** REQ-3.1 requires a documented block, a documented shard
+  function, vector clocks (not LWW), replica factor, catch-up, and
+  transport on REQ-1.2. Tunnel DATA max is 1024 bytes (TUNNEL.md), so
+  key/value caps are those that fit a PUT. SHA3-256 is already in-tree
+  (FIPS 202). Version vectors are the cited concurrent-update rule
+  (clocks / Bayou-style dominance); we do not invent a CRDT merge.
+- **Decision:** Wire and shard as `docs/REPL.md`. Factor 2, 8 shards,
+  max 4 nodes in this DEC. Cluster AEAD key is out-of-band 32 bytes.
+  Conflicts are flagged, not silently merged.
+- **Consequences:** `tests/test_repl` is the gate. Console display of
+  conflicts is a REQ-2.2 follow-on (the flag is in the record now).
+  More than 4 nodes needs a new DEC.
+
+---
+
+## DEC-0014 — Heartbeat is HMAC-SHA-512 over (bucket, epoch, head)
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** Cause/effect REQ-3.3 specifies
+  `MAC(K_node, time_bucket || roster_epoch || last_block_head)` on
+  REQ-1.2, miss → UNTRUSTED → wipe of **our** memory. HMAC-SHA-512 is
+  in-tree (DEC-0005). Wall-clock is a side channel and a test flake;
+  the caller supplies `bucket` (tests use a counter). ML-DSA signed
+  roster is ISS-0005; roster is an explicit id list until then.
+- **Decision:**
+  - Token = HMAC-SHA-512(K, bucket64le || epoch64le || head32).
+  - Accept a token whose bucket is ≥ last-1 (one reorder). A tick
+    with no token for this bucket increments miss; one dropped
+    interval is recoverable if the next token arrives.
+  - `ATN_HB_N=3` consecutive misses (outside the window) → UNTRUSTED.
+    `ATN_HB_M=3` further misses → that node wipes **its own** cluster
+    key material (`atn_memzero`). Peers record DEAD; they do not wipe
+    anyone else.
+  - Wire on tunnel DATA: `0x48 ('H') || bucket || epoch || head || mac`.
+- **Consequences:** REQ-4.4 mobile notify is a stub return until Knox.
+  DNS seeding of addresses is optional; tests use an explicit roster.

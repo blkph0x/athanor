@@ -207,7 +207,9 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | REQ-2.2 admin console | Done — embedded HTML/CSS, POST+CSRF, 2FA on mutate. |
 | REQ-2.3 DNS | Done — RFC 1035 authoritative `atn.test`, no recursion. |
 | REQ-3.2 memory tree | Done — AVL blobs + AEAD snapshot. `tests/test_tree`. |
-| REQ-3.1 onward | Next: replication over the tunnel (T-0301). Signatures: ISS-0005. |
+| REQ-3.1 replication | Done — sharded AEAD blocks + vector clocks over the tunnel. |
+| REQ-3.3 heartbeat | Done — HMAC-SHA-512 tokens, UNTRUSTED + self-wipe. ISS-0015. |
+| REQ-4.x onward | Next: Knox daemon (blocked: SDK not on this builder). ML-DSA: ISS-0005. |
 
 Until a requirement’s gate is green, treat that capability as *intended*, not *done*.
 

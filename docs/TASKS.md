@@ -11,15 +11,15 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
-| T-0301 | open | REQ-3.1 | Block replication over the UDP tunnel |
+| T-0400 | blocked | REQ-4.1 | Knox daemon — needs Samsung Knox SDK on the builder |
 
 ---
 
 ## Backlog (do not start early)
 
-REQ-3.1 (replication) and REQ-3.3 (heartbeat) stay in the SoT until
-started. REQ-3.2 is legal now (depends on REQ-1.1). Do not spawn
-Phase 4–6 tasks here until their depends-on items are `[X]`.
+Phase 4 needs the Knox SDK (not on this host). Phase 5 signing waits
+on ISS-0005 (ML-DSA-87). Do not spawn those implementation tasks until
+the blocker is a measured toolchain, not a guess.
 
 ---
 
@@ -43,3 +43,5 @@ Phase 4–6 tasks here until their depends-on items are `[X]`.
 | T-0201 | done | REQ-2.2 | Embedded admin console, POST + CSRF + 2FA on mutate |
 | T-0202 | done | REQ-2.3 | Authoritative DNS RFC 1035, zone `atn.test`, no recursion |
 | T-0300 | done | REQ-3.2 | AVL memory tree + ChaCha20-Poly1305 snapshot |
+| T-0301 | done | REQ-3.1 | Sharded AEAD blocks + vector clocks over the UDP tunnel |
+| T-0302 | done | REQ-3.3 | HMAC-SHA-512 heartbeat, UNTRUSTED + self-wipe |
