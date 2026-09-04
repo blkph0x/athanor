@@ -122,7 +122,7 @@ SRC = \
 TEST_BIN = tests/test_crypto$(EXE)
 LIB_BIN  = libatn_crypto.a
 
-.PHONY: all test lib info clean
+.PHONY: all test lib info clean ci test-unsigned-char
 
 all: $(TEST_BIN)
 
@@ -147,6 +147,12 @@ ifeq ($(CROSS),1)
 else
 	$(TEST_BIN)
 endif
+
+# Same three commands GitHub Actions runs. Local pre-push runs `make test`.
+ci: info test lib
+
+test-unsigned-char:
+	$(MAKE) test CFLAGS="-std=c99 -Wall -Wextra -Werror -O2 -Iinclude -Itests -funsigned-char"
 
 lib: $(LIB_BIN)
 

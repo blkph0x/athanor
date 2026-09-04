@@ -1,0 +1,77 @@
+# Athanor CI — public replay of the in-tree Makefile (DEC-0006).
+#
+# Contract: this workflow may only invoke:
+#   make info
+#   make test
+#   make lib
+#   make test-unsigned-char   (Linux x86_64 extra, ARM char default)
+#
+# It does not install OpenSSL, libsodium, or any crypto library.
+# The compiler on the runner is a builder tool, not a product dependency.
+# Production signing remains REQ-5.1 (air-gapped). This job is transparency.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  posix:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x86_64
+          - os: ubuntu-24.04-arm
+            name: linux-aarch64
+          - os: macos-latest
+            name: darwin
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          cc -dumpmachine || true
+          gcc -dumpmachine || true
+          make --version | head -1
+      - name: make info
+        run: make info
+      - name: make test
+        run: make test
+      - name: make lib
+        run: make lib
+      - name: ARM-like char default
+        if: matrix.name == 'linux-x86_64'
+        run: make test-unsigned-char
+
+  windows:
+    name: windows-x86_64
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: mingw-w64-x86_64-gcc make
+      - name: make info
+        run: make info
+      - name: make test
+        run: make test
+      - name: make lib
+        run: make lib

@@ -109,3 +109,32 @@ A decision is recorded **before** code that depends on it is written.
   Shared secret feeds HKDF-SHA-512 into ChaCha20-Poly1305 session keys.
   ISS-0001 is narrowed from “unknown primitive” to “packet layout around
   ML-KEM-1024.”
+
+---
+
+## DEC-0006 — GitHub Actions is a public replay of `make test`, not a second build system
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** User asked for GitHub build/test pipeline and transparency,
+  plus local testing before push, with this machine and GitHub always
+  matching. SoT Phase 5 still forbids GitHub Actions as the *production
+  signer* (REQ-5.1). `gh api` showed Actions already enabled on
+  blkph0x/athanor. Local gcc 11.3.0 + GNU Make 4.3 already work
+  (`make test` ALL PASSED).
+- **Decision:**
+  - The Makefile is the only build recipe. CI YAML may only call
+    `make info`, `make test`, `make lib`, and `make test-unsigned-char`.
+  - Local pre-push hook runs `make test`. Push is refused on failure.
+  - `tools/ci_local.ps1` / `tools/ci_local.sh` replay the full CI command
+    set on this laptop.
+  - GitHub runs the same Makefile on Linux x86_64, Linux aarch64,
+    macOS, and Windows MinGW so ARM execution (ISS-0004) gets a public log.
+  - Green badge means “this commit built in public.” It does not replace
+    the air-gapped signer.
+  - Direct pushes to `main` stay allowed (solo foundry). We do not enable
+    “must use PRs” so we cannot lock ourselves out. Force-push is
+    discouraged; not blocked yet.
+- **Consequences:** Adding a test means adding it to `make test`, never
+  only to YAML. Local HEAD and `origin/main` match after every successful
+  push.

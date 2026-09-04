@@ -1,5 +1,7 @@
 # Athanor
 
+[![ci](https://github.com/blkph0x/athanor/actions/workflows/ci.yml/badge.svg)](https://github.com/blkph0x/athanor/actions/workflows/ci.yml)
+
 **Sovereign infrastructure, smelted from first principles.**
 
 Athanor is a closed-loop communications, storage, and endpoint stack that you compile yourself, run yourself, and own yourself. No cloud tenant. No vendor VPN. No package mirror. No CDN. No “trust this binary we downloaded.”
@@ -8,6 +10,8 @@ Internal architecture name: **SovereignFoundry (SF-ARCH) v2.0.0**
 Rule of the foundry: **zero external libraries, zero third-party runtimes, zero hosted dependencies.**
 
 **Build (Windows, Linux, ARM, Android NDK):** see [`docs/BUILD.md`](docs/BUILD.md). Short version: `make test` on the target, or `make CC=aarch64-linux-gnu-gcc` to cross-compile.
+
+**Pipeline:** local `make test` and GitHub Actions run the **same Makefile**. See [`docs/CI.md`](docs/CI.md). Pre-push hook refuses a push that fails tests. After `git push`, this laptop and `origin/main` are the same commit.
 
 > An *athanor* is the alchemist’s furnace built to hold a constant fire without feeding it from the outside. That is the point of this project. The heat has to come from ore we smelted.
 

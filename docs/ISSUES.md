@@ -66,4 +66,5 @@ Status: `open` | `closed`
 - **Must not invent:** a green ARM checkbox from an x86 run.
 - **Unblock by:** run `make test` on an aarch64 Linux box, an ARM Windows
   box, or an Android NDK adb-run, and append BUILD_NOTES with that
-  dumpmachine and `ALL PASSED`.
+  dumpmachine and `ALL PASSED`. GitHub job `linux-aarch64`
+  (`ubuntu-24.04-arm`) is the public attempt (DEC-0006).

@@ -4,6 +4,18 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — GitHub Actions + local gate (DEC-0006)
+
+- User wanted a full GitHub build/test pipeline, local testing before
+  push, and laptop/GitHub always matching.
+- Workflow `.github/workflows/ci.yml` runs only Makefile targets on
+  Linux x86_64, Linux aarch64, macOS, Windows MinGW.
+- `git config core.hooksPath .githooks`; pre-push runs `make test`.
+- `tools/ci_local.ps1` is the local full replay. No extra packages were
+  required on this machine (gcc 11.3 + make 4.3 already present).
+
+---
+
 ## 2026-09-04 — Quantum-resistant KEM (DEC-0005)
 
 - User required bleeding-edge quantum-proof encryption, no exceptions.

@@ -4,6 +4,16 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0005 — Local CI replay before GitHub Actions (2026-09-04)
+
+- **Host:** Windows x86_64 MinGW
+- **Command:** `powershell -File tools\ci_local.ps1`
+- **Result:** LOCAL CI OK — `make info`, `make test` ALL PASSED, `make lib` produced `libatn_crypto.a`
+- **Hooks:** `git config core.hooksPath .githooks` set in this clone
+- **No new packages installed** — gcc 11.3.0 and GNU Make 4.3 already on PATH
+
+---
+
 ## BN-0004 — ML-KEM-1024 + SHA-3/SHAKE + SHA-512 (2026-09-04)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0

@@ -25,6 +25,9 @@ same commit.
 | `tools/build.sh` | REQ-1.1 | DEC-0004 | POSIX/ARM/Android builder |
 | `tools/build.bat` | REQ-1.1 | DEC-0004 | Windows native builder |
 | `docs/BUILD.md` | REQ-1.1 | DEC-0004 | How to build every listed target |
+| `.github/workflows/ci.yml` | — | DEC-0006 | Public `make test` on four OS/arch jobs |
+| `.githooks/pre-push` | — | DEC-0006 | Refuses push if `make test` fails |
+| `tools/ci_local.ps1` | — | DEC-0006 | Local replay of the Actions command set |
 
 Module-level commentary lives in the file headers. Do not duplicate the spec
 here — point at it.

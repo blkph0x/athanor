@@ -13,6 +13,7 @@ In-tree trackers are canonical so work continues when GitHub is unreachable
 | [LOG.md](LOG.md) | Chronological session log. |
 | [SPEC_INDEX.md](SPEC_INDEX.md) | Specifications we implement; the anti-guess list. |
 | [BUILD.md](BUILD.md) | How to compile on Windows, Linux, ARM, Android NDK. |
+| [CI.md](CI.md) | Local + GitHub Actions contract. Same `make test`. |
 
 Rules: [`../DEVELOPMENT_RULES.md`](../DEVELOPMENT_RULES.md).
 Architecture: [`../SOURCE_OF_TRUTH.md`](../SOURCE_OF_TRUTH.md).

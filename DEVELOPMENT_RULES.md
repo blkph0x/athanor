@@ -167,6 +167,9 @@ files do not `#ifdef` the math. OS calls live in `atn_secure.c` /
 ## 9. Git
 
 - `main` is the signed history of the foundry.
+- Run `make test` before push. The `.githooks/pre-push` hook enforces this.
+  GitHub Actions replays the same Makefile (DEC-0006). Do not add CI-only
+  compile flags.
 - Commit messages say *what* and *why*, and name the REQ (`REQ-1.1`).
 - Do not commit keys, nonces used in production, or machine-local secrets.
   `.gitignore` is part of the spec of what must not leak.
