@@ -4,6 +4,33 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0014 — DEC-0017 dmon hb/2FA flush + Keystore wrap (2026-09-04)
+
+- **Host:** Windows x86_64. ping 8.8.8.8 18 ms. github.com via 1.1.1.1 →
+  4.237.22.38. `vendor/knox/knoxsdk.jar` still absent.
+- **Command:** `make test` (includes `tests/test_dmon.exe`)
+- **Result:** ALL PASSED — including UNTRUSTED-at-N=3 zeros keys, 2FA
+  lockout flush, no-peer silence keeps keys.
+- **`make android-so`:** NDK r27d `aarch64-linux-android21-clang` linked
+  `android/libatn.so` with dmon JNI (hb + 2FA).
+- **`make android-java`:** javac against android-31 + stubs. Deprecation
+  notes on DPM min-letters/numeric (expected; APIs still present).
+- **Not a device build.** SoT 4.1–4.4 stay `[ ]`.
+
+---
+
+## BN-0013 — Native daemon flush + Android Keystore path (2026-09-04)
+
+- **Host:** Windows x86_64, ping 8.8.8.8 OK (19 ms). Prior DNS hiccup gone
+  for ICMP; `knoxsdk.jar` still absent.
+- **Command:** `tests/test_dmon.exe`
+- **Result:** ALL PASSED — load, 2FA, flush zeros device/cluster keys,
+  2FA gone, reload works.
+- **Java:** `AtnKeystore` + `AtnBootReceiver` compile against android-31.
+- **TIMA:** not called (deprecated API 33). DEC-0016.
+
+---
+
 ## BN-0012 — Android NDK r27d installed; Knox jar still Partner-gated (2026-09-04)
 
 - **Host:** Windows x86_64. LAN DNS (`10.1.1.1`) does not resolve

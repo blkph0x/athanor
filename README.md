@@ -209,7 +209,7 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | REQ-3.2 memory tree | Done — AVL blobs + AEAD snapshot. `tests/test_tree`. |
 | REQ-3.1 replication | Done — sharded AEAD blocks + vector clocks over the tunnel. |
 | REQ-3.3 heartbeat | Done — HMAC-SHA-512 tokens, UNTRUSTED + self-wipe. ISS-0015. |
-| REQ-4.x onward | Next: Knox daemon (blocked: SDK not on this builder). ML-DSA: ISS-0005. |
+| REQ-4.x onward | Native dmon flush + Keystore wrap on this builder (DEC-0017). Device Knox still blocked: ISS-0016. ML-DSA: ISS-0005. |
 
 Until a requirement’s gate is green, treat that capability as *intended*, not *done*.
 

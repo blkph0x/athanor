@@ -4,6 +4,19 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — Keep going after network hiccup
+
+- Ping 8.8.8.8 works from the builder (18 ms). github.com resolves via
+  1.1.1.1 to 4.237.22.38. knoxsdk.jar still Partner-only (ISS-0016).
+- DEC-0017: native dmon flushes on hb UNTRUSTED/DEAD and 2FA lockout.
+  Java wraps device||cluster||id under AndroidKeyStore AES-GCM; wrap
+  file deleted on flush. DPM min letters/numeric + password-fail K=5.
+  USB re-assert on POWER_CONNECTED.
+- SoT 4.1–4.4 stay `[ ]` — no enrolled device, no knoxsdk.jar.
+- ISS-0019: 60s hb bucket is policy, not a Faraday measurement.
+
+---
+
 ## 2026-09-04 — Knox toolchain: NDK in, jar still Partner-only
 
 - User asked to download/install so Phase 4 can start.

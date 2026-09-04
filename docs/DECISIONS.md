@@ -350,3 +350,67 @@ A decision is recorded **before** code that depends on it is written.
   is on disk, (2) an S24–S26 is enrolled as DO/PO, (3) the service
   starts on that device. NDK compile of `libatn.so` can be gated on
   this builder without a phone.
+
+---
+
+## DEC-0016 — On S24–S26, device keys use Android Keystore, not TIMA enable APIs
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** Samsung deprecated TIMA/CCM in Knox 3.7 (API 33, Oct 2020)
+  and those APIs do not work on Android 12 / Knox 3.8
+  (docs.samsungknox.com deprecation-of-tima-ccm-keystore-support).
+  S24–S26 ship Android 14+. Calling `enableTimaKeystore` would be a
+  dead API. Replacement is Android Keystore2. Hardware-backed keys:
+  `KeyGenParameterSpec` with `setIsStrongBoxBacked(true)` when the
+  device has StrongBox (AOSP Keystore).
+- **Decision:**
+  - Native `atn_dmon` holds RAM copies of device/cluster keys, 2FA, hb.
+    `atn_dmon_flush` zeros them (REQ-4.4 in-process gate).
+  - Java `AtnKeystore` creates an AES-256 key in `AndroidKeyStore`
+    alias `atn-device`. Prefer StrongBox; if the provider throws, fall
+    back to TEE (still hardware-backed). Keys are non-exportable
+    (`setIsExtractable` is not called; default false on Keystore).
+  - We do **not** call TIMA enable APIs on this target generation.
+- **Consequences:** SoT “TIMA loop” is attach-to-attested-boot +
+  Keystore, not `enableTimaKeystore`. ISS-0018 records the deprecation.
+
+---
+
+## DEC-0017 — Daemon flush binds heartbeat, 2FA lockout, and password-fail K
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** Cause/effect REQ-4.4 lists flush triggers as REQ-3.3
+  UNTRUSTED / missed token, lockout (REQ-4.2), Faraday (REQ-5.3).
+  REQ-5.3 says do not wipe every underground elevator ride. DEC-0014
+  already set N=3 misses → UNTRUSTED, M=3 further → DEAD. AOSP
+  `DevicePolicyManager.setPasswordMinimumLetters` /
+  `setPasswordMinimumNumeric` are the APIs Knox documents as the
+  DA-deprecation mirrors (docs.samsungknox.com da-deprecation-and-samsung).
+  `DeviceAdminReceiver.onPasswordFailed` +
+  `getCurrentFailedPasswordAttempts` + `lockNow` are AOSP. AES-GCM
+  wrap uses NIST SP 800-38D 96-bit IV (12 bytes) and 128-bit tag, which
+  is what `AndroidKeyStore` `AES/GCM/NoPadding` produces. `ATN_2FA_FAIL_MAX`
+  is already 5 (DEC-0008).
+- **Decision:**
+  - `atn_dmon_hb_tick` flushes RAM on `ATN_HB_UNTRUSTED` or `ATN_HB_DEAD`.
+    Zero peers never flush (DEC-0014 `n_peers==0` path).
+  - Production bucket is 60 seconds (`ATN_DMON_HB_BUCKET_SEC`). N=3 is
+    180 seconds of silence before UNTRUSTED flush.
+  - Wrap blob is `device_key[32] || cluster[32] || hb_id[8]`, AES-GCM
+    under alias `atn-device`, file `atn-wrap.bin`. Flush deletes the
+    wrap file so reboot cannot restore keys (4.4 re-enroll gate). The
+    Keystore wrapping key stays.
+  - Password K=5 (same as 2FA): `onPasswordFailed` → native flush +
+    delete wrap + `lockNow`. We do **not** call
+    `setMaximumFailedPasswordsForWipe` (factory reset is the optional
+    wipe in cause/effect; not enabled).
+  - DPM: `PASSWORD_QUALITY_ALPHANUMERIC`, min length 12, min letters 1,
+    min numeric 1. Biometric remains convenience-after-quality (Knox
+    biometric-authentication page).
+  - USB policy is re-asserted on `ACTION_POWER_CONNECTED`.
+  - 2FA `ATN_ERR_LOCKOUT` flushes the whole daemon session.
+- **Consequences:** In-process 4.4 gates can be proven on this PC.
+  Device 4.1–4.3 still need knoxsdk.jar + enrolled S24–S26 (ISS-0016).
+  Bucket period is policy, not a Faraday measurement (ISS-0019).

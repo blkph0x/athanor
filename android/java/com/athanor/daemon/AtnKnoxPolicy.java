@@ -10,13 +10,15 @@ import com.samsung.android.knox.devicesecurity.PasswordPolicy;
 import com.samsung.android.knox.restriction.RestrictionPolicy;
 
 /**
- * Apply cited Knox/DPM policies. REQ-4.2 / 4.3. Spec: docs/KNOX.md, DEC-0015.
- * Stub jar throws UnsupportedOperationException — caller must not pretend
- * the policy stuck.
+ * Apply cited Knox/DPM policies. REQ-4.2 / 4.3. Spec: docs/KNOX.md, DEC-0015,
+ * DEC-0017. Stub jar throws UnsupportedOperationException — caller must not
+ * pretend the policy stuck.
  */
 public final class AtnKnoxPolicy {
     private static final String TAG = "atn-knox";
     public static final int PASSWORD_MIN = 12;
+    /* DEC-0017: K=5 matches ATN_2FA_FAIL_MAX. Flush + lockNow, no factory wipe. */
+    public static final int PASSWORD_FAIL_FLUSH = 5;
 
     private AtnKnoxPolicy() {}
 
@@ -49,6 +51,9 @@ public final class AtnKnoxPolicy {
             dpm.setPasswordQuality(admin,
                     DevicePolicyManager.PASSWORD_QUALITY_ALPHANUMERIC);
             dpm.setPasswordMinimumLength(admin, PASSWORD_MIN);
+            /* AOSP DPM; Knox DA-deprecation page lists these as the mirrored APIs. */
+            dpm.setPasswordMinimumLetters(admin, 1);
+            dpm.setPasswordMinimumNumeric(admin, 1);
         } catch (SecurityException e) {
             Log.w(TAG, "DPM password SecurityException", e);
             return false;

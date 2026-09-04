@@ -85,6 +85,30 @@ Status: `open` | `closed`
   what we did (or did not) measure. SoT gate "constant-time checks" stays
   honest.
 
+## ISS-0018 — TIMA Keystore enable APIs are dead on S24–S26
+
+- **Status:** open (accepted: we do not call them)
+- **Opened:** 2026-09-04
+- **REQ:** REQ-4.1 / 4.4
+- **Evidence:** Samsung deprecated TIMA/CCM in Knox 3.7; APIs fail on
+  Android 12 / Knox 3.8. Target phones are newer.
+- **Must not invent:** a TIMA firmware hook.
+- **Unblock by:** DEC-0016 Android Keystore path (implemented). Close
+  when a device run shows `atn-device` is hardware-backed.
+
+## ISS-0019 — Heartbeat bucket period is policy, not a measured Faraday test
+
+- **Status:** open
+- **Opened:** 2026-09-04
+- **REQ:** REQ-4.4 / 5.3
+- **Unknown:** DEC-0017 set 60-second buckets so N=3 is 180 seconds of
+  silence before UNTRUSTED flush. That is a documented policy choice
+  from the elevator note in cause/effect, not a bag-in-lab measurement.
+- **Must not invent:** a “Faraday verified” badge from the Windows
+  `test_dmon` counter ticks.
+- **Unblock by:** enrolled S24–S26 in a measured Faraday bag (REQ-5.3
+  gate) after knoxsdk.jar (ISS-0016).
+
 ## ISS-0016 — knoxsdk.jar is not downloadable without a Knox Partner login
 
 - **Status:** open

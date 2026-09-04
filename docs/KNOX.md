@@ -52,8 +52,38 @@ Entry:
 
 Android 15+: app must be Device Owner or Profile Owner.
 
+## TIMA vs Android Keystore (DEC-0016)
+
+`TimaKeystore.enableTimaKeystore` is **deprecated API 33** and does not
+work on Android 12+ / Knox 3.8. S24–S26 are Android 14+. We do not call
+it. Device keys go in `AndroidKeyStore` alias `atn-device` (AES-256,
+StrongBox if present, else TEE). RAM copies live in `atn_dmon` and are
+wiped by `atn_dmon_flush`.
+
 ## Native
 
-`android/jni/` links `src/crypto/*.c`, `src/tun/atn_tun.c`,
-`src/auth/atn_2fa.c`, `src/hb/atn_hb.c` into `libatn.so`.
+`android/jni/` links crypto, tun, 2fa, hb, dmon into `libatn.so`.
 Java talks to it with JNI. No OkHttp, no Play services.
+
+## Daemon session (DEC-0017)
+
+Native `atn_dmon` holds RAM copies. Flush zeros them and Java deletes
+`atn-wrap.bin` so a reboot cannot restore cluster keys.
+
+| Trigger | What happens |
+|---|---|
+| Heartbeat UNTRUSTED/DEAD (N=3 silent 60s buckets) | `atn_dmon_flush` |
+| 2FA `ATN_ERR_LOCKOUT` (5 fails) | `atn_dmon_flush` |
+| DPM password fail count ≥ 5 | flush + delete wrap + `lockNow` |
+| `ACTION_POWER_CONNECTED` | re-assert USB charge-only |
+| Service `onDestroy` | RAM flush only (wrap file kept) |
+
+Password DPM (AOSP, Knox DA-deprecation mirrors):
+
+- `setPasswordQuality(..., PASSWORD_QUALITY_ALPHANUMERIC)`
+- `setPasswordMinimumLength(..., 12)`
+- `setPasswordMinimumLetters(..., 1)`
+- `setPasswordMinimumNumeric(..., 1)`
+
+Factory-reset-on-fail (`setMaximumFailedPasswordsForWipe`) is **not**
+enabled. Wrap format: NIST SP 800-38D 12-byte IV + AES-GCM ciphertext.

@@ -45,3 +45,4 @@ the blocker is a measured toolchain, not a guess.
 | T-0300 | done | REQ-3.2 | AVL memory tree + ChaCha20-Poly1305 snapshot |
 | T-0301 | done | REQ-3.1 | Sharded AEAD blocks + vector clocks over the UDP tunnel |
 | T-0302 | done | REQ-3.3 | HMAC-SHA-512 heartbeat, UNTRUSTED + self-wipe |
+| T-0401 | done | REQ-4.4 | Native dmon binds hb/2FA lockout flush; Keystore wrap; DPM K=5 (DEC-0017). Device SoT still blocked on T-0400. |
