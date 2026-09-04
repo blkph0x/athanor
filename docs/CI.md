@@ -63,6 +63,11 @@ Workflow: `.github/workflows/ci.yml`
 Runs on every push to `main`, every pull request, and manual
 “Run workflow”. Logs are public: https://github.com/blkph0x/athanor/actions
 
+**Current blocker (ISS-0006):** the GitHub account is billing-locked, so
+runners never start. The workflow file is correct; GitHub refused the
+queue. Local `make test` is the working gate until billing is cleared,
+then re-run the workflow from the Actions tab.
+
 ## How the two trees stay the same
 
 1. You change files locally.

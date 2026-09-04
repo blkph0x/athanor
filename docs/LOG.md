@@ -4,6 +4,16 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — Actions queued then refused (ISS-0006)
+
+- Pushed 2ca2be9. Pre-push hook ran `make test` ALL PASSED. Local HEAD
+  equals origin/main.
+- GitHub run 33848702338 failed in ~4–9s on all four jobs with
+  “account is locked due to a billing issue.” No compile happened.
+- Workflow stays in tree. Re-run after billing is fixed.
+
+---
+
 ## 2026-09-04 — GitHub Actions + local gate (DEC-0006)
 
 - User wanted a full GitHub build/test pipeline, local testing before

@@ -26,6 +26,21 @@ Status: `open` | `closed`
   line-by-line + KATs.
 - **Unblock by:** implement ML-DSA-87 from FIPS 204 with ACVP/KAT vectors.
 
+## ISS-0006 — GitHub Actions will not start: account billing lock
+
+- **Status:** open
+- **Opened:** 2026-09-04
+- **REQ:** DEC-0006 pipeline
+- **Evidence:** Run https://github.com/blkph0x/athanor/actions/runs/33848702338
+  — all four jobs (linux-x86_64, linux-aarch64, darwin, windows-x86_64)
+  annotated: "The job was not started because your account is locked due
+  to a billing issue." Steps arrays were empty; this is not a Makefile
+  failure.
+- **Must not invent:** a green badge. Local `make test` passed; GitHub did
+  not execute.
+- **Unblock by:** fix billing on the GitHub account (Settings → Billing),
+  then Actions → ci → Re-run all jobs on commit `2ca2be9` or later.
+
 ## ISS-0002 — SHA-256 empty/abc/two-block fixtures need FIPS page confirmation on audit
 
 - **Status:** open (accepted for use with citation; confirm page numbers when
