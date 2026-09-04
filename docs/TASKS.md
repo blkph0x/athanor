@@ -53,3 +53,4 @@ compiler) is still unmeasured.
 | T-0511 | done | REQ-5.1 | `atnsign manifest` + `tools/src.list` + Makefile recipe-check |
 | T-0404 | done | REQ-4.1 | Lab `atn-node.conf` + `bind_any` + `atnnode` responder (DEC-0021). Device SoT still blocked on T-0400. |
 | T-0512 | done | REQ-5.2 | `ATN-REPORT-1` + `atnsign report` / `make report`. Emulator/S24 still open. |
+| T-0303 | done | REQ-3.3 | ISS-0015: three UDP pairs + lossy AC drop in `test_hb` |

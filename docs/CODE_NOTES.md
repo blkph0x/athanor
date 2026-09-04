@@ -37,7 +37,7 @@ same commit.
 | `include/atn_repl.h` / `src/repl/atn_repl.c` | REQ-3.1 | DEC-0013 | Replicate AEAD blocks over the tunnel |
 | `tests/test_repl.c` | REQ-3.1 | gates | A→B, kill A, tamper AUTH, catch-up, shard |
 | `include/atn_hb.h` / `src/hb/atn_hb.c` | REQ-3.3 | DEC-0014 | HMAC-SHA-512 heartbeat |
-| `tests/test_hb.c` | REQ-3.3 | gates | 3-node live, forge, silence wipe, one UDP hop |
+| `tests/test_hb.c` | REQ-3.3 | gates | 3-node live, forge, silence wipe, one UDP hop, 3-pair mesh + lossy AC |
 | `android/` | REQ-4.1 | DEC-0015 | Daemon Java + JNI. Stubs until knoxsdk.jar. |
 | `android/jni/atn_jni.c` | REQ-4.1 | DEC-0015 | JNI to libatn.so |
 | `vendor/knox/README.md` | REQ-4.1 | DEC-0015 | Drop-in path for knoxsdk.jar |

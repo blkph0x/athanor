@@ -4,6 +4,15 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0019 — three UDP heartbeat pairs (2026-09-04)
+
+- **Host:** Windows x86_64
+- **Command:** `tests/test_hb.exe`
+- **Result:** ALL PASSED including `mesh 3-pair live`, `lossy AC drop`,
+  A/C UNTRUSTED on the dropped pair, B still LIVE/trusts A.
+
+---
+
 ## BN-0018 — lab cfg + report + bind-any (2026-09-04)
 
 - **Host:** Windows x86_64, gcc 11.3.0

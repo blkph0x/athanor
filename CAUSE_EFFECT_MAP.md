@@ -479,8 +479,8 @@ UNLOCKS:    REQ-4.4 trigger path, REQ-5.3 related isolation wipe
 
 VERIFICATION GATE
   [X] Three nodes stay ESTABLISHED under lossy UDP
-      (3-node token exchange in-process; one real UDP hop A→B. Full
-      3-socket mesh is ISS-0015.)
+      (in-process 3-node tokens; three UDP pairs AB/AC/BC; lossy AC
+      drop marks A↔C UNTRUSTED, B still live. ISS-0015 closed.)
   [X] Forged heartbeat (wrong MAC) is ignored
   [X] Forced silence of one node reaches UNTRUSTED then wipe of that
       node's in-memory keys only

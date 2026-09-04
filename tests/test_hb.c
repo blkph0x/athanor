@@ -54,6 +54,47 @@ static int deliver(atn_hb *from, atn_hb *to, uint64_t b)
     return atn_hb_ingest(to, tok, sizeof(tok)) == ATN_OK ? 0 : -1;
 }
 
+static int hs_pair(atn_tun *init, atn_tun *resp)
+{
+    uint8_t ek[ATN_MLKEM1024_EK_LEN], dk[ATN_MLKEM1024_DK_LEN];
+    if (atn_mlkem1024_keygen(ek, dk) != ATN_OK) {
+        return -1;
+    }
+    if (atn_tun_init_initiator(init, ek) != ATN_OK ||
+        atn_tun_init_responder(resp, dk) != ATN_OK) {
+        return -1;
+    }
+    if (atn_tun_bind(init, 0) != ATN_OK || atn_tun_bind(resp, 0) != ATN_OK) {
+        return -1;
+    }
+    if (atn_tun_set_peer(init, 0x7f000001u, resp->local_port) != ATN_OK ||
+        atn_tun_set_peer(resp, 0x7f000001u, init->local_port) != ATN_OK) {
+        return -1;
+    }
+    if (atn_tun_hs_send_init(init) != ATN_OK) {
+        return -1;
+    }
+    if (atn_tun_pump(resp, 3000) != ATN_OK ||
+        atn_tun_pump(init, 3000) != ATN_OK) {
+        return -1;
+    }
+    return 0;
+}
+
+static int emit_on(atn_hb *h, atn_tun *t, uint64_t bucket)
+{
+    h->tun = t;
+    return atn_hb_emit(h, bucket) == ATN_OK ? 0 : -1;
+}
+
+static int pump_on(atn_hb *h, atn_tun *t)
+{
+    int rc;
+    h->tun = t;
+    rc = atn_hb_pump(h, 1000);
+    return rc == ATN_OK ? 0 : -1;
+}
+
 static int round3(atn_hb *x, atn_hb *y, atn_hb *z, uint64_t b)
 {
     if (deliver(x, y, b) != 0 || deliver(x, z, b) != 0) {
@@ -173,6 +214,83 @@ int main(void)
         atn_hb_wipe(&hb);
         atn_tun_wipe(&ta);
         atn_tun_wipe(&tb);
+        atn_net_fini();
+    }
+
+    /* ISS-0015: three UDP pairs (AB, AC, BC) + lossy drop of AC. */
+    {
+        atn_tun ab_a, ab_b, ac_a, ac_c, bc_b, bc_c;
+        atn_hb ha, hb, hc;
+        uint64_t u;
+        int mesh_ok = 1;
+        check("mesh net", atn_net_init() == ATN_OK);
+        check("mesh hs AB", hs_pair(&ab_a, &ab_b) == 0);
+        check("mesh hs AC", hs_pair(&ac_a, &ac_c) == 0);
+        check("mesh hs BC", hs_pair(&bc_b, &bc_c) == 0);
+        check("mesh hb",
+              atn_hb_init(&ha, ida, ka, 1, head, NULL) == ATN_OK &&
+              atn_hb_init(&hb, idb, kb, 1, head, NULL) == ATN_OK &&
+              atn_hb_init(&hc, idc, kc, 1, head, NULL) == ATN_OK);
+        check("mesh peers",
+              atn_hb_add_peer(&ha, idb, kb) == ATN_OK &&
+              atn_hb_add_peer(&ha, idc, kc) == ATN_OK &&
+              atn_hb_add_peer(&hb, ida, ka) == ATN_OK &&
+              atn_hb_add_peer(&hb, idc, kc) == ATN_OK &&
+              atn_hb_add_peer(&hc, ida, ka) == ATN_OK &&
+              atn_hb_add_peer(&hc, idb, kb) == ATN_OK);
+        for (u = 20; u <= 22; u++) {
+            if (emit_on(&ha, &ab_a, u) != 0 || emit_on(&ha, &ac_a, u) != 0 ||
+                emit_on(&hb, &ab_b, u) != 0 || emit_on(&hb, &bc_b, u) != 0 ||
+                emit_on(&hc, &ac_c, u) != 0 || emit_on(&hc, &bc_c, u) != 0) {
+                mesh_ok = 0;
+            }
+            if (pump_on(&hb, &ab_b) != 0 || pump_on(&hc, &ac_c) != 0 ||
+                pump_on(&ha, &ab_a) != 0 || pump_on(&hc, &bc_c) != 0 ||
+                pump_on(&ha, &ac_a) != 0 || pump_on(&hb, &bc_b) != 0) {
+                mesh_ok = 0;
+            }
+            if (atn_hb_tick(&ha, u) != ATN_OK ||
+                atn_hb_tick(&hb, u) != ATN_OK ||
+                atn_hb_tick(&hc, u) != ATN_OK) {
+                mesh_ok = 0;
+            }
+        }
+        check("mesh 3-pair live",
+              mesh_ok && ha.state == ATN_HB_LIVE && hb.state == ATN_HB_LIVE &&
+              hc.state == ATN_HB_LIVE);
+        /* Drop AC both ways for N buckets; AB and BC still flow. */
+        for (u = 23; u < 23u + ATN_HB_N; u++) {
+            if (emit_on(&ha, &ab_a, u) != 0 ||
+                emit_on(&hb, &ab_b, u) != 0 || emit_on(&hb, &bc_b, u) != 0 ||
+                emit_on(&hc, &bc_c, u) != 0) {
+                mesh_ok = 0;
+            }
+            if (pump_on(&hb, &ab_b) != 0 || pump_on(&ha, &ab_a) != 0 ||
+                pump_on(&hc, &bc_c) != 0 || pump_on(&hb, &bc_b) != 0) {
+                mesh_ok = 0;
+            }
+            (void)atn_hb_tick(&ha, u);
+            (void)atn_hb_tick(&hb, u);
+            (void)atn_hb_tick(&hc, u);
+        }
+        check("lossy AC drop", mesh_ok);
+        check("A marks C untrusted",
+              atn_hb_peer_state(&ha, idc) >= ATN_HB_UNTRUSTED);
+        check("C marks A untrusted",
+              atn_hb_peer_state(&hc, ida) >= ATN_HB_UNTRUSTED);
+        check("B still trusts A", atn_hb_peer_state(&hb, ida) == ATN_HB_LIVE);
+        check("nodes stay live",
+              ha.state == ATN_HB_LIVE && hb.state == ATN_HB_LIVE &&
+              hc.state == ATN_HB_LIVE);
+        atn_hb_wipe(&ha);
+        atn_hb_wipe(&hb);
+        atn_hb_wipe(&hc);
+        atn_tun_wipe(&ab_a);
+        atn_tun_wipe(&ab_b);
+        atn_tun_wipe(&ac_a);
+        atn_tun_wipe(&ac_c);
+        atn_tun_wipe(&bc_b);
+        atn_tun_wipe(&bc_c);
         atn_net_fini();
     }
 

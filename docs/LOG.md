@@ -4,6 +4,15 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — ISS-0015 three UDP heartbeat pairs
+
+- `test_hb` handshakes AB/AC/BC on loopback, three LIVE rounds, then
+  drops AC for N buckets. A↔C UNTRUSTED, B still trusts A, nodes live.
+- ISS-0015 closed. SoT 3.3 was already [X]; this is the residual UDP
+  mesh gate, not a new requirement.
+
+---
+
 ## 2026-09-04 — Lab node file + signed report + bind-any (DEC-0021)
 
 - User: keep rolling what we can (still waiting on PTR / Knox Partner).

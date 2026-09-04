@@ -133,14 +133,13 @@ Status: `open` | `closed`
 
 ## ISS-0015 — Three-node heartbeat mesh is not three UDP sockets
 
-- **Status:** open
+- **Status:** closed
 - **Opened:** 2026-09-04
+- **Closed:** 2026-09-04 — `tests/test_hb` now handshakes three UDP pairs
+  (AB, AC, BC), keeps all three LIVE, then drops AC both ways for N
+  buckets. A and C mark each other UNTRUSTED; B still trusts A; nodes
+  stay LIVE. In-process 3-node path remains as the original gate.
 - **REQ:** REQ-3.3 follow-on
-- **Unknown:** The 3-node LIVE/UNTRUSTED/wipe gate ran in-process
-  (token ingest). One real tunnel hop was tested (A emit → B pump).
-  A 3-pair UDP mesh was not executed.
-- **Must not invent:** a “3-node UDP” badge from in-process delivery.
-- **Unblock by:** three `atn_tun` pairs and lossy drop in `test_hb`.
 
 ## ISS-0012 — No tcpdump of DNS; TCP may not share the UDP ephemeral port on Windows
 
