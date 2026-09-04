@@ -41,7 +41,9 @@ same commit.
 | `android/` | REQ-4.1 | DEC-0015 | Daemon Java + JNI. Stubs until knoxsdk.jar. |
 | `android/jni/atn_jni.c` | REQ-4.1 | DEC-0015 | JNI to libatn.so |
 | `vendor/knox/README.md` | REQ-4.1 | DEC-0015 | Drop-in path for knoxsdk.jar |
-| `include/atn_dmon.h` / `src/dmon/atn_dmon.c` | REQ-4.1/4.4 | DEC-0016/0017 | Native session; hb/2FA lockout flush |
+| `include/atn_dmon.h` / `src/dmon/atn_dmon.c` | REQ-4.1/4.4 | DEC-0016/0017/0020 | Native session; hb/2FA flush; DEC-0007 tunnel |
+| `tools/src.list` | REQ-5.1 | DEC-0020 | Frozen path list for `atnsign manifest` |
+| `tests/test_recipe.c` | REQ-5.1 | DEC-0020 | Makefile must not contain fetch URLs |
 | `tests/test_dmon.c` | REQ-4.4 | gates | flush zeros keys; silence UNTRUSTED; 2FA lockout |
 | `android/java/.../AtnKeystore.java` | REQ-4.1 | DEC-0016/0017 | AndroidKeyStore AES-256 GCM wrap, StrongBox then TEE |
 | `android/java/.../AtnPowerReceiver.java` | REQ-4.3 | DEC-0017 | Re-assert USB on ACTION_POWER_CONNECTED |

@@ -91,6 +91,51 @@ int main(void)
     check("lockout flushed", atn_dmon_require(&d) == ATN_ERR_STATE);
     check("lockout key zero", memcmp(d.device_key, z, 32) == 0);
 
+    /* DEC-0020: two dmon ends speak DEC-0007 on loopback. */
+    {
+        atn_dmon da, db;
+        uint8_t ek[ATN_MLKEM1024_EK_LEN], dkb[ATN_MLKEM1024_DK_LEN];
+        uint8_t hello[5], back[64];
+        size_t nrecv = 0;
+        memcpy(hello, "mesh!", 5);
+        atn_dmon_init(&da);
+        atn_dmon_init(&db);
+        check("tun net", atn_net_init() == ATN_OK);
+        check("tun load",
+              atn_dmon_load(&da, dk, ck) == ATN_OK &&
+              atn_dmon_load(&db, dk, ck) == ATN_OK);
+        check("tun kem", atn_mlkem1024_keygen(ek, dkb) == ATN_OK);
+        check("tun init",
+              atn_dmon_tun_initiator(&da, ek) == ATN_OK &&
+              atn_dmon_tun_responder(&db, dkb) == ATN_OK);
+        check("tun bind",
+              atn_dmon_tun_bind(&da, 0) == ATN_OK &&
+              atn_dmon_tun_bind(&db, 0) == ATN_OK &&
+              atn_dmon_tun_port(&da) != 0 && atn_dmon_tun_port(&db) != 0);
+        check("tun peer",
+              atn_dmon_tun_set_peer(&da, 0x7f000001u, atn_dmon_tun_port(&db))
+                  == ATN_OK &&
+              atn_dmon_tun_set_peer(&db, 0x7f000001u, atn_dmon_tun_port(&da))
+                  == ATN_OK);
+        check("tun hs", atn_dmon_tun_hs_send(&da) == ATN_OK);
+        check("tun B pump",
+              atn_dmon_tun_pump(&db, 3000) == ATN_OK &&
+              atn_dmon_tun_state(&db) == ATN_TUN_ESTABLISHED);
+        check("tun A pump",
+              atn_dmon_tun_pump(&da, 3000) == ATN_OK &&
+              atn_dmon_tun_state(&da) == ATN_TUN_ESTABLISHED);
+        check("tun send", atn_dmon_tun_send(&da, hello, 5) == ATN_OK);
+        check("tun recv",
+              atn_dmon_tun_recv(&db, back, &nrecv, sizeof(back), 3000) == ATN_OK
+              && nrecv == 5 && memcmp(back, hello, 5) == 0);
+        atn_dmon_flush(&da);
+        check("tun flush A", atn_dmon_require(&da) == ATN_ERR_STATE);
+        check("tun send after flush",
+              atn_dmon_tun_send(&da, hello, 5) == ATN_ERR_STATE);
+        atn_dmon_flush(&db);
+        atn_net_fini();
+    }
+
     atn_dmon_flush(&d);
 
     if (g_fail == 0) {

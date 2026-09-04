@@ -21,4 +21,15 @@ public final class AtnNative {
     public static native int dmon2faEnroll(byte[] id, byte[] keyOut);
     public static native int dmon2faChallenge(byte[] id, byte[] chalOut);
     public static native int dmon2faVerify(byte[] id, byte[] chal, byte[] resp);
+    /* DEC-0020: DEC-0007 tunnel. tunRecv returns n>=0 or -ATN_ERR_*. */
+    public static native int tunInitiator(byte[] peerEk);
+    public static native int tunResponder(byte[] ownDk);
+    public static native int tunBind(int port);
+    public static native int tunSetPeer(int ipv4Host, int port);
+    public static native int tunHsSend();
+    public static native int tunPump(int timeoutMs);
+    public static native int tunSend(byte[] pt);
+    public static native int tunRecv(byte[] out, int timeoutMs);
+    public static native int tunState();
+    public static native int tunPort();
 }

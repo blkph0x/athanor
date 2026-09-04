@@ -267,3 +267,154 @@ Java_com_athanor_daemon_AtnNative_dmon2faVerify(JNIEnv *env, jclass cls,
     (*env)->ReleaseByteArrayElements(env, resp, rp, JNI_ABORT);
     return rc;
 }
+
+JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_tunInitiator(JNIEnv *env, jclass cls,
+                                               jbyteArray peerEk)
+{
+    jbyte *p;
+    int rc;
+    (void)cls;
+    dmon_once();
+    if (peerEk == NULL ||
+        (*env)->GetArrayLength(env, peerEk) != (jint)ATN_MLKEM1024_EK_LEN) {
+        return ATN_ERR_LEN;
+    }
+    p = (*env)->GetByteArrayElements(env, peerEk, NULL);
+    if (p == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    rc = atn_dmon_tun_initiator(&g_dmon, (const uint8_t *)p);
+    (*env)->ReleaseByteArrayElements(env, peerEk, p, JNI_ABORT);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_tunResponder(JNIEnv *env, jclass cls,
+                                               jbyteArray ownDk)
+{
+    jbyte *p;
+    int rc;
+    (void)cls;
+    dmon_once();
+    if (ownDk == NULL ||
+        (*env)->GetArrayLength(env, ownDk) != (jint)ATN_MLKEM1024_DK_LEN) {
+        return ATN_ERR_LEN;
+    }
+    p = (*env)->GetByteArrayElements(env, ownDk, NULL);
+    if (p == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    rc = atn_dmon_tun_responder(&g_dmon, (const uint8_t *)p);
+    (*env)->ReleaseByteArrayElements(env, ownDk, p, JNI_ABORT);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_tunBind(JNIEnv *env, jclass cls, jint port)
+{
+    (void)env;
+    (void)cls;
+    dmon_once();
+    if (port < 0 || port > 65535) {
+        return ATN_ERR_PARAM;
+    }
+    return atn_dmon_tun_bind(&g_dmon, (uint16_t)port);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_tunSetPeer(JNIEnv *env, jclass cls,
+                                             jint ipv4Host, jint port)
+{
+    (void)env;
+    (void)cls;
+    dmon_once();
+    if (port < 0 || port > 65535) {
+        return ATN_ERR_PARAM;
+    }
+    return atn_dmon_tun_set_peer(&g_dmon, (uint32_t)ipv4Host, (uint16_t)port);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_tunHsSend(JNIEnv *env, jclass cls)
+{
+    (void)env;
+    (void)cls;
+    dmon_once();
+    return atn_dmon_tun_hs_send(&g_dmon);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_tunPump(JNIEnv *env, jclass cls, jint timeoutMs)
+{
+    (void)env;
+    (void)cls;
+    dmon_once();
+    return atn_dmon_tun_pump(&g_dmon, (int)timeoutMs);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_tunSend(JNIEnv *env, jclass cls,
+                                          jbyteArray pt)
+{
+    jbyte *p;
+    jint n;
+    int rc;
+    (void)cls;
+    dmon_once();
+    if (pt == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    n = (*env)->GetArrayLength(env, pt);
+    p = (*env)->GetByteArrayElements(env, pt, NULL);
+    if (p == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    rc = atn_dmon_tun_send(&g_dmon, (const uint8_t *)p, (size_t)n);
+    (*env)->ReleaseByteArrayElements(env, pt, p, JNI_ABORT);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_tunRecv(JNIEnv *env, jclass cls,
+                                          jbyteArray out, jint timeoutMs)
+{
+    jbyte *p;
+    jint cap;
+    size_t n = 0;
+    int rc;
+    (void)cls;
+    dmon_once();
+    if (out == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    cap = (*env)->GetArrayLength(env, out);
+    p = (*env)->GetByteArrayElements(env, out, NULL);
+    if (p == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    rc = atn_dmon_tun_recv(&g_dmon, (uint8_t *)p, &n, (size_t)cap, (int)timeoutMs);
+    (*env)->ReleaseByteArrayElements(env, out, p, 0);
+    if (rc != ATN_OK) {
+        return -rc;
+    }
+    return (jint)n;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_tunState(JNIEnv *env, jclass cls)
+{
+    (void)env;
+    (void)cls;
+    dmon_once();
+    return atn_dmon_tun_state(&g_dmon);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_tunPort(JNIEnv *env, jclass cls)
+{
+    (void)env;
+    (void)cls;
+    dmon_once();
+    return (jint)atn_dmon_tun_port(&g_dmon);
+}

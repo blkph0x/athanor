@@ -4,6 +4,7 @@
  *   atnsign keygen <pk-file> <sk-file>
  *   atnsign sign   <sk-file> <msg-file> <sig-file>
  *   atnsign verify <pk-file> <msg-file> <sig-file>
+ *   atnsign manifest <list-file> <out-file>
  */
 #include "atn_sign.h"
 
@@ -184,10 +185,54 @@ done:
     return rc;
 }
 
+static int cmd_manifest(const char *listpath, const char *outpath)
+{
+    FILE *lf;
+    char line[ATN_MF_MAX_PATH + 8];
+    atn_mf m;
+    uint8_t *body;
+    size_t n = 0, cap = 128u * 1024u;
+    int rc = 1;
+
+    atn_mf_init(&m);
+    lf = fopen(listpath, "rb");
+    if (lf == NULL) {
+        fprintf(stderr, "open list failed\n");
+        return 1;
+    }
+    while (fgets(line, (int)sizeof(line), lf) != NULL) {
+        size_t L = strlen(line);
+        while (L > 0 && (line[L - 1u] == '\n' || line[L - 1u] == '\r')) {
+            line[--L] = 0;
+        }
+        if (L == 0 || line[0] == '#') {
+            continue;
+        }
+        if (atn_mf_add_file(&m, line) != ATN_OK) {
+            fprintf(stderr, "hash failed: %s\n", line);
+            fclose(lf);
+            return 1;
+        }
+    }
+    fclose(lf);
+    body = (uint8_t *)malloc(cap);
+    if (body == NULL) {
+        return 1;
+    }
+    if (atn_mf_encode(&m, body, &n, cap) != ATN_OK) {
+        fprintf(stderr, "encode failed\n");
+        free(body);
+        return 1;
+    }
+    rc = write_all(outpath, body, n);
+    free(body);
+    return rc == 0 ? 0 : 1;
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 2) {
-        fprintf(stderr, "usage: atnsign demo|keygen|sign|verify ...\n");
+        fprintf(stderr, "usage: atnsign demo|keygen|sign|verify|manifest ...\n");
         return 1;
     }
     if (strcmp(argv[1], "demo") == 0) {
@@ -202,6 +247,9 @@ int main(int argc, char **argv)
     if (strcmp(argv[1], "verify") == 0 && argc == 5) {
         return cmd_verify(argv[2], argv[3], argv[4]);
     }
-    fprintf(stderr, "usage: atnsign demo|keygen|sign|verify ...\n");
+    if (strcmp(argv[1], "manifest") == 0 && argc == 4) {
+        return cmd_manifest(argv[2], argv[3]);
+    }
+    fprintf(stderr, "usage: atnsign demo|keygen|sign|verify|manifest ...\n");
     return 1;
 }

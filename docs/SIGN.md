@@ -21,9 +21,12 @@ Signature: ML-DSA-87 over those exact bytes, context `atn-mf-v1`.
 ```
 atnsign demo
 atnsign keygen keys/mldsa87.pk keys/mldsa87.sk
+atnsign manifest tools/src.list MANIFEST
 atnsign sign   keys/mldsa87.sk MANIFEST MANIFEST.sig
 atnsign verify keys/mldsa87.pk MANIFEST MANIFEST.sig
 ```
+
+`make manifest` runs the third command. `tools/src.list` is the frozen path list (DEC-0020).
 
 `keys/` is gitignored. Lab keys on this builder are not the production
 air-gap key.

@@ -42,6 +42,10 @@ int main(void)
           strstr(p, "a.txt") != NULL && strstr(p, "z/b.txt") != NULL &&
           (strstr(p, "a.txt") < strstr(p, "z/b.txt")));
 
+    atn_mf_init(&m);
+    check("add_file Makefile", atn_mf_add_file(&m, "Makefile") == ATN_OK);
+    check("encode file", atn_mf_encode(&m, body, &n, sizeof(body) - 1u) == ATN_OK);
+
     check("keygen", atn_mldsa87_keygen(pk, sk) == ATN_OK);
     check("sign", atn_mf_sign(sk, body, n, sig) == ATN_OK);
     check("verify", atn_mf_verify(pk, body, n, sig) == ATN_OK);

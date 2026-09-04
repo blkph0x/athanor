@@ -65,7 +65,8 @@ wiped by `atn_dmon_flush`.
 ## Native
 
 `android/jni/` links crypto, tun, 2fa, hb, dmon into `libatn.so`.
-Java talks to it with JNI. No OkHttp, no Play services.
+Java talks to it with JNI (`AtnNative.tun*`, DEC-0020). No OkHttp, no
+Play services. Peer IPv4 is supplied by the caller, not baked in.
 
 ## Daemon session (DEC-0017)
 

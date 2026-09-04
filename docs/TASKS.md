@@ -49,3 +49,5 @@ compiler) is still unmeasured.
 | T-0500 | done | ISS-0005 | ML-DSA-87 from FIPS 204; ACVP keyGen + Sign_internal KATs |
 | T-0510 | done | REQ-5.1 | `atnsign` SHA3-256 manifest + ML-DSA-87 (DEC-0019). Air-gap host still open. |
 | T-0402 | done | REQ-4.1 | Stub/real knoxsdk.jar classpath switch; ATN_STUB marker |
+| T-0403 | done | REQ-4.1 | dmon owns DEC-0007 tunnel; two-dmon loopback handshake (DEC-0020) |
+| T-0511 | done | REQ-5.1 | `atnsign manifest` + `tools/src.list` + Makefile recipe-check |

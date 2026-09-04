@@ -4,6 +4,17 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — Daemon tunnel + source manifest list (DEC-0020)
+
+- `atn_dmon` embeds the UDP tunnel. Two-dmon loopback handshake + echo
+  in `test_dmon`. Flush closes the socket. JNI tun* for the Android
+  daemon. Lab IP is not hardcoded.
+- `atnsign manifest tools/src.list MANIFEST` plus `make manifest`.
+  `tests/test_recipe` fails if the product Makefile grows a fetch URL.
+- SoT 4.1 / 5.1 stay `[ ]`.
+
+---
+
 ## 2026-09-04 — Knox stub switch + atnsign (DEC-0019)
 
 - User: keep moving; stub knox.jar until PTR + Partner account; patch

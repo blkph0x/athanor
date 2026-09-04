@@ -4,6 +4,16 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0017 — dmon tunnel + recipe-check (2026-09-04)
+
+- **Host:** Windows x86_64
+- **`tests/test_dmon.exe`:** existing flush gates plus two-dmon
+  loopback handshake/echo/flush-closes-send.
+- **`tests/test_recipe.exe`:** no `http://` or `https://` in Makefile.
+- **`atnsign manifest`:** exercised via `make manifest` after tests.
+
+---
+
 ## BN-0016 — Knox stub classpath + atnsign (2026-09-04)
 
 - **Host:** Windows x86_64. `vendor/knox/knoxsdk.jar` still absent

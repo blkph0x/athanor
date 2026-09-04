@@ -12,16 +12,19 @@
 
 #include "atn_2fa.h"
 #include "atn_hb.h"
+#include "atn_tun.h"
 
 #define ATN_DMON_HB_BUCKET_SEC 60u /* DEC-0017: one hb bucket per minute */
 
 typedef struct {
     atn_2fa_store twofa;
     atn_hb        hb;
+    atn_tun       tun;
     uint8_t       device_key[32];
     uint8_t       cluster[32];
     uint8_t       loaded;
     uint8_t       hb_ready;
+    uint8_t       tun_ready;
 } atn_dmon;
 
 void atn_dmon_init(atn_dmon *d);
@@ -45,5 +48,19 @@ int  atn_dmon_2fa_challenge(atn_dmon *d, const uint8_t id[ATN_2FA_ID_LEN],
 int  atn_dmon_2fa_verify(atn_dmon *d, const uint8_t id[ATN_2FA_ID_LEN],
                          const uint8_t chal[ATN_2FA_CHAL_LEN],
                          const uint8_t resp[ATN_2FA_RESP_LEN]);
+
+int  atn_dmon_tun_initiator(atn_dmon *d,
+                            const uint8_t peer_ek[ATN_MLKEM1024_EK_LEN]);
+int  atn_dmon_tun_responder(atn_dmon *d,
+                            const uint8_t own_dk[ATN_MLKEM1024_DK_LEN]);
+int  atn_dmon_tun_bind(atn_dmon *d, uint16_t port);
+int  atn_dmon_tun_set_peer(atn_dmon *d, uint32_t ipv4_host, uint16_t port);
+int  atn_dmon_tun_hs_send(atn_dmon *d);
+int  atn_dmon_tun_pump(atn_dmon *d, int timeout_ms);
+int  atn_dmon_tun_send(atn_dmon *d, const uint8_t *pt, size_t n);
+int  atn_dmon_tun_recv(atn_dmon *d, uint8_t *pt, size_t *n, size_t max,
+                       int timeout_ms);
+int  atn_dmon_tun_state(const atn_dmon *d);
+uint16_t atn_dmon_tun_port(const atn_dmon *d);
 
 #endif

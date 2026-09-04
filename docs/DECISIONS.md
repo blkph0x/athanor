@@ -471,3 +471,28 @@ A decision is recorded **before** code that depends on it is written.
   our ML-DSA-87”. REQ-5.1 still needs an air-gapped host and a frozen
   toolchain before the SoT checkbox. SoT 4.1 still needs the real jar
   plus an enrolled S24–S26.
+
+---
+
+## DEC-0020 — Daemon session owns the DEC-0007 UDP tunnel
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** Cause/effect REQ-4.1: the phone is a mesh member and
+  “Daemon speaks the tunnel protocol to a lab node.” DEC-0007 already
+  froze the UDP record. `atn_dmon` already holds 2FA + heartbeat keys
+  (DEC-0016/0017) with a single flush. Heartbeat `atn_hb` already
+  accepts an optional `atn_tun *`.
+- **Decision:**
+  - `atn_dmon` embeds one `atn_tun`. JNI exposes bind / peer / handshake
+    / send / recv / pump. No new record types.
+  - `atn_dmon_flush` also `atn_tun_close` + `atn_tun_wipe`.
+  - `atn_dmon_hb_init` passes `&d->tun` when the tunnel is ready,
+    otherwise NULL (in-process tokens still work).
+  - Lab peer address is not hardcoded. Java/config supplies IPv4+port.
+  - `tools/src.list` is the frozen path list for `atnsign manifest`.
+    The product `Makefile` contains no `http://` or `https://` fetch
+    URLs (REQ-5.1 recipe gate). GitHub Actions may still use
+    `actions/checkout` — that is transparency CI, not the product recipe.
+- **Consequences:** In-process two-dmon handshake can be proven on this
+  PC. A device-to-lab hop still needs an enrolled phone (ISS-0016).

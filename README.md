@@ -211,8 +211,8 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | REQ-3.3 heartbeat | Done — HMAC-SHA-512 tokens, UNTRUSTED + self-wipe. ISS-0015. |
 | REQ-4.x onward | Native dmon flush + Keystore wrap on this builder (DEC-0017). Device Knox still blocked: ISS-0016. |
 | ML-DSA-87 | Done — FIPS 204 category 5 signatures. ACVP keyGen + Sign_internal KATs. |
-| REQ-5.1 pen | `atnsign` manifest + ML-DSA-87 (DEC-0019). Air-gap host still open. |
-| Knox | Stub classpath until `vendor/knox/knoxsdk.jar`. SoT 4.1 `[ ]`. |
+| REQ-5.1 pen | `atnsign manifest tools/src.list`. Air-gap host still open. |
+| Knox | Stub classpath until `vendor/knox/knoxsdk.jar`. Daemon JNI tunnel (DEC-0020). SoT 4.1 `[ ]`. |
 
 Until a requirement’s gate is green, treat that capability as *intended*, not *done*.
 
