@@ -11,7 +11,7 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
-| T-0200 | open | REQ-2.1 | HTTP/TLS listener using the tunnel or raw TCP + in-house handshake (DEC-0005/0007) |
+| T-0201 | in_progress | REQ-2.2 | Handwritten admin console, embedded, POST + 2FA on mutate |
 
 ---
 
@@ -19,7 +19,6 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 | ID | Status | REQ | Task | Depends |
 |---|---|---|---|---|
-| T-0201 | open | REQ-2.2 | Handwritten admin console | REQ-2.1, REQ-1.3 |
 | T-0202 | open | REQ-2.3 | Authoritative DNS | REQ-1.2 |
 
 Full SoT REQs 2.x–6.x stay in `SOURCE_OF_TRUTH.md` until their phase is legal
@@ -43,3 +42,4 @@ to enter. Do not spawn implementation tasks for them here until then.
 | T-0100 | done | REQ-1.2 | Tunnel packet spec `docs/TUNNEL.md` (DEC-0007) |
 | T-0101 | done | REQ-1.2 | UDP tunnel: ML-KEM handshake, AEAD data, replay window, MAC-fail close |
 | T-0102 | done | REQ-1.3 | HMAC-SHA-512 2FA library + `atn2fa` CLI |
+| T-0200 | done | REQ-2.1 | HTTP/1.1 listener on loopback TCP + DEC-0007 records (`atnhttp`) |

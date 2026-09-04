@@ -231,7 +231,7 @@ PHASE EFFECT: A reachable, authenticated, in-house admin path plus
 --------------------------------------------------------------------------------
 REQ-2.1  In-house HTTP/TLS listener binary
 --------------------------------------------------------------------------------
-STATUS: [ ]
+STATUS: [X]  (2026-09-04 — tests/test_http.exe ALL PASSED; BN-0007)
 
 WHY (CAUSE)
   A web console is useless if the bytes to the browser are terminated by
@@ -263,11 +263,13 @@ DEPENDS ON: REQ-1.1, REQ-1.2
 UNLOCKS:    REQ-2.2, REQ-6.1
 
 VERIFICATION GATE
-  [ ] Listener compiles with zero HTTP/TLS libraries
-  [ ] GET of a memory-resident page returns exact bytes
-  [ ] Oversized headers / unknown methods are rejected
-  [ ] Unauthenticated sockets cannot read admin pages
-  [ ] Traffic is authenticated+encrypted (our handshake or our tunnel)
+  [X] Listener compiles with zero HTTP/TLS libraries
+  [X] GET of a memory-resident page returns exact bytes
+  [X] Oversized headers / unknown methods are rejected
+  [X] Unauthenticated sockets cannot read admin pages
+  [X] Traffic is authenticated+encrypted (our handshake or our tunnel)
+      Residual: ISS-0009 (not RFC 8446; browsers cannot connect).
+      Residual: ISS-0010 (no HTTP keep-alive / pipelining).
 
 
 --------------------------------------------------------------------------------

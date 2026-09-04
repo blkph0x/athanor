@@ -34,7 +34,7 @@ make clean
 
 | Compiler `-dumpmachine` contains | Extra link |
 |---|---|
-| `mingw` or `windows` | `-lbcrypt` (Windows CNG, including Windows on ARM) |
+| `mingw` or `windows` | `-lbcrypt -lws2_32` (CNG + Winsock; not third-party crypto) |
 | `linux`, `android`, `darwin`, `bsd` | none |
 
 No OpenSSL, no libsodium, no libcrypt.

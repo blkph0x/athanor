@@ -167,3 +167,28 @@ A decision is recorded **before** code that depends on it is written.
   challenges. Five failures lock the slot until revoke/re-enroll. Phase 1
   store is in-memory; Knox replaces the backend in REQ-4.1.
 - **Consequences:** `atn2fa` CLI is the standalone binary. No TOTP.
+
+---
+
+## DEC-0009 — REQ-2.1 listener is HTTP/1.1 inside DEC-0007 records on loopback TCP
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** SoT Tier 2 asks for custom HTTP/TLS handshakes and static
+  pages from memory. Cause/effect REQ-2.1 says TCP + HTTP/1.1 parse, then
+  “TLS-equivalent handshake using REQ-1.1 … or our tunnel carrying HTTP,”
+  and forbids calling OpenSSL. RFC 8446 TLS 1.3 needs certificates and
+  signatures; ML-DSA-87 is ISS-0005. Inventing a “TLS” dialect and calling
+  it TLS would be a guess. DEC-0007 already specifies ML-KEM-1024 +
+  HKDF-SHA-512 + ChaCha20-Poly1305. RFC 9112 specifies HTTP/1.1 framing.
+- **Decision:**
+  - IPv4 TCP, bind `127.0.0.1` only. No bind-any API in this DEC.
+  - Record layer = `docs/TUNNEL.md` headers on a TCP stream
+    (`docs/HTTP.md`). Handshake is DEC-0007 unchanged.
+  - Application DATA is HTTP/1.1. Methods GET and HEAD only.
+  - Pages are compile-time byte arrays. Header cap 8192. Backlog 8.
+    Idle timeout 5000 ms. One request then close.
+  - This is not RFC 8446. Chrome/Firefox will not connect (ISS-0009).
+- **Consequences:** `atnhttp` is the listener binary. REQ-2.2 may add
+  POST + 2FA. A real TLS 1.3 stack would need ISS-0005 closed and a new
+  DEC; until then we do not claim browser TLS.

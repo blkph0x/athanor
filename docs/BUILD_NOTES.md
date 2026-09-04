@@ -4,6 +4,22 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0007 — REQ-2.1 HTTP/1.1 listener (2026-09-04)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0, `-lbcrypt -lws2_32`
+- **Command:** `make test`
+- **Result:**
+  - previous binaries still ALL PASSED
+  - `tests/test_http.exe` ALL PASSED (parse GET/POST/Host/1.0/oversize,
+    GET `/` and `/admin` exact memory pages, HEAD has no body, POST 405,
+    404, unauthenticated raw GET writes no admin bytes, ciphertext hides
+    the admin page)
+  - `atnhttp.exe demo` OK
+- **Link:** OS TCP sockets only. Zero HTTP/TLS libraries.
+- **Not claimed:** RFC 8446 (ISS-0009), keep-alive (ISS-0010).
+
+---
+
 ## BN-0006 — REQ-1.2 tunnel + REQ-1.3 2FA (2026-09-04)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0, `-lbcrypt -lws2_32`

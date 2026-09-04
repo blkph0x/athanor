@@ -1,0 +1,118 @@
+# Athanor HTTP listener (DEC-0009)
+
+REQ-2.1. This file is the protocol spec. Code must match it. Do not change
+a field without a new DEC.
+
+This is **not** RFC 8446 TLS. Browsers will not speak it (ISS-0009).
+The SoT asks for a custom HTTP/TLS handshake using REQ-1.1 math. We
+reuse the already-specified tunnel handshake (DEC-0007 / `docs/TUNNEL.md`)
+on IPv4 TCP, then parse HTTP/1.1 (RFC 9112) from decrypted DATA.
+
+## Transport
+
+IPv4 TCP, OS sockets (`socket` / `bind` / `listen` / `accept` / `send` /
+`recv`). Windows links `ws2_32`; POSIX uses BSD sockets. No OpenSSL, no
+libtls, no nghttp2, no libuv.
+
+Default bind: `127.0.0.1` only. There is no bind-any API in this DEC.
+A public bind would be a new DEC plus an explicit flag; it is not a
+compile default.
+
+CLI default port if none is given: **2401** on loopback. 2401 is an
+Athanor assignment, not an IANA service. Tests bind port 0 (ephemeral).
+
+## Record framing (TCP)
+
+TCP is a byte stream. Each record is concatenated:
+
+```
+16-byte header  (identical to TUNNEL.md)
+`length` payload bytes
+```
+
+Header (little-endian), copied from TUNNEL.md:
+
+```
+offset  bytes  field
+0       1      version     must be 1
+1       1      type        HS_INIT=1 HS_ACK=2 DATA=3 KA=4 CLOSE=5
+2       2      reserved    must be 0
+4       4      length      payload bytes after the header
+8       8      seq         per-direction counter (DATA/KA/CLOSE)
+```
+
+Maximum DATA plaintext: **8192** bytes (larger than the UDP tunnel’s
+1024 because there is no datagram MTU here). `length` for DATA is
+plaintext + 16-byte Poly1305 tag.
+
+Handshake bytes, key schedule (`info = "atn-tun-v1" ‖ kem_ct`), nonces,
+replay window, and MAC-fail-close are **exactly** DEC-0007. Identity is
+the responder’s static ML-KEM-1024 encapsulation key, distributed out
+of band.
+
+## HTTP/1.1 inside DATA (RFC 9112)
+
+After ESTABLISHED, each DATA plaintext is one HTTP message.
+
+We accept:
+
+- Methods `GET` and `HEAD` only (RFC 9110 §9: method names are
+  case-sensitive). `POST` waits for REQ-2.2.
+- Version `HTTP/1.1` only.
+- Origin-form target (`/…`), max 127 bytes, charset
+  `A–Z a–z 0–9 / . _ -`. Must start with `/`. No `..`, no `//`, no `?`
+  (query strings wait for a DEC), no NUL, no bare CR or LF.
+- Header block max **8192** bytes including the terminator.
+- `Host` header required (RFC 9112 §3.2 / RFC 9110 §7.2). Duplicate
+  `Host` is rejected.
+- `Transfer-Encoding` is rejected (we do not implement chunked).
+- `Content-Length`, if present, must be `0` for GET/HEAD.
+- Strict CRLF. Bare LF is rejected.
+
+We emit:
+
+```
+HTTP/1.1 <code> <reason>\r\n
+Content-Type: text/html; charset=us-ascii\r\n
+Content-Length: <n>\r\n
+Connection: close\r\n
+Cache-Control: no-store\r\n
+\r\n
+<body>          (omitted for HEAD; Content-Length still the GET size)
+```
+
+| Condition | Status |
+|---|---|
+| `GET`/`HEAD` `/` | 200, memory page `ATN-PUBLIC-PLACEHOLDER` |
+| `GET`/`HEAD` `/admin` | 200, memory page `ATN-ADMIN-PLACEHOLDER` |
+| unknown path | 404 |
+| unknown method | 405 |
+| malformed | 400 |
+| header block > 8192 or unterminated at the cap | 431 |
+
+One request, then `Connection: close`. No pipelining, no keep-alive
+(ISS-0010).
+
+## Unauthenticated sockets
+
+A TCP peer that has not completed HS_ACK is unauthenticated.
+
+If the first record is not a valid `HS_INIT`, the server **closes
+without writing page bytes**. A raw `GET /admin` on the socket must
+never contain `ATN-ADMIN-PLACEHOLDER` in anything the server sends.
+
+Completing the handshake proves knowledge of the responder ek (same
+identity model as the tunnel). 2FA on mutating console actions is
+REQ-2.2, not this REQ.
+
+## Process model
+
+Single-threaded accept → handshake → one request → close. Listen
+backlog is 8. Idle recv timeout is 5000 ms. Concurrent connections
+are not multiplexed in this DEC.
+
+## Pages
+
+Bodies are `static const` byte arrays compiled into the binary. No
+`fopen` of a document root. No CGI. No template engine. No CDN URL
+appears in the bytes.

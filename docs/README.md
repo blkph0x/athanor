@@ -14,6 +14,8 @@ In-tree trackers are canonical so work continues when GitHub is unreachable
 | [SPEC_INDEX.md](SPEC_INDEX.md) | Specifications we implement; the anti-guess list. |
 | [BUILD.md](BUILD.md) | How to compile on Windows, Linux, ARM, Android NDK. |
 | [CI.md](CI.md) | Local + GitHub Actions contract. Same `make test`. |
+| [TUNNEL.md](TUNNEL.md) | REQ-1.2 UDP wire format (DEC-0007). |
+| [HTTP.md](HTTP.md) | REQ-2.1 TCP records + HTTP/1.1 (DEC-0009). |
 
 Rules: [`../DEVELOPMENT_RULES.md`](../DEVELOPMENT_RULES.md).
 Architecture: [`../SOURCE_OF_TRUTH.md`](../SOURCE_OF_TRUTH.md).

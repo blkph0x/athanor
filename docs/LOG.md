@@ -4,6 +4,16 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — REQ-2.1 listener (DEC-0009)
+
+- Did not implement TLS 1.3 (no ML-DSA yet, would be a guess).
+- TCP loopback + TUNNEL.md records + HTTP/1.1 GET/HEAD from memory.
+- `make test` ALL PASSED including `tests/test_http` and `atnhttp demo`
+  (BN-0007). SoT REQ-2.1 [X].
+- Next legal: REQ-2.2 handwritten admin console (T-0201). DNS is T-0202.
+
+---
+
 ## 2026-09-04 — Phase 1 closed: tunnel + 2FA
 
 - DEC-0007 wire format in docs/TUNNEL.md. DEC-0008 HMAC-SHA-512 2FA.

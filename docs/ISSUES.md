@@ -89,6 +89,28 @@ Status: `open` | `closed`
   what we did (or did not) measure. SoT gate "constant-time checks" stays
   honest.
 
+## ISS-0009 — Listener is not RFC 8446 TLS; browsers cannot connect
+
+- **Status:** open
+- **Opened:** 2026-09-04
+- **REQ:** REQ-2.1 follow-on
+- **Unknown:** A browser-compatible TLS 1.3 stack needs certificates and
+  ML-DSA-87 (ISS-0005). DEC-0009 reuses the tunnel handshake on TCP
+  instead of claiming TLS.
+- **Must not invent:** a private cipher suite advertised as “TLS”.
+- **Unblock by:** FIPS 204 ML-DSA-87 + a new DEC that either (a) implements
+  a cited TLS 1.3 subset or (b) ships an in-tree operator client.
+
+## ISS-0010 — HTTP/1.1 keep-alive and pipelining are not implemented
+
+- **Status:** open
+- **Opened:** 2026-09-04
+- **REQ:** REQ-2.1 follow-on
+- **Unknown:** DEC-0009 closes after one request. RFC 9112 persistent
+  connections are unspecified here.
+- **Must not invent:** a multiplexed stream protocol.
+- **Unblock by:** DEC for keep-alive limits, then code.
+
 ## ISS-0004 — ARM binaries not executed on the current builder
 
 - **Status:** open

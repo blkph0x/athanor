@@ -57,7 +57,7 @@ PHASE 1: PROPRIETARY CORE BUILD & LOW-LEVEL CRYPTO
 [X] REQ-1.3: Build the custom 2FA challenge-response authentication binary.
 
 PHASE 2: SOVEREIGN WEB SERVER & GATEWAY ENGINE
-[ ] REQ-2.1: Compile the in-house HTTP/TLS listener binary (Zero outside dependencies).
+[X] REQ-2.1: Compile the in-house HTTP/TLS listener binary (Zero outside dependencies).
 [ ] REQ-2.2: Write the raw, framework-free web administration console interface.
 [ ] REQ-2.3: Build the custom authoritative DNS responder binary to handle routing requests.
 
