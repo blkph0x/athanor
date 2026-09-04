@@ -14,6 +14,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "atn_platform.h"
+
 #define ATN_SHA256_LEN         32u
 #define ATN_SHA256_BLOCK       64u
 #define ATN_HMAC_LEN           32u
@@ -54,10 +56,12 @@ int atn_ct_equal(const void *a, const void *b, size_t n);
 
 /*
  * Purpose:  Fill buf with OS entropy. Not a userspace PRNG.
- * Spec:     DEC-0002; Windows BCryptGenRandom / POSIX getrandom.
+ * Spec:     DEC-0002 / DEC-0004; OS CSPRNG (BCrypt / arc4random / getrandom / urandom).
  * Returns:  ATN_OK or ATN_ERR_ENTROPY / ATN_ERR_PARAM.
  */
 int atn_random_bytes(void *buf, size_t n);
+
+/* atn_platform_id lives in atn_platform.h (included above). */
 
 /* ---- SHA-256 (RFC 6234 §§4.1, 5.1, 6.1, 6.2) ----------------------------- */
 

@@ -4,6 +4,19 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — Windows / Linux / ARM build path (DEC-0004)
+
+- User required the tree to be buildable on Windows, Linux, and ARM.
+- Makefile now reads `$(CC) -dumpmachine` (not uname). `-lbcrypt` only for
+  Windows targets. Default CC is gcc because GNU Make's `cc` is missing here.
+- CSPRNG: BCrypt (Windows including ARM), arc4random (Darwin/BSD), getrandom
+  then urandom (Linux), urandom (Android < 28 and other unix). Unknown OS
+  is `#error`.
+- Verified on this host: x64 native, `-funsigned-char`, `-m32` (4-byte
+  pointers). All ALL PASSED. No ARM compiler here (ISS-0004).
+
+---
+
 ## 2026-09-04 — REQ-1.1 compiled and verified
 
 - Implemented in-house C99 core: SHA-256, HMAC-SHA-256, HKDF-SHA-256,

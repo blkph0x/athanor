@@ -37,3 +37,4 @@ to enter. Do not spawn implementation tasks for them here until then.
 | T-0004 | done | REQ-1.1 | Known-answer tests transcribed from RFC 6234/FIPS, RFC 4231, RFC 5869, RFC 8439 |
 | T-0005 | done | REQ-1.1 | Compile with GCC 11.3.0, record BUILD_NOTES BN-0002, ALL PASSED |
 | T-0006 | done | REQ-1.1 | SoT REQ-1.1 marked [X]. Residual ISS-0003 remains open (timing not measured). |
+| T-0007 | done | REQ-1.1 | Portable Windows/Linux/ARM build (DEC-0004). Native + unsigned-char + m32 KATs pass. ARM run is ISS-0004. |

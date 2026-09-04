@@ -4,6 +4,22 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0003 — Cross-platform build (DEC-0004) (2026-09-04)
+
+- **Host:** Windows x86_64 MinGW, `gcc -dumpmachine` = `x86_64-w64-mingw32`
+- **Make:** GNU Make 4.3. Default `CC` is `cc` (does not exist here); Makefile
+  now sets `CC=gcc` when origin is `default`.
+- **Native `make test`:** ALL PASSED, `platform=windows-x86_64 sizeof(void*)=8`,
+  linked `-lbcrypt` only.
+- **`gcc -funsigned-char`:** ALL PASSED (ARM AAPCS default `char` is unsigned;
+  we do not use bare `char` for numbers).
+- **`gcc -m32`:** ALL PASSED, `platform=windows-x86 sizeof(void*)=4`.
+- **`make lib`:** `ar t libatn_crypto.a` lists all nine `atn_*.o`.
+- **Not present on this host:** ARM GCC, WSL distros. ARM execution is ISS-0004.
+- **Network:** none for these builds.
+
+---
+
 ## BN-0002 — REQ-1.1 compile + KATs (2026-09-04)
 
 - **Host:** Windows, user `Blkph0x`

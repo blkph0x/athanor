@@ -57,3 +57,27 @@ A decision is recorded **before** code that depends on it is written.
   work tracking. GitHub issues are a mirror when the network is up.
 - **Consequences:** A closed GitHub issue with an open in-tree issue means
   the work is still open.
+
+---
+
+## DEC-0004 — One C99 tree for Windows, Linux, and ARM
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** REQ-4.x targets Galaxy S24–S26 (ARM64). Servers are Windows
+  and Linux. BN-0001 host is `x86_64-w64-mingw32` only: no ARM GCC, no WSL
+  distro. Crypto loads/stores are already byte-wise (endian-neutral).
+  `uname` is not available on Windows, so it cannot drive the build.
+- **Decision:**
+  - Keep one C99 source tree. No `#ifdef` around algorithm math.
+  - Select CSPRNG by compiler OS macros (`_WIN32`, `__linux__`, `__APPLE__`,
+    BSD). Windows including Windows-on-ARM uses BCrypt. Linux including
+    aarch64/armhf uses getrandom. Darwin/BSD uses `arc4random_buf`.
+  - Makefile keys off `$(CC) -dumpmachine`, not `uname`.
+  - Link `-lbcrypt` only when the *target* is Windows/MinGW.
+  - Do not execute a cross-compiled binary on the builder (`CROSS=1`).
+  - Unknown OS is a compile error, not a guessed device node.
+- **Consequences:** The same `src/crypto/*.c` builds for Windows x64,
+  Windows ARM64, Linux x86_64, Linux aarch64, Linux armhf, Android NDK.
+  Executing tests on ARM hardware is ISS-0004 until we have that compiler
+  or board. Do not claim an ARM run we did not perform.

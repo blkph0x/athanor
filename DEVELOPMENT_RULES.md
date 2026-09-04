@@ -157,6 +157,11 @@ SoT: **zero external libraries**. Allowed:
 Not allowed: crates.io, npm, pip, vcpkg ports, git submodules of foreign
 crypto, "just OpenSSL until the tests pass."
 
+C99 must stay portable across Windows, Linux, and ARM (DEC-0004). Algorithm
+files do not `#ifdef` the math. OS calls live in `atn_secure.c` /
+`atn_platform.h` only. The Makefile keys off `$(CC) -dumpmachine`, never
+`uname`. See `docs/BUILD.md`.
+
 ---
 
 ## 9. Git

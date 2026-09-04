@@ -30,8 +30,13 @@ static void hex_to_bytes(const char *hex, uint8_t *out, size_t n)
 {
     size_t i;
     for (i = 0; i < n; i++) {
-        unsigned v;
-        sscanf(hex + 2u * i, "%2x", &v);
+        unsigned v = 0;
+        /* sscanf return is required; a truncated vector is a test bug. */
+        if (sscanf(hex + 2u * i, "%2x", &v) != 1) {
+            out[i] = 0;
+            g_fail++;
+            return;
+        }
         out[i] = (uint8_t)v;
     }
 }
@@ -324,6 +329,8 @@ static void test_helpers(void)
 
 int main(void)
 {
+    printf("athanor crypto KATs  platform=%s  sizeof(void*)=%u\n",
+           atn_platform_id(), (unsigned)sizeof(void *));
     test_sha256();
     test_hmac();
     test_hkdf();

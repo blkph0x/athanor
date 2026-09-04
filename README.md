@@ -7,6 +7,8 @@ Athanor is a closed-loop communications, storage, and endpoint stack that you co
 Internal architecture name: **SovereignFoundry (SF-ARCH) v2.0.0**  
 Rule of the foundry: **zero external libraries, zero third-party runtimes, zero hosted dependencies.**
 
+**Build (Windows, Linux, ARM, Android NDK):** see [`docs/BUILD.md`](docs/BUILD.md). Short version: `make test` on the target, or `make CC=aarch64-linux-gnu-gcc` to cross-compile.
+
 > An *athanor* is the alchemist’s furnace built to hold a constant fire without feeding it from the outside. That is the point of this project. The heat has to come from ore we smelted.
 
 ---

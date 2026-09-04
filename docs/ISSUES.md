@@ -46,3 +46,16 @@ Status: `open` | `closed`
 - **Unblock by:** after KATs pass, add a note on ISS-0003 in BUILD_NOTES with
   what we did (or did not) measure. SoT gate "constant-time checks" stays
   honest.
+
+## ISS-0004 — ARM binaries not executed on the current builder
+
+- **Status:** open
+- **Opened:** 2026-09-04
+- **REQ:** REQ-1.1 portability (DEC-0004)
+- **Unknown:** This host has `gcc -dumpmachine` = `x86_64-w64-mingw32`, no
+  `aarch64-linux-gnu-gcc` / `arm-linux-gnueabihf-gcc`, and WSL has zero
+  distros. We cannot compile-or-run ARM here.
+- **Must not invent:** a green ARM checkbox from an x86 run.
+- **Unblock by:** run `make test` on an aarch64 Linux box, an ARM Windows
+  box, or an Android NDK adb-run, and append BUILD_NOTES with that
+  dumpmachine and `ALL PASSED`.
