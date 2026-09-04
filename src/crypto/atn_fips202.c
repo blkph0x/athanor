@@ -224,6 +224,9 @@ void atn_shake128_finalize(atn_shake128_ctx *ctx)
 {
     const size_t rate = 168u;
     size_t i;
+    /* Unused tail must be zero; leftover from a previous full rate-block
+     * would otherwise enter the domain padding (FIPS 202 §B.1). */
+    memset(ctx->buf + ctx->used, 0, rate - ctx->used);
     ctx->buf[ctx->used] ^= 0x1Fu;
     ctx->buf[rate - 1u] ^= 0x80u;
     for (i = 0; i < rate / 8u; i++) {
@@ -240,6 +243,75 @@ void atn_shake128_squeeze(atn_shake128_ctx *ctx, uint8_t *out, size_t n)
     while (n > 0) {
         size_t i, take;
         /* After finalize, s is the first rate-block. Serialize once per block. */
+        if (ctx->used == 0) {
+            for (i = 0; i < rate / 8u; i++) {
+                store_le64(ctx->buf + 8u * i, ctx->s[i]);
+            }
+        }
+        take = rate - ctx->used;
+        if (take > n) {
+            take = n;
+        }
+        memcpy(out, ctx->buf + ctx->used, take);
+        ctx->used += take;
+        if (ctx->used == rate) {
+            keccak_f1600(ctx->s);
+            ctx->used = 0;
+        }
+        out += take;
+        n -= take;
+    }
+}
+
+/* Incremental SHAKE256 for FIPS 204 H.Init/Absorb/Squeeze (rate 136). */
+void atn_shake256_init(atn_shake256_ctx *ctx)
+{
+    memset(ctx, 0, sizeof(*ctx));
+}
+
+void atn_shake256_absorb(atn_shake256_ctx *ctx, const uint8_t *in, size_t n)
+{
+    const size_t rate = 136u;
+    while (n > 0) {
+        size_t take = rate - ctx->used;
+        if (take > n) {
+            take = n;
+        }
+        memcpy(ctx->buf + ctx->used, in, take);
+        ctx->used += take;
+        in += take;
+        n -= take;
+        if (ctx->used == rate) {
+            size_t i;
+            for (i = 0; i < rate / 8u; i++) {
+                ctx->s[i] ^= load_le64(ctx->buf + 8u * i);
+            }
+            keccak_f1600(ctx->s);
+            ctx->used = 0;
+        }
+    }
+}
+
+void atn_shake256_finalize(atn_shake256_ctx *ctx)
+{
+    const size_t rate = 136u;
+    size_t i;
+    memset(ctx->buf + ctx->used, 0, rate - ctx->used);
+    ctx->buf[ctx->used] ^= 0x1Fu;
+    ctx->buf[rate - 1u] ^= 0x80u;
+    for (i = 0; i < rate / 8u; i++) {
+        ctx->s[i] ^= load_le64(ctx->buf + 8u * i);
+    }
+    keccak_f1600(ctx->s);
+    ctx->used = 0;
+    ctx->squeezing = 1;
+}
+
+void atn_shake256_squeeze(atn_shake256_ctx *ctx, uint8_t *out, size_t n)
+{
+    const size_t rate = 136u;
+    while (n > 0) {
+        size_t i, take;
         if (ctx->used == 0) {
             for (i = 0; i < rate / 8u; i++) {
                 store_le64(ctx->buf + 8u * i, ctx->s[i]);

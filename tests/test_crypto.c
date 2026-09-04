@@ -353,6 +353,19 @@ static void test_sha3_shake(void)
     check("sha3-512 empty", atn_sha3_512("", 0, d) == ATN_OK && bytes_eq(d, sha3_512_empty, 64));
     check("shake256 empty 32", atn_shake256("", 0, d, 32) == ATN_OK && bytes_eq(d, shake256_empty_32, 32));
     check("shake128 empty 32", atn_shake128("", 0, d, 32) == ATN_OK && bytes_eq(d, shake128_empty_32, 32));
+    /* Incremental SHAKE256 must match one-shot when input spans >1 rate (136). */
+    {
+        uint8_t longin[200], one[32], inc[32];
+        atn_shake256_ctx ctx;
+        memset(longin, 0xa5, sizeof(longin));
+        check("shake256 long one-shot", atn_shake256(longin, sizeof(longin), one, 32) == ATN_OK);
+        atn_shake256_init(&ctx);
+        atn_shake256_absorb(&ctx, longin, 64);
+        atn_shake256_absorb(&ctx, longin + 64, sizeof(longin) - 64);
+        atn_shake256_finalize(&ctx);
+        atn_shake256_squeeze(&ctx, inc, 32);
+        check("shake256 long incremental", bytes_eq(one, inc, 32));
+    }
 }
 
 static void test_sha512(void)

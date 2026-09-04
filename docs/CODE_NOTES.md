@@ -11,8 +11,11 @@ same commit.
 | `src/crypto/atn_secure.c` | REQ-1.1 | RFC 8439 §4; OS CSPRNG | `atn_memzero`, `atn_ct_equal`, `atn_random_bytes` (BCrypt / arc4random / getrandom / urandom) |
 | `src/crypto/atn_sha256.c` | REQ-1.1 | RFC 6234 §§4.1,5.1,6.1,6.2 | SHA-256 only. Big-endian words. |
 | `src/crypto/atn_sha512.c` | REQ-1.1-PQ | RFC 6234 SHA-512 | SHA-512, HMAC-SHA-512, HKDF-SHA-512 |
-| `src/crypto/atn_fips202.c` | REQ-1.1-PQ | FIPS 202 | Keccak-f[1600], SHA3-256/512, SHAKE128/256 |
+| `src/crypto/atn_fips202.c` | REQ-1.1-PQ | FIPS 202 | Keccak-f[1600], SHA3-256/512, SHAKE128/256. Incremental finalize zeros unused rate tail. |
 | `src/crypto/atn_mlkem.c` | REQ-1.1-PQ | FIPS 203 | ML-KEM-1024 only |
+| `src/crypto/atn_mldsa.c` | REQ-5.1 | FIPS 204 / DEC-0018 | ML-DSA-87 only. Hedged Sign; internal APIs for KATs |
+| `tests/kat_mldsa87.h` | REQ-5.1 | ACVP FIPS204 | First ML-DSA-87 keyGen + Sign_internal (tgId=12) |
+| `tests/test_mldsa.c` | REQ-5.1 | gates | keygen/sign/verify KATs, tamper, hedged roundtrip |
 | `tests/kat_mlkem1024.h` | REQ-1.1-PQ | FIPS 203 KAT | First official-style ML-KEM-1024 vector |
 | `docs/TUNNEL.md` | REQ-1.2 | DEC-0007 | Wire format. Code must match. |
 | `include/atn_tun.h` / `src/tun/atn_tun.c` | REQ-1.2 | DEC-0007 | IPv4 UDP tunnel |

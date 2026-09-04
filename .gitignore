@@ -32,6 +32,9 @@ Thumbs.db
 # Knox SDK — Samsung license, drop in vendor/knox/ locally
 vendor/knox/*.jar
 
+# Builder-only NIST JSON dumps; KATs live in tests/kat_*.h
+docs/refs/
+
 # Secrets — never commit
 *.pem
 *.p12

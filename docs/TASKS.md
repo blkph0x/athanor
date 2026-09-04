@@ -17,9 +17,10 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 ## Backlog (do not start early)
 
-Phase 4 needs the Knox SDK (not on this host). Phase 5 signing waits
-on ISS-0005 (ML-DSA-87). Do not spawn those implementation tasks until
-the blocker is a measured toolchain, not a guess.
+Phase 4 needs the Knox SDK (not on this host). ML-DSA-87 is compiled
+(T-0500). Phase 5 is the air-gap build+sign factory that *uses* it.
+Do not spawn those implementation tasks until the blocker is a measured
+toolchain, not a guess.
 
 ---
 
@@ -46,3 +47,4 @@ the blocker is a measured toolchain, not a guess.
 | T-0301 | done | REQ-3.1 | Sharded AEAD blocks + vector clocks over the UDP tunnel |
 | T-0302 | done | REQ-3.3 | HMAC-SHA-512 heartbeat, UNTRUSTED + self-wipe |
 | T-0401 | done | REQ-4.4 | Native dmon binds hb/2FA lockout flush; Keystore wrap; DPM K=5 (DEC-0017). Device SoT still blocked on T-0400. |
+| T-0500 | done | ISS-0005 | ML-DSA-87 from FIPS 204; ACVP keyGen + Sign_internal KATs |

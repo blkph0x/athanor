@@ -16,15 +16,12 @@ Status: `open` | `closed`
 
 ## ISS-0005 — ML-DSA-87 signatures not yet implemented
 
-- **Status:** open
+- **Status:** closed
 - **Opened:** 2026-09-04
+- **Closed:** 2026-09-04 — DEC-0018, `atn_mldsa.c`, ACVP keyGen +
+  Sign_internal KATs ALL PASSED (`tests/test_mldsa`). REQ-5.1 pipeline
+  (air-gap compile + sign artifacts) is still open; the primitive is not.
 - **REQ:** REQ-1.2 / 5.1 (code signing)
-- **Unknown:** DEC-0005 covers encryption/KEM. Category-5 *signatures* are
-  ML-DSA-87 (FIPS 204). Not compiled in this tree yet. Do not claim
-  quantum-proof authentication of binaries or handshake transcripts.
-- **Must not invent:** a hash-based signature of our own; wait for FIPS 204
-  line-by-line + KATs.
-- **Unblock by:** implement ML-DSA-87 from FIPS 204 with ACVP/KAT vectors.
 
 ## ISS-0007 — Tunnel is IPv4-only
 

@@ -414,3 +414,31 @@ A decision is recorded **before** code that depends on it is written.
 - **Consequences:** In-process 4.4 gates can be proven on this PC.
   Device 4.1–4.3 still need knoxsdk.jar + enrolled S24–S26 (ISS-0016).
   Bucket period is policy, not a Faraday measurement (ISS-0019).
+
+---
+
+## DEC-0018 — Category-5 signatures are ML-DSA-87 (FIPS 204) only
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** DEC-0005 left signatures as ISS-0005. FIPS 204 (2024-08-13)
+  Table 1: ML-DSA-87 is NIST category 5 (same claim class as ML-KEM-1024
+  / AES-256). Table 2 sizes: pk 2592, sk 4896, sig 4627. q=8380417,
+  ζ=1753, (k,ℓ)=(8,7), η=2, τ=60, λ=256, γ1=2^19, γ2=(q-1)/32, β=120,
+  ω=75, d=13. CNSA 2.0 pairs ML-KEM-1024 with ML-DSA-87. We do not
+  invent a hash-based signature; SLH-DSA is FIPS 205 and is a separate
+  later decision if we want a lattice-independent fallback.
+- **Decision:**
+  - Implement **ML-DSA-87 only**. Not 44, not 65.
+  - Pure ML-DSA (Algorithms 1–3, 6–8). HashML-DSA is not compiled.
+  - Production `Sign` is hedged (`rnd` from OS CSPRNG). Deterministic
+    `rnd={0}^32` exists only so CAVP/ACVP vectors can be replayed.
+  - Internal KeyGen/Sign/Verify are test/KAT entry points (FIPS 204 §6).
+  - NTT zetas are FIPS 204 Appendix B, not recomputed from memory.
+  - KATs are the first ML-DSA-87 records from
+    `usnistgov/ACVP-Server` `ML-DSA-keyGen-FIPS204` and
+    `ML-DSA-sigGen-FIPS204` `internalProjection.json` (tgId=12,
+    Sign_internal, deterministic).
+- **Consequences:** REQ-5.1 can sign artifacts with this primitive once
+  the air-gap pipeline exists. Handshake transcripts may be signed
+  later; that is not this commit. ISS-0005 closes when those KATs pass.

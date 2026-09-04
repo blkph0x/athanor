@@ -4,6 +4,21 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — ML-DSA-87 (FIPS 204)
+
+- DEC-0018: category-5 signatures are ML-DSA-87 only. Pure ML-DSA,
+  hedged Sign, internal APIs for CAVP.
+- ACVP-Server `ML-DSA-keyGen-FIPS204` first ML-DSA-87 vector: pk+sk match.
+  `ML-DSA-sigGen-FIPS204` tgId=12 Sign_internal deterministic: signature
+  matches; verify accepts; tamper rejects; hedged roundtrip works.
+- Incremental SHAKE256 finalize now zeros the unused rate tail (FIPS 202
+  padding). Bug only showed up when μ = H(tr∥M′) spanned >1 rate block;
+  short absorbs (keygen ExpandS, ML-KEM SampleNTT) had been zero from init.
+- ISS-0005 closed. SoT REQ-5.1 stays `[ ]` — we have the pen, not the
+  air-gap signing factory.
+
+---
+
 ## 2026-09-04 — Keep going after network hiccup
 
 - Ping 8.8.8.8 works from the builder (18 ms). github.com resolves via

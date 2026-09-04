@@ -42,6 +42,13 @@
 #define ATN_MLKEM1024_SS_LEN   32u
 #define ATN_MLKEM1024_SEED_LEN 32u
 
+/* FIPS 204 ML-DSA-87 (NIST category 5) */
+#define ATN_MLDSA87_PK_LEN     2592u
+#define ATN_MLDSA87_SK_LEN     4896u
+#define ATN_MLDSA87_SIG_LEN    4627u
+#define ATN_MLDSA87_SEED_LEN   32u
+#define ATN_MLDSA87_RND_LEN    32u
+
 enum {
     ATN_OK          = 0,
     ATN_ERR_PARAM   = 1, /* NULL where forbidden, or size 0 where required */
@@ -227,6 +234,18 @@ void atn_shake128_absorb(atn_shake128_ctx *ctx, const uint8_t *in, size_t n);
 void atn_shake128_finalize(atn_shake128_ctx *ctx);
 void atn_shake128_squeeze(atn_shake128_ctx *ctx, uint8_t *out, size_t n);
 
+typedef struct {
+    uint64_t s[25];
+    uint8_t  buf[136];
+    size_t   used;
+    int      squeezing;
+} atn_shake256_ctx;
+
+void atn_shake256_init(atn_shake256_ctx *ctx);
+void atn_shake256_absorb(atn_shake256_ctx *ctx, const uint8_t *in, size_t n);
+void atn_shake256_finalize(atn_shake256_ctx *ctx);
+void atn_shake256_squeeze(atn_shake256_ctx *ctx, uint8_t *out, size_t n);
+
 /* ---- FIPS 203 ML-KEM-1024 ---------------------------------------------- */
 
 /*
@@ -253,5 +272,33 @@ int atn_mlkem1024_keygen(uint8_t ek[ATN_MLKEM1024_EK_LEN],
 int atn_mlkem1024_encaps(const uint8_t ek[ATN_MLKEM1024_EK_LEN],
                          uint8_t ss[ATN_MLKEM1024_SS_LEN],
                          uint8_t ct[ATN_MLKEM1024_CT_LEN]);
+
+/* ---- FIPS 204 ML-DSA-87 ---------------------------------------------- */
+
+int atn_mldsa87_keygen_internal(const uint8_t xi[ATN_MLDSA87_SEED_LEN],
+                                uint8_t pk[ATN_MLDSA87_PK_LEN],
+                                uint8_t sk[ATN_MLDSA87_SK_LEN]);
+
+int atn_mldsa87_sign_internal(const uint8_t sk[ATN_MLDSA87_SK_LEN],
+                              const uint8_t *mp, size_t mp_len,
+                              const uint8_t rnd[ATN_MLDSA87_RND_LEN],
+                              uint8_t sig[ATN_MLDSA87_SIG_LEN]);
+
+int atn_mldsa87_verify_internal(const uint8_t pk[ATN_MLDSA87_PK_LEN],
+                                const uint8_t *mp, size_t mp_len,
+                                const uint8_t sig[ATN_MLDSA87_SIG_LEN]);
+
+int atn_mldsa87_keygen(uint8_t pk[ATN_MLDSA87_PK_LEN],
+                       uint8_t sk[ATN_MLDSA87_SK_LEN]);
+
+int atn_mldsa87_sign(const uint8_t sk[ATN_MLDSA87_SK_LEN],
+                     const uint8_t *msg, size_t n,
+                     const uint8_t *ctx, size_t ctx_len,
+                     uint8_t sig[ATN_MLDSA87_SIG_LEN]);
+
+int atn_mldsa87_verify(const uint8_t pk[ATN_MLDSA87_PK_LEN],
+                       const uint8_t *msg, size_t n,
+                       const uint8_t *ctx, size_t ctx_len,
+                       const uint8_t sig[ATN_MLDSA87_SIG_LEN]);
 
 #endif /* ATN_CRYPTO_H */

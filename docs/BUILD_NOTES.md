@@ -4,6 +4,21 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0015 — ML-DSA-87 ACVP KATs (2026-09-04)
+
+- **Host:** Windows x86_64, gcc 11.3.0
+- **Command:** `tests/test_mldsa.exe`
+- **Result:** ALL PASSED
+  - keygen_internal pk/sk match ACVP ML-DSA-87 tests[0]
+  - sign_internal (rnd=0) signature matches tgId=12 tests[0]
+  - verify_internal accepts KAT, rejects flipped byte
+  - hedged Sign/Verify roundtrip + wrong-message reject
+- **Vectors:** `usnistgov/ACVP-Server` `gen-val/json-files/ML-DSA-*-FIPS204/internalProjection.json`
+- SHAKE256 incremental vs one-shot on 200-byte split absorb also gated
+  in `tests/test_crypto.c`.
+
+---
+
 ## BN-0014 — DEC-0017 dmon hb/2FA flush + Keystore wrap (2026-09-04)
 
 - **Host:** Windows x86_64. ping 8.8.8.8 18 ms. github.com via 1.1.1.1 →
