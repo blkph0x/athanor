@@ -4,6 +4,15 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0020 — IPv4 heartbeat path (DEC-0022) (2026-09-04)
+
+- **Host:** Windows x86_64
+- **`make test`:** ALL PASSED. New gates: `hs retry`, `stray ignored`,
+  send/recv after stray, KA, `hb pump IPv4` on two-dmon.
+- **`make android-java`:** STUB BUILD. Daemon 1s ticker / 15s KA compiles.
+
+---
+
 ## BN-0019 — three UDP heartbeat pairs (2026-09-04)
 
 - **Host:** Windows x86_64

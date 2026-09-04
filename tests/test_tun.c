@@ -40,9 +40,11 @@ int main(void)
     check("peer A", atn_tun_set_peer(&a, 0x7f000001u, b.local_port) == ATN_OK);
     check("peer B", atn_tun_set_peer(&b, 0x7f000001u, a.local_port) == ATN_OK);
     check("hs init", atn_tun_hs_send_init(&a) == ATN_OK);
+    check("hs retry", atn_tun_hs_retry(&a) == ATN_OK);
     check("A handshake", a.state == ATN_TUN_HANDSHAKE);
     rc = atn_tun_pump(&b, 3000);
     check("B pump INIT", rc == ATN_OK && b.state == ATN_TUN_ESTABLISHED);
+    (void)atn_tun_pump(&b, 200); /* drain HS_INIT retry */
     rc = atn_tun_pump(&a, 3000);
     check("A pump ACK", rc == ATN_OK && a.state == ATN_TUN_ESTABLISHED);
     check("send", atn_tun_send(&a, hello, 11) == ATN_OK);
@@ -56,6 +58,18 @@ int main(void)
     check("resend", rc == ATN_OK);
     rc = atn_tun_recv_data(&b, back, &n, sizeof(back), 3000);
     check("replay dropped", rc == ATN_ERR_NONCE);
+
+    check("stray send", atn_tun_test_stray(&b) == ATN_OK);
+    rc = atn_tun_recv_data(&b, back, &n, sizeof(back), 200);
+    check("stray ignored",
+          rc == ATN_ERR_STATE && b.state == ATN_TUN_ESTABLISHED);
+    check("send after stray", atn_tun_send(&a, hello, 11) == ATN_OK);
+    rc = atn_tun_recv_data(&b, back, &n, sizeof(back), 3000);
+    check("recv after stray",
+          rc == ATN_OK && n == 11 && memcmp(back, hello, 11) == 0);
+    check("ka", atn_tun_keepalive(&a) == ATN_OK);
+    rc = atn_tun_recv_data(&b, back, &n, sizeof(back), 3000);
+    check("ka recv", rc == ATN_OK && n == 0 && b.state == ATN_TUN_ESTABLISHED);
 
     {
         /* New seq + flipped ciphertext: window accepts, AEAD must fail and close. */

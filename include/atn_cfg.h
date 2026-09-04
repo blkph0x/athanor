@@ -2,6 +2,7 @@
  * Lab node config (REQ-4.1). Spec: DEC-0021.
  *
  * Text file, key=value lines. Unknown keys fail closed.
+ * peer_ipv4 is required (DEC-0022: IPv4-only networks must work).
  */
 #ifndef ATN_CFG_H
 #define ATN_CFG_H

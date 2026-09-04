@@ -167,6 +167,16 @@ Java_com_athanor_daemon_AtnNative_dmonHbIngest(JNIEnv *env, jclass cls,
 }
 
 JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_dmonHbEmit(JNIEnv *env, jclass cls,
+                                             jlong bucket)
+{
+    (void)env;
+    (void)cls;
+    dmon_once();
+    return atn_dmon_hb_emit(&g_dmon, (uint64_t)bucket);
+}
+
+JNIEXPORT jint JNICALL
 Java_com_athanor_daemon_AtnNative_dmonHbTick(JNIEnv *env, jclass cls,
                                              jlong bucket)
 {
@@ -342,6 +352,24 @@ Java_com_athanor_daemon_AtnNative_tunHsSend(JNIEnv *env, jclass cls)
     (void)cls;
     dmon_once();
     return atn_dmon_tun_hs_send(&g_dmon);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_tunHsRetry(JNIEnv *env, jclass cls)
+{
+    (void)env;
+    (void)cls;
+    dmon_once();
+    return atn_dmon_tun_hs_retry(&g_dmon);
+}
+
+JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_tunKeepalive(JNIEnv *env, jclass cls)
+{
+    (void)env;
+    (void)cls;
+    dmon_once();
+    return atn_dmon_tun_keepalive(&g_dmon);
 }
 
 JNIEXPORT jint JNICALL

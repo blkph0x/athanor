@@ -38,6 +38,7 @@ int  atn_dmon_hb_init(atn_dmon *d, const uint8_t id[ATN_HB_ID_LEN],
 int  atn_dmon_hb_add_peer(atn_dmon *d, const uint8_t id[ATN_HB_ID_LEN],
                           const uint8_t key[32]);
 int  atn_dmon_hb_ingest(atn_dmon *d, const uint8_t *msg, size_t n);
+int  atn_dmon_hb_emit(atn_dmon *d, uint64_t bucket);
 int  atn_dmon_hb_tick(atn_dmon *d, uint64_t bucket);
 int  atn_dmon_hb_state(const atn_dmon *d);
 
@@ -57,6 +58,8 @@ int  atn_dmon_tun_bind(atn_dmon *d, uint16_t port);
 int  atn_dmon_tun_bind_any(atn_dmon *d, uint16_t port);
 int  atn_dmon_tun_set_peer(atn_dmon *d, uint32_t ipv4_host, uint16_t port);
 int  atn_dmon_tun_hs_send(atn_dmon *d);
+int  atn_dmon_tun_hs_retry(atn_dmon *d);
+int  atn_dmon_tun_keepalive(atn_dmon *d);
 int  atn_dmon_tun_pump(atn_dmon *d, int timeout_ms);
 int  atn_dmon_tun_send(atn_dmon *d, const uint8_t *pt, size_t n);
 int  atn_dmon_tun_recv(atn_dmon *d, uint8_t *pt, size_t *n, size_t max,

@@ -4,6 +4,19 @@ Newest at the top.
 
 ---
 
+## 2026-09-04 — IPv4 is the required heartbeat path (DEC-0022)
+
+- User: must work on non-IPv6 networks; IPv4 reliably and safely; no
+  compromise on heartbeat connectivity.
+- Sockets stay `AF_INET`. No IPv4-mapped IPv6. `peer_ipv4` is enough.
+- Pin source IPv4+port (stray UDP does not AEAD-close). HS_INIT retry.
+  Duplicate INIT ignored. Daemon 1s pump, 15s KA, hb tick still 60s.
+  dmon pump on ESTABLISHED ingests hb DATA. hb.tun attaches when the
+  tunnel becomes ready.
+- ISS-0007 remains open (separate AF_INET6 later).
+
+---
+
 ## 2026-09-04 — ISS-0015 three UDP heartbeat pairs
 
 - `test_hb` handshakes AB/AC/BC on loopback, three LIVE rounds, then

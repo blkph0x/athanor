@@ -69,7 +69,8 @@ Java talks to it with JNI (`AtnNative.tun*`, DEC-0020). No OkHttp, no
 Play services. Peer IPv4 is supplied by `filesDir/atn-node.conf`
 (`peer_ipv4` / `peer_port` / `peer_ek`), not baked in (DEC-0021).
 JNI `tunBind` uses `INADDR_ANY`. INTERNET permission is for that UDP
-socket, not a CDN.
+socket, not a CDN. Heartbeat rides IPv4 (DEC-0022): 1s pump, HS retry,
+15s KA. IPv6 is not required.
 
 Lab PC: `atnnode listen [port]` prints `peer_port` and `peer_ek`. Put
 those plus this machine's IPv4 into the phone's `atn-node.conf`. Missing

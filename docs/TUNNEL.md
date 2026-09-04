@@ -72,10 +72,16 @@ REKEY is not implemented. If `seq` would exceed 2^64−2 the session closes
 
 ## Sockets
 
-IPv4 UDP only, OS sockets (`sendto`/`recvfrom`). IPv6 is ISS-0007.
-Windows links `ws2_32`; POSIX uses BSD sockets. No libuv, no boost.asio.
+IPv4 UDP only (`AF_INET`). This is the required heartbeat path
+(DEC-0022). IPv6 is ISS-0007 and must be a second socket, never
+IPv4-mapped `AF_INET6`. Windows links `ws2_32`; POSIX uses BSD sockets.
+No libuv, no boost.asio.
 
 `atn_tun_bind` is loopback (`127.0.0.1`) — tests stay here. `atn_tun_bind_any`
 binds `INADDR_ANY` so a mesh member can receive from a LAN lab node
 (DEC-0021). JNI `tunBind` uses bind-any. The product still does not
-guess a peer IP; `atn-node.conf` supplies it.
+guess a peer IP; `atn-node.conf` `peer_ipv4` is sufficient.
+
+Once the peer is set, datagrams from any other IPv4+port are dropped
+without AEAD. HS_INIT may be resent unchanged while `HANDSHAKE`.
+Type-4 KA every 15s keeps NAT mappings while the hb bucket stays 60s.

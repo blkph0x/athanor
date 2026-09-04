@@ -18,7 +18,7 @@ same commit.
 | `tests/test_mldsa.c` | REQ-5.1 | gates | keygen/sign/verify KATs, tamper, hedged roundtrip |
 | `tests/kat_mlkem1024.h` | REQ-1.1-PQ | FIPS 203 KAT | First official-style ML-KEM-1024 vector |
 | `docs/TUNNEL.md` | REQ-1.2 | DEC-0007 | Wire format. Code must match. |
-| `include/atn_tun.h` / `src/tun/atn_tun.c` | REQ-1.2 | DEC-0007 / 0021 | IPv4 UDP tunnel; `bind_any` is INADDR_ANY |
+| `include/atn_tun.h` / `src/tun/atn_tun.c` | REQ-1.2 | DEC-0007 / 0021 / 0022 | IPv4 UDP; bind_any; pin peer; HS retry; KA |
 | `include/atn_2fa.h` / `src/auth/atn_2fa.c` | REQ-1.3 | DEC-0008 | Challenge-response 2FA |
 | `src/auth/atn_2fa_cli.c` | REQ-1.3 | DEC-0008 | `atn2fa` standalone binary |
 | `tests/test_tun.c` | REQ-1.2 | gates | Loopback handshake, echo, replay, bad MAC |

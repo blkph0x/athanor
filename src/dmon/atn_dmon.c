@@ -9,6 +9,8 @@
 
 #include <string.h>
 
+static void dmon_attach_hb_tun(atn_dmon *d);
+
 void atn_dmon_init(atn_dmon *d)
 {
     if (d == NULL) {
@@ -73,6 +75,7 @@ int atn_dmon_hb_init(atn_dmon *d, const uint8_t id[ATN_HB_ID_LEN],
         return rc;
     }
     d->hb_ready = 1;
+    dmon_attach_hb_tun(d);
     return ATN_OK;
 }
 
@@ -91,6 +94,24 @@ int atn_dmon_hb_ingest(atn_dmon *d, const uint8_t *msg, size_t n)
         return ATN_ERR_STATE;
     }
     return atn_hb_ingest(&d->hb, msg, n);
+}
+
+int atn_dmon_hb_emit(atn_dmon *d, uint64_t bucket)
+{
+    if (atn_dmon_require(d) != ATN_OK || !d->hb_ready) {
+        return ATN_ERR_STATE;
+    }
+    if (d->tun_ready) {
+        d->hb.tun = &d->tun;
+    }
+    return atn_hb_emit(&d->hb, bucket);
+}
+
+static void dmon_attach_hb_tun(atn_dmon *d)
+{
+    if (d->hb_ready && d->tun_ready) {
+        d->hb.tun = &d->tun;
+    }
 }
 
 int atn_dmon_hb_tick(atn_dmon *d, uint64_t bucket)
@@ -159,6 +180,7 @@ int atn_dmon_tun_initiator(atn_dmon *d,
     rc = atn_tun_init_initiator(&d->tun, peer_ek);
     if (rc == ATN_OK) {
         d->tun_ready = 1;
+        dmon_attach_hb_tun(d);
     }
     return rc;
 }
@@ -173,6 +195,7 @@ int atn_dmon_tun_responder(atn_dmon *d,
     rc = atn_tun_init_responder(&d->tun, own_dk);
     if (rc == ATN_OK) {
         d->tun_ready = 1;
+        dmon_attach_hb_tun(d);
     }
     return rc;
 }
@@ -209,12 +232,50 @@ int atn_dmon_tun_hs_send(atn_dmon *d)
     return atn_tun_hs_send_init(&d->tun);
 }
 
-int atn_dmon_tun_pump(atn_dmon *d, int timeout_ms)
+int atn_dmon_tun_hs_retry(atn_dmon *d)
 {
     if (atn_dmon_require(d) != ATN_OK || !d->tun_ready) {
         return ATN_ERR_STATE;
     }
-    return atn_tun_pump(&d->tun, timeout_ms);
+    return atn_tun_hs_retry(&d->tun);
+}
+
+int atn_dmon_tun_keepalive(atn_dmon *d)
+{
+    if (atn_dmon_require(d) != ATN_OK || !d->tun_ready) {
+        return ATN_ERR_STATE;
+    }
+    return atn_tun_keepalive(&d->tun);
+}
+
+int atn_dmon_tun_pump(atn_dmon *d, int timeout_ms)
+{
+    uint8_t buf[ATN_TUN_MAX_PT];
+    size_t n = 0;
+    int rc;
+    if (atn_dmon_require(d) != ATN_OK || !d->tun_ready) {
+        return ATN_ERR_STATE;
+    }
+    if (d->tun.state != ATN_TUN_ESTABLISHED) {
+        return atn_tun_pump(&d->tun, timeout_ms);
+    }
+    rc = atn_tun_recv_data(&d->tun, buf, &n, sizeof(buf), timeout_ms);
+    if (rc != ATN_OK) {
+        return rc;
+    }
+    if (n == 0) {
+        return ATN_OK; /* KA */
+    }
+    if (!d->hb_ready) {
+        return ATN_OK;
+    }
+    rc = atn_hb_ingest(&d->hb, buf, n);
+    atn_memzero(buf, n);
+    /* Forged hb does not close the IPv4 tunnel (DEC-0022). */
+    if (rc == ATN_ERR_AUTH || rc == ATN_ERR_PARAM) {
+        return ATN_OK;
+    }
+    return rc;
 }
 
 int atn_dmon_tun_send(atn_dmon *d, const uint8_t *pt, size_t n)

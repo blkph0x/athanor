@@ -29,8 +29,11 @@ Status: `open` | `closed`
 - **Opened:** 2026-09-04
 - **REQ:** REQ-1.2 follow-on
 - **Unknown:** DEC-0007 froze IPv4 UDP. IPv6 sockaddr layout is not specified.
-- **Must not invent:** dual-stack without a DEC.
-- **Unblock by:** DEC for IPv6 bind/send/recv, then code.
+- **Must not invent:** dual-stack without a DEC. DEC-0022 forbids
+  IPv4-mapped `AF_INET6` (breaks IPv4-only nets). IPv4 is the required
+  heartbeat path; IPv6 must be a second socket.
+- **Unblock by:** DEC for a separate `AF_INET6` bind/send/recv that
+  cannot fail the IPv4 path, then code.
 
 ## ISS-0008 — Tunnel rekey not implemented
 

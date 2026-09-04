@@ -128,6 +128,22 @@ int main(void)
         check("tun recv",
               atn_dmon_tun_recv(&db, back, &nrecv, sizeof(back), 3000) == ATN_OK
               && nrecv == 5 && memcmp(back, hello, 5) == 0);
+        {
+            uint8_t hid_a[8], hid_b[8], hhead[32];
+            memset(hid_a, 0x11, 8);
+            memset(hid_b, 0x22, 8);
+            memset(hhead, 0x33, 32);
+            check("hb wire A",
+                  atn_dmon_hb_init(&da, hid_a, 1, hhead) == ATN_OK &&
+                  atn_dmon_hb_add_peer(&da, hid_b, ck) == ATN_OK);
+            check("hb wire B",
+                  atn_dmon_hb_init(&db, hid_b, 1, hhead) == ATN_OK &&
+                  atn_dmon_hb_add_peer(&db, hid_a, ck) == ATN_OK);
+            check("hb emit", atn_dmon_hb_emit(&da, 1) == ATN_OK);
+            check("hb pump IPv4",
+                  atn_dmon_tun_pump(&db, 3000) == ATN_OK &&
+                  atn_hb_peer_state(&db.hb, hid_a) == ATN_HB_LIVE);
+        }
         atn_dmon_flush(&da);
         check("tun flush A", atn_dmon_require(&da) == ATN_ERR_STATE);
         check("tun send after flush",

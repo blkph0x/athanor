@@ -527,3 +527,41 @@ A decision is recorded **before** code that depends on it is written.
   node without a hardcoded IP. REQ-5.2 SoT still needs an emulator/lab
   S24 run; this only gates the signed-report format. REQ-4.1 SoT still
   needs knoxsdk.jar + an enrolled device.
+
+---
+
+## DEC-0022 — IPv4 is the required heartbeat path; IPv6 must not replace it
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** User: work on non-IPv6 networks; IPv4 must work reliably
+  and safely; no compromise on heartbeat connectivity. ISS-0007 is
+  IPv6 sockaddr (still unspecified). Dual-stack `AF_INET6` with
+  `IPV6_V6ONLY=0` maps IPv4 into IPv6 and is a known way to break
+  IPv4-only LANs. Current daemon ticks every 60s, which is longer
+  than typical UDP NAT idle (often ~30s). `atn_tun_pump` currently
+  `recvfrom`s DATA/KA and drops them (heartbeat tokens never ingest).
+  `hb.tun` is NULL if 2FA/hb is inited before the tunnel. Stray UDP
+  to the bound port is fed to AEAD; MAC fail closes the session
+  (DEC-0007) — a LAN scanner can kill the heartbeat.
+- **Decision:**
+  - Tunnel sockets stay `AF_INET` / IPv4 UDP. `atn-node.conf`
+    `peer_ipv4` remains sufficient for `ready()`. Do not add a
+    required IPv6 key. Do not open `AF_INET6` in this DEC.
+  - IPv6, when specified later (ISS-0007), is a **second** `AF_INET6`
+    socket. Bind/send IPv6 failure must not prevent IPv4. Mapped
+    IPv4-in-IPv6 is forbidden.
+  - Once `have_peer` is set, datagrams whose IPv4+port do not match
+    the peer are dropped (not AEAD-decrypted). Authenticated MAC
+    fail from the **pinned peer** still closes (DEC-0007).
+  - Handshake retry: initiator in `HANDSHAKE` resends the last
+    HS_INIT (`atn_tun_hs_retry`). Same KEM ciphertext; no second
+    encapsulate. Daemon retries once per second until ESTABLISHED.
+  - Keepalive: existing type-4 KA every 15s while ESTABLISHED so
+    NAT mappings outlive the 60s hb bucket (DEC-0017 bucket stays
+    60s; packet cadence is faster). `hb_tick` still once per bucket.
+  - When the tunnel becomes ready, attach `hb.tun`. `dmon` pump on
+    ESTABLISHED uses `recv_data` and ingests heartbeat DATA. Forged
+    hb MAC does not close the tunnel. Tunnel AEAD fail still closes.
+- **Consequences:** IPv4-only networks keep the heartbeat. IPv6 is
+  still ISS-0007. SoT 4.1 still needs an enrolled device.

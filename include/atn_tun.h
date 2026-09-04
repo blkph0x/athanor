@@ -53,6 +53,7 @@ int atn_tun_bind(atn_tun *t, uint16_t port);           /* loopback, 0 = ephemera
 int atn_tun_bind_any(atn_tun *t, uint16_t port);       /* INADDR_ANY, DEC-0021 */
 int atn_tun_set_peer(atn_tun *t, uint32_t ipv4_host, uint16_t port);
 int atn_tun_hs_send_init(atn_tun *t);
+int atn_tun_hs_retry(atn_tun *t);                      /* resend HS_INIT, DEC-0022 */
 int atn_tun_pump(atn_tun *t, int timeout_ms);          /* recv one datagram */
 int atn_tun_send(atn_tun *t, const uint8_t *pt, size_t n);
 int atn_tun_recv_data(atn_tun *t, uint8_t *pt, size_t *n, size_t max, int timeout_ms);
@@ -61,5 +62,7 @@ int atn_tun_close(atn_tun *t);
 void atn_tun_wipe(atn_tun *t);
 /* Test hook: retransmit the last datagram unchanged (replay-window proof). */
 int atn_tun_resend_last(atn_tun *t);
+/* Test hook: send 16 unauthenticated bytes at t's IPv4 loopback port. */
+int atn_tun_test_stray(const atn_tun *t);
 
 #endif

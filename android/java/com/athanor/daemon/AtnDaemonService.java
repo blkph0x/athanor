@@ -19,25 +19,52 @@ import android.util.Log;
 public class AtnDaemonService extends Service {
     private static final String TAG = "atn-daemon";
     private static final String CH = "atn-mesh";
-    /* DEC-0017: one hb bucket per 60s. */
+    /* DEC-0017: hb bucket 60s. DEC-0022: 1s pump, 15s KA so IPv4 NAT lives. */
     private static final long BUCKET_MS = 60L * 1000L;
+    private static final long TICK_MS = 1000L;
+    private static final int KA_TICKS = 15;
 
     private final Handler tickHandler = new Handler(Looper.getMainLooper());
     private boolean labTun;
+    private long lastHbBucket = -1L;
+    private int kaTicks;
     private final Runnable ticker = new Runnable() {
         @Override
         public void run() {
             long bucket = System.currentTimeMillis() / BUCKET_MS;
-            AtnNative.dmonHbTick(bucket);
             if (labTun) {
-                AtnNative.tunPump(0);
+                int i;
+                for (i = 0; i < 8; i++) {
+                    if (AtnNative.tunPump(0) != 0) {
+                        break;
+                    }
+                }
+                int st = AtnNative.tunState();
+                if (st == AtnNative.TUN_HANDSHAKE) {
+                    AtnNative.tunHsRetry();
+                } else if (st == AtnNative.TUN_ESTABLISHED) {
+                    kaTicks++;
+                    if (kaTicks >= KA_TICKS) {
+                        kaTicks = 0;
+                        AtnNative.tunKeepalive();
+                    }
+                } else if (st == AtnNative.TUN_CLOSED) {
+                    labTun = false;
+                }
+            }
+            if (bucket != lastHbBucket) {
+                lastHbBucket = bucket;
+                if (labTun && AtnNative.tunState() == AtnNative.TUN_ESTABLISHED) {
+                    AtnNative.dmonHbEmit(bucket);
+                }
+                AtnNative.dmonHbTick(bucket);
             }
             if (AtnNative.dmonRequire() != 0) {
                 labTun = false;
                 AtnKeystore.deleteWrap(AtnDaemonService.this);
                 Log.w(TAG, "hb UNTRUSTED/DEAD: wrap deleted");
             }
-            tickHandler.postDelayed(this, BUCKET_MS);
+            tickHandler.postDelayed(this, TICK_MS);
         }
     };
 

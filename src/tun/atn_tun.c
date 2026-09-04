@@ -17,6 +17,7 @@
 #  include <sys/types.h>
 #  include <sys/socket.h>
 #  include <sys/select.h>
+#  include <sys/time.h>
 #  include <netinet/in.h>
 #  include <arpa/inet.h>
 #  include <unistd.h>
@@ -133,41 +134,73 @@ static int udp_recv(atn_tun *t, uint8_t *buf, size_t max, size_t *out, int timeo
     fd_set rfds;
     struct timeval tv;
     struct sockaddr_in sa;
-    int r;
+    int r, left;
 #if defined(ATN_OS_WINDOWS)
-    int slen = (int)sizeof(sa);
+    int slen;
+    DWORD t0 = GetTickCount();
 #else
-    socklen_t slen = sizeof(sa);
+    socklen_t slen;
+    struct timeval t0, now;
+    gettimeofday(&t0, NULL);
 #endif
-    FD_ZERO(&rfds);
-    FD_SET(sock_of(t), &rfds);
-    tv.tv_sec = timeout_ms / 1000;
-    tv.tv_usec = (timeout_ms % 1000) * 1000;
-    r = select((int)sock_of(t) + 1, &rfds, NULL, NULL, &tv);
-    if (r == 0) {
-        return ATN_ERR_STATE; /* timeout */
+    if (timeout_ms < 0) {
+        timeout_ms = 0;
     }
-    if (r < 0) {
-        return ATN_ERR_SOCK;
-    }
-    memset(&sa, 0, sizeof(sa));
+    for (;;) {
 #if defined(ATN_OS_WINDOWS)
-    r = recvfrom(sock_of(t), (char *)buf, (int)max, 0,
-                 (struct sockaddr *)&sa, &slen);
+        left = timeout_ms - (int)(GetTickCount() - t0);
 #else
-    r = (int)recvfrom(sock_of(t), buf, max, 0,
-                      (struct sockaddr *)&sa, &slen);
+        gettimeofday(&now, NULL);
+        left = timeout_ms - (int)((now.tv_sec - t0.tv_sec) * 1000 +
+                                  (now.tv_usec - t0.tv_usec) / 1000);
 #endif
-    if (r <= 0) {
-        return ATN_ERR_SOCK;
+        if (left < 0) {
+            left = 0;
+        }
+        FD_ZERO(&rfds);
+        FD_SET(sock_of(t), &rfds);
+        tv.tv_sec = left / 1000;
+        tv.tv_usec = (left % 1000) * 1000;
+        r = select((int)sock_of(t) + 1, &rfds, NULL, NULL, &tv);
+        if (r == 0) {
+            return ATN_ERR_STATE; /* timeout */
+        }
+        if (r < 0) {
+            return ATN_ERR_SOCK;
+        }
+        memset(&sa, 0, sizeof(sa));
+#if defined(ATN_OS_WINDOWS)
+        slen = (int)sizeof(sa);
+        r = recvfrom(sock_of(t), (char *)buf, (int)max, 0,
+                     (struct sockaddr *)&sa, &slen);
+#else
+        slen = sizeof(sa);
+        r = (int)recvfrom(sock_of(t), buf, max, 0,
+                          (struct sockaddr *)&sa, &slen);
+#endif
+        if (r <= 0) {
+            return ATN_ERR_SOCK;
+        }
+        {
+            uint32_t src = ntohl(sa.sin_addr.s_addr);
+            uint16_t sport = ntohs(sa.sin_port);
+            if (t->have_peer) {
+                if (src != t->peer_addr || sport != t->peer_port) {
+                    /* DEC-0022: stray IPv4 — do not AEAD-close the session. */
+                    if (timeout_ms == 0) {
+                        return ATN_ERR_STATE;
+                    }
+                    continue;
+                }
+            } else {
+                t->peer_addr = src;
+                t->peer_port = sport;
+                t->have_peer = 1;
+            }
+        }
+        *out = (size_t)r;
+        return ATN_OK;
     }
-    if (!t->have_peer) {
-        t->peer_addr = ntohl(sa.sin_addr.s_addr);
-        t->peer_port = ntohs(sa.sin_port);
-        t->have_peer = 1;
-    }
-    *out = (size_t)r;
-    return ATN_OK;
 }
 
 static int derive_keys(atn_tun *t, const uint8_t ss[32],
@@ -383,6 +416,17 @@ int atn_tun_hs_send_init(atn_tun *t)
     return ATN_OK;
 }
 
+int atn_tun_hs_retry(atn_tun *t)
+{
+    if (t == NULL || t->state != ATN_TUN_HANDSHAKE) {
+        return ATN_ERR_STATE;
+    }
+    if (t->last_wire_len == 0) {
+        return ATN_ERR_PARAM;
+    }
+    return udp_send(t, t->last_wire, t->last_wire_len);
+}
+
 static int send_ack(atn_tun *t)
 {
     uint8_t hdr[16], ct[32], tag[16], pkt[16 + 32 + 16];
@@ -404,6 +448,9 @@ static int handle_init(atn_tun *t, const uint8_t *pl, uint32_t len)
 {
     uint8_t ss[32];
     int rc;
+    if (t->state == ATN_TUN_ESTABLISHED) {
+        return ATN_OK; /* duplicate HS_INIT from retry, DEC-0022 */
+    }
     if (t->initiator || len != ATN_MLKEM1024_CT_LEN) {
         return ATN_ERR_PARAM;
     }
@@ -615,6 +662,39 @@ int atn_tun_resend_last(atn_tun *t)
         return ATN_ERR_PARAM;
     }
     return udp_send(t, t->last_wire, t->last_wire_len);
+}
+
+int atn_tun_test_stray(const atn_tun *t)
+{
+    atn_sock s;
+    struct sockaddr_in sa;
+    char junk[16];
+    int r;
+    if (t == NULL || t->local_port == 0) {
+        return ATN_ERR_PARAM;
+    }
+    memset(junk, 0x41, sizeof(junk));
+    s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (s == ATN_INV) {
+        return ATN_ERR_SOCK;
+    }
+    memset(&sa, 0, sizeof(sa));
+    sa.sin_family = AF_INET;
+    sa.sin_port = htons(t->local_port);
+    sa.sin_addr.s_addr = htonl(0x7f000001u);
+#if defined(ATN_OS_WINDOWS)
+    r = sendto(s, junk, (int)sizeof(junk), 0,
+               (struct sockaddr *)&sa, sizeof(sa));
+    closesocket(s);
+#else
+    r = (int)sendto(s, junk, sizeof(junk), 0,
+                    (const struct sockaddr *)&sa, sizeof(sa));
+    close(s);
+#endif
+    if (r != (int)sizeof(junk)) {
+        return ATN_ERR_SOCK;
+    }
+    return ATN_OK;
 }
 
 int atn_tun_close(atn_tun *t)

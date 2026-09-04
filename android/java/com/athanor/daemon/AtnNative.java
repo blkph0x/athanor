@@ -16,17 +16,23 @@ public final class AtnNative {
     public static native int dmonHbInit(byte[] id, long epoch, byte[] head);
     public static native int dmonHbAddPeer(byte[] id, byte[] key);
     public static native int dmonHbIngest(byte[] msg);
+    public static native int dmonHbEmit(long bucket);
     public static native int dmonHbTick(long bucket);
     public static native int dmonHbState();
     public static native int dmon2faEnroll(byte[] id, byte[] keyOut);
     public static native int dmon2faChallenge(byte[] id, byte[] chalOut);
     public static native int dmon2faVerify(byte[] id, byte[] chal, byte[] resp);
-    /* DEC-0020: DEC-0007 tunnel. tunRecv returns n>=0 or -ATN_ERR_*. */
+    /* DEC-0020/0022: DEC-0007 IPv4 tunnel. tunRecv returns n>=0 or -ATN_ERR_*. */
+    public static final int TUN_CLOSED = 0;
+    public static final int TUN_HANDSHAKE = 1;
+    public static final int TUN_ESTABLISHED = 2;
     public static native int tunInitiator(byte[] peerEk);
     public static native int tunResponder(byte[] ownDk);
     public static native int tunBind(int port);
     public static native int tunSetPeer(int ipv4Host, int port);
     public static native int tunHsSend();
+    public static native int tunHsRetry();
+    public static native int tunKeepalive();
     public static native int tunPump(int timeoutMs);
     public static native int tunSend(byte[] pt);
     public static native int tunRecv(byte[] out, int timeoutMs);

@@ -113,7 +113,9 @@ static int cmd_listen(uint16_t port)
             printf("recv %u\n", (unsigned)n);
             (void)atn_tun_send(&t, pt, n);
             atn_memzero(pt, n);
-        } else if (rc != ATN_OK && rc != ATN_ERR_STATE) {
+        } else if (rc == ATN_ERR_STATE) {
+            (void)atn_tun_keepalive(&t);
+        } else if (rc != ATN_OK) {
             fprintf(stderr, "recv failed %d\n", rc);
             atn_tun_wipe(&t);
             return 1;
