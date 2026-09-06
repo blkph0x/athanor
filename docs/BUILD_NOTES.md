@@ -4,6 +4,14 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0027 — DEC-0031 hub failover D-08 (2026-09-06)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0
+- **`make test`:** ALL PASSED including `test_hub_failover`.
+- **SoT:** 4.x/5.x/6.x stay `[ ]`. T-0701 done; T-0702 open.
+
+---
+
 ## BN-0026 — DEC-0030 stub Knox path documented (2026-09-06)
 
 - **Host:** Windows x86_64

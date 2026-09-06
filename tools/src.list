@@ -91,6 +91,7 @@ tests/test_dmon.c
 tests/test_dns.c
 tests/test_fuzz.c
 tests/test_hb.c
+tests/test_hub_failover.c
 tests/test_http.c
 tests/test_mldsa.c
 tests/test_recipe.c

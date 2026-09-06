@@ -824,3 +824,36 @@ A decision is recorded **before** code that depends on it is written.
   - Document the flow in `docs/KNOX.md` and `vendor/knox/README.md`.
 - **Consequences:** Developers write final-shaped Knox call sites now;
   jar drop is a path swap. Foreign paste leftovers stay out of tree.
+
+---
+
+## DEC-0031 — Multi-hub wire failover (D-08) on the daemon tunnel
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** DEC-0028 froze the conf list and named the wire step
+  (`set_peer` + new ek + clear pin + retry HS) but left the retry budget
+  and API unspecified. T-0701 / DIAG D-08 need a PC harness: hub0 dark,
+  hub1 answers, initiator ESTABLISHES without wipe. `atn_tun_init_initiator`
+  requires `CLOSED` and replaces `peer_ek`; intentional peer change must
+  not be treated as DEC-0022 stray pin forever on the dead hub.
+- **Decision:**
+  - `atn_dmon` tracks `hub_idx` (0 = primary `peer_*`).
+  - `atn_dmon_tun_connect_hub(d, cfg, i)`: detach/wipe any prior tunnel
+    (keys/device session stay), `atn_tun_init_initiator` with hub `i` ek,
+    bind ephemeral loopback/any as today, `atn_tun_set_peer` (new pin),
+    `hs_send_init`. Wipe clears the old pin; `set_peer` installs the new
+    one — that is the DEC-0028 “clear pin” step.
+  - `atn_dmon_tun_failover(d, cfg, start_i, timeout_ms)`: for each hub
+    from `start_i` in order, call `connect_hub`, then up to
+    `ATN_DMON_HUB_HS_ATTEMPTS` (=3) rounds of `pump(timeout_ms)` +
+    `hs_retry` while in HANDSHAKE. Advance to the next hub on
+    `ATN_ERR_AUTH`, `CLOSED`, or exhausted attempts without
+    ESTABLISHED. Stop on ESTABLISHED. If every hub fails →
+    `ATN_ERR_STATE` (no flush by itself).
+  - Does not invent RF/power sensing. Blackout wipe policy remains
+    DEC-0029 (`outage_class`) / DEC-0027 (`flush_mode`).
+  - Gate: `tests/test_hub_failover.c` (D-08: dead hub0 + live hub1).
+- **Consequences:** IRC-like attach is proven on PC without Knox.
+  Phone JNI can call the same APIs later. T-0702 still needed to raise
+  hub/repl cap above 4.

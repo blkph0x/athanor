@@ -65,7 +65,7 @@ is automatic for “all hubs dark / power class” events — **NEEDS DEC**.
 
 What it does **not** yet buy:
 
-- Live multi-hub wire failover on the phone (T-0701; conf list is DEC-0028)
+- Live multi-hub wire failover on the phone (PC harness done T-0701; device still needs jar)
 - Automatic RF/power sensing of blackout vs bag (out of scope; DEC-0029 is conf class)
 - Hub roster > 4 for replication (T-0702)
 - Device Knox enroll (needs jar — T-0400)
@@ -117,7 +117,7 @@ USB charge-only lab unlock still needs Knox + DEC for time-boxed debug.
 | `atnhttp get` operator client | Done (DEC-0026) |
 | Hub sim: multi-`atnnode` + lossy drop | Partial (`test_hb` 3-pair) |
 | Phone diag APK (stub Knox) | Compile only; device SoT blocked |
-| Blackout / multi-hub failover harness | **Not built — NEEDS DEC** |
+| Blackout / multi-hub failover harness | Done (DEC-0031 / `test_hub_failover`) |
 
 ---
 
@@ -189,7 +189,7 @@ Legend: **H** = hub PC, **P** = phone (or dmon sim), **D** = diag profile.
 | D-05 | Silence → grace → HOLD | H | stays LIVE | PASS |
 | D-06 | Silence → grace → DEAD wipe | H/Dmon | keys zero **only if ZEROIZE** | PASS on PC; phone open |
 | D-07 | Total dark + diag auto-HOLD | P+D | no wipe | **NEEDS DEC + test** |
-| D-08 | Blackout site S, hubs T/U up | P with hub list | failover to T | **NEEDS DEC + test** |
+| D-08 | Blackout site S, hubs T/U up | P with hub list | failover to T | PASS (`test_hub_failover`) |
 | D-09 | Faraday bag production | P | flush after policy | REQ-5.3 open |
 | D-10 | USB charge-only | P | no MTP/ADB | Knox blocked |
 | D-11 | 2FA lockout K=5 | P/dmon | flush | dmon PASS; device open |
@@ -306,8 +306,8 @@ Ordered for **diag-first**, still no Knox required until noted.
 | ID | Action |
 |---|---|
 | T-0700 | open — author DECs for diag profile + multi-hub + outage class |
-| T-0701 | open — hub failover / blackout harness (no phone) |
-| ISS-0022 | open — blackout vs Faraday wipe policy ambiguity |
-| ISS-0023 | open — single `peer_ipv4` blocks IRC-like hub failover |
+| T-0701 | done — hub failover / blackout harness (DEC-0031) |
+| ISS-0022 | closed (narrowed) — blackout vs Faraday via outage_class |
+| ISS-0023 | closed — hub list + wire failover |
 
 Do not mark SoT Phase 4–6 until their cause/effect gates run.

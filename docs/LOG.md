@@ -4,6 +4,17 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0031: D-08 hub failover wire path (T-0701)
+
+- `atn_dmon_tun_connect_hub` / `atn_dmon_tun_failover` (3 HS attempts
+  per hub; wipe clears pin; set_peer pins next hub).
+- Gate: `tests/test_hub_failover.c` — dark hub0→hub1 echo; wrong-ek
+  AUTH advance; all-dark failover keeps keys.
+- ISS-0023 fully closed. T-0701 done. SoT 4–6 unchanged. T-0702 next
+  for hub/repl cap >4.
+
+---
+
 ## 2026-09-06 — DEC-0030: Knox test path is stubs (reject foreign Gradle/Node guide)
 
 - User pasted a “no jar / USE_REAL_KNOX / Node brick lock” guide.

@@ -233,11 +233,11 @@ Status: `open` | `closed`
 
 ## ISS-0023 — Single `peer_ipv4` blocks IRC-like multi-hub failover
 
-- **Status:** closed (narrowed)
+- **Status:** closed
 - **Opened:** 2026-09-06
-- **Closed:** 2026-09-06 — DEC-0028: `hub2_*`..`hub4_*` +
-  `atn_cfg_hub_count`/`hub_get`. Wire failover loop on daemon still
-  T-0701. Cap 4 until repl-cap DEC (T-0702).
+- **Closed:** 2026-09-06 — DEC-0028 conf list; DEC-0031
+  `atn_dmon_tun_connect_hub` / `atn_dmon_tun_failover` +
+  `tests/test_hub_failover.c` (D-08). Cap 4 until T-0702.
 - **REQ:** REQ-4.1 / 3.3
 
 ## ISS-0004 — ARM binaries not executed on the current builder

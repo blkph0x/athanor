@@ -1,7 +1,7 @@
 /*
  * Module: atn_dmon.c
  * REQ:    REQ-4.1 / REQ-4.4
- * Spec:   DEC-0016, 0017, 0025, 0027, 0029.
+ * Spec:   DEC-0016, 0017, 0025, 0027, 0028, 0029, 0031.
  */
 
 #include "atn_dmon.h"
@@ -86,6 +86,7 @@ void atn_dmon_flush(atn_dmon *d)
     d->loaded = 0;
     d->hb_ready = 0;
     d->tun_ready = 0;
+    d->hub_idx = 0;
 }
 
 int atn_dmon_hb_init(atn_dmon *d, const uint8_t id[ATN_HB_ID_LEN],
@@ -349,4 +350,114 @@ uint16_t atn_dmon_tun_port(const atn_dmon *d)
         return 0;
     }
     return d->tun.local_port;
+}
+
+static void dmon_tun_detach(atn_dmon *d)
+{
+    if (d->hb_ready) {
+        d->hb.tun = NULL;
+    }
+    if (d->tun_ready) {
+        (void)atn_tun_close(&d->tun);
+        atn_tun_wipe(&d->tun);
+    }
+    d->tun_ready = 0;
+}
+
+unsigned atn_dmon_hub_idx(const atn_dmon *d)
+{
+    if (d == NULL) {
+        return 0;
+    }
+    return d->hub_idx;
+}
+
+int atn_dmon_tun_connect_hub(atn_dmon *d, const atn_cfg *c, unsigned hub_i)
+{
+    uint32_t ip = 0;
+    uint16_t port = 0;
+    uint8_t ek[ATN_MLKEM1024_EK_LEN];
+    int rc;
+
+    if (d == NULL || c == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    if (atn_dmon_require(d) != ATN_OK) {
+        return ATN_ERR_STATE;
+    }
+    if (atn_cfg_hub_get(c, hub_i, &ip, &port, ek) != ATN_OK) {
+        return ATN_ERR_PARAM;
+    }
+
+    /* DEC-0031: wipe clears old pin; set_peer installs hub i. */
+    dmon_tun_detach(d);
+
+    rc = atn_dmon_tun_initiator(d, ek);
+    atn_memzero(ek, sizeof(ek));
+    if (rc != ATN_OK) {
+        return rc;
+    }
+    rc = atn_dmon_tun_bind(d, 0);
+    if (rc != ATN_OK) {
+        dmon_tun_detach(d);
+        return rc;
+    }
+    rc = atn_dmon_tun_set_peer(d, ip, port);
+    if (rc != ATN_OK) {
+        dmon_tun_detach(d);
+        return rc;
+    }
+    d->hub_idx = hub_i;
+    return atn_dmon_tun_hs_send(d);
+}
+
+int atn_dmon_tun_failover(atn_dmon *d, const atn_cfg *c, unsigned start_i,
+                          int timeout_ms)
+{
+    unsigned count;
+    unsigned i;
+    unsigned attempt;
+    int rc;
+
+    if (d == NULL || c == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    if (atn_dmon_require(d) != ATN_OK) {
+        return ATN_ERR_STATE;
+    }
+    count = atn_cfg_hub_count(c);
+    if (count == 0 || start_i >= count) {
+        return ATN_ERR_PARAM;
+    }
+    if (timeout_ms < 0) {
+        timeout_ms = 0;
+    }
+
+    for (i = start_i; i < count; i++) {
+        rc = atn_dmon_tun_connect_hub(d, c, i);
+        if (rc != ATN_OK) {
+            continue;
+        }
+        for (attempt = 0; attempt < ATN_DMON_HUB_HS_ATTEMPTS; attempt++) {
+            if (d->tun.state == ATN_TUN_ESTABLISHED) {
+                return ATN_OK;
+            }
+            rc = atn_dmon_tun_pump(d, timeout_ms);
+            if (d->tun.state == ATN_TUN_ESTABLISHED) {
+                return ATN_OK;
+            }
+            if (rc == ATN_ERR_AUTH || d->tun.state == ATN_TUN_CLOSED) {
+                break; /* advance hub */
+            }
+            if (d->tun.state == ATN_TUN_HANDSHAKE) {
+                (void)atn_dmon_tun_hs_retry(d);
+            }
+        }
+        if (d->tun.state == ATN_TUN_ESTABLISHED) {
+            return ATN_OK;
+        }
+        /* Exhausted attempts or AUTH/CLOSED — try next hub. */
+    }
+    dmon_tun_detach(d);
+    return ATN_ERR_STATE;
 }

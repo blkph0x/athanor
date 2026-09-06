@@ -47,12 +47,13 @@ same commit.
 | `android/stubs/**` | REQ-4.1 | DEC-0019/0030 | Same packages as Samsung; ATN_STUB |
 | `android/java/.../AtnKnoxBuild.java` | REQ-4.1 | DEC-0019/0030 | `isStub()` via ATN_STUB field |
 | `android/java/.../AtnKnoxPolicy.java` | REQ-4.2/4.3 | DEC-0015/0017/0030 | USB + password; stub throws |
-| `include/atn_dmon.h` / `src/dmon/atn_dmon.c` | REQ-4.1/4.4 | DEC-0016/0017/0020/0021/0027/0029 | Session; LOG_ONLY; blackout HOLD; tunnel |
+| `include/atn_dmon.h` / `src/dmon/atn_dmon.c` | REQ-4.1/4.4 | DEC-0016/0017/0020/0021/0027/0029/0031 | Session; LOG_ONLY; blackout HOLD; hub failover |
 | `tools/src.list` | REQ-5.1 | DEC-0020 | Frozen path list for `atnsign manifest` |
 | `tools/export.ps1` | REQ-6.3 | DEC-0024 / 0026 | Copy src.list to export/; refuse jars; `make export-tree` |
 | `tests/test_recipe.c` | REQ-5.1 / 6.2 | DEC-0020 / 0023 | Makefile + src/include/android: no fetch URLs |
 | `tests/test_fuzz.c` | REQ-6.1 | DEC-0023 | In-house HTTP/DNS/cfg mutator; not N-hour fuzz |
 | `tests/test_dmon.c` | REQ-4.4 | gates | ZEROIZE / LOG_ONLY / blackout HOLD |
+| `tests/test_hub_failover.c` | REQ-3.3 | DEC-0031 / D-08 | Dark hub0 → hub1; wrong-ek AUTH advance; all-dark failover |
 | `include/atn_cfg.h` / `src/cfg/atn_cfg.c` | REQ-4.1 | DEC-0021/0027/0028/0029 | peer + hub2..4 + diag + outage |
 | `tests/test_cfg.c` | REQ-4.1 | gates | parse/ready/hubs/diag/outage |
 | `include/atn_sign.h` / `src/sign/atn_sign.c` | REQ-5.1 | DEC-0019/0021/0027 | Manifest + report `diag=` |
