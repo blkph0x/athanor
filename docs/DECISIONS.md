@@ -785,3 +785,42 @@ A decision is recorded **before** code that depends on it is written.
     scope** (ISS-0022 residual). Console may set class after 2FA later.
 - **Consequences:** Blackout + `outage_class=blackout` (or multi-hub
   success) will not brick. Faraday/capture still can. SoT 5.3 stays `[ ]`.
+
+---
+
+## DEC-0030 — Knox test-without-jar path is stubs + Makefile (not Gradle/Node)
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** User asked to adopt a “compile without knoxsdk.jar, drop
+  jar later” guide. That paste used: Gradle + AndroidX/Material,
+  `app/libs/knox_sdk.jar`, `BuildConfig.USE_REAL_KNOX`, no
+  `import com.samsung…` until jar lands, HttpURLConnection enroll/poll
+  to a Node/Express registry, and `DEVICE_BRICK_LOCK`. SoT forbids
+  third-party modules, package mirrors, and Node. DEVELOPMENT_RULES
+  forbid guessing APIs. Cause/effect forbids wiping anyone else’s
+  device. DEC-0015/0019 already froze **our** path: in-tree
+  `android/stubs` under the real Samsung package names, Makefile
+  `$(wildcard vendor/knox/knoxsdk.jar)`, `AtnKnoxBuild.isStub()` via
+  `ATN_STUB`. DEC-0027 is the diag/no-brick profile for lab soak.
+- **Decision:**
+  - **Reject** the pasted Gradle/Node/familymanager design for this
+    tree. Do not add npm, Express, OkHttp, AndroidX, or a remote
+    “brick lock” command bus.
+  - **Keep** `import com.samsung.android.knox…` in product Java. Stubs
+    live at `android/stubs/com/samsung/android/knox/…` so javac
+    resolves the same names the Partner jar will provide. That is the
+    opposite of “forbid imports until the jar arrives.”
+  - **Drop-in path (only):** `vendor/knox/knoxsdk.jar` (gitignored).
+    Not `app/libs/knox_sdk.jar`. `make android-java` already switches:
+    jar absent → compile stubs + daemon; jar present → classpath jar,
+    no stubs on the compile line.
+  - **Test vs production signal:** `AtnKnoxBuild.isStub()` / log
+    `knoxStub=` (stub field present). Not a Gradle `USE_REAL_KNOX`
+    BuildConfig (we have no Gradle product recipe).
+  - **Lab first:** stub/`diag=1` builds are compile+PC gates only.
+    Do not flash stub policy as “enrolled Knox.” Real device SoT 4.x
+    still needs the jar + Device/Profile Owner (T-0400 / ISS-0016).
+  - Document the flow in `docs/KNOX.md` and `vendor/knox/README.md`.
+- **Consequences:** Developers write final-shaped Knox call sites now;
+  jar drop is a path swap. Foreign paste leftovers stay out of tree.

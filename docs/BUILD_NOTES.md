@@ -4,7 +4,15 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
-## BN-0025 — DEC-0027/0028/0029 diag + hubs + outage (2026-09-06)
+## BN-0026 — DEC-0030 stub Knox path documented (2026-09-06)
+
+- **Host:** Windows x86_64
+- **`vendor/knox/knoxsdk.jar`:** absent
+- **`make android-java`:** `STUB BUILD: … (DEC-0030; not a device build)`
+  javac exit 0 (deprecation notes on DPM APIs only).
+- **SoT 4.1:** still `[ ]`.
+
+---
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0
 - **Network:** default route present (not ISS-0021).

@@ -1,6 +1,6 @@
 /*
- * COMPILE-ONLY STUB. Cited: PasswordPolicy.setBiometricAuthenticationEnabled
- * (docs.samsungknox.com biometric-authentication).
+ * COMPILE-ONLY STUB (DEC-0030). Real class comes from vendor/knox/knoxsdk.jar.
+ * Cited: PasswordPolicy.setBiometricAuthenticationEnabled (Knox docs).
  */
 package com.samsung.android.knox.devicesecurity;
 

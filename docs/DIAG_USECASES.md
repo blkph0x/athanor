@@ -65,14 +65,22 @@ is automatic for “all hubs dark / power class” events — **NEEDS DEC**.
 
 What it does **not** yet buy:
 
-- Multi-hub phone failover (conf is one peer)
-- Distinguishing blackout vs Faraday bag vs seizure
-- Hub roster > 4 for replication
-- Diag build that cannot brick a lab phone
+- Live multi-hub wire failover on the phone (T-0701; conf list is DEC-0028)
+- Automatic RF/power sensing of blackout vs bag (out of scope; DEC-0029 is conf class)
+- Hub roster > 4 for replication (T-0702)
+- Device Knox enroll (needs jar — T-0400)
 
 ---
 
 ## 3. Diagnostic / first-field build (no brick)
+
+### Lab / CI (now) — stub Knox + diag
+
+See `docs/KNOX.md` (DEC-0030). `make android-java` without
+`vendor/knox/knoxsdk.jar` is the testing compile. Product Java already
+imports `com.samsung.android.knox.*`; stubs supply those names. Pair with
+`diag=1` / `flush_mode=log_only` (DEC-0027) on the PC mesh. Do not flash
+stub builds as enrolled devices.
 
 **Goal:** first flashed/enrolled build is a **heavy test + diag** profile.
 Keys can be exercised; wipe paths are **logged and gated**, not destructive

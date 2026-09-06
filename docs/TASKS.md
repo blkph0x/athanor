@@ -69,3 +69,4 @@ Diag-first flash when jar lands (DEC-0027).
 | T-0006b | done | REQ-1.1 | DEC-0026: Poly1305 wall-clock note in test_crypto (ISS-0003 still open) |
 | T-0602 | done | REQ-6.3 | DEC-0026: `make export-tree`; isolation doc notes SoT in export tree |
 | T-0700 | done | REQ-3.3/4.4 | DEC-0027/0028/0029 + cfg/dmon/report gates (BN-0025) |
+| T-0406 | done | REQ-4.1 | DEC-0030: document stub→jar path; reject foreign Gradle/Node guide |

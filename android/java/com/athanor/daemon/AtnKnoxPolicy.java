@@ -10,9 +10,13 @@ import com.samsung.android.knox.devicesecurity.PasswordPolicy;
 import com.samsung.android.knox.restriction.RestrictionPolicy;
 
 /**
- * Apply cited Knox/DPM policies. REQ-4.2 / 4.3. Spec: docs/KNOX.md, DEC-0015,
- * DEC-0017. Stub jar throws UnsupportedOperationException — caller must not
- * pretend the policy stuck.
+ * Apply cited Knox/DPM policies. REQ-4.2 / 4.3.
+ * Spec: docs/KNOX.md, DEC-0015, DEC-0017, DEC-0030.
+ *
+ * Imports stay {@code com.samsung.android.knox.*} forever. Lab builds resolve
+ * them via {@code android/stubs}; production via {@code vendor/knox/knoxsdk.jar}.
+ * Stub calls throw UnsupportedOperationException — caller must not pretend
+ * the policy stuck ({@link AtnKnoxBuild#isStub()}).
  */
 public final class AtnKnoxPolicy {
     private static final String TAG = "atn-knox";

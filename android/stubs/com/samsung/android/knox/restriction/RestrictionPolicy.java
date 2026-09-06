@@ -1,5 +1,6 @@
 /*
- * COMPILE-ONLY STUB. Cited: RestrictionPolicy USB methods (DEC-0015 / KNOX.md).
+ * COMPILE-ONLY STUB (DEC-0030). Real class comes from vendor/knox/knoxsdk.jar.
+ * Cited USB methods: docs/KNOX.md / DEC-0015.
  */
 package com.samsung.android.knox.restriction;
 

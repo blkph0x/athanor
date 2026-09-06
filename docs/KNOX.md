@@ -1,51 +1,111 @@
-# Knox attach (DEC-0015)
+# Knox attach (DEC-0015 / DEC-0019 / DEC-0030)
 
 REQ-4.x. We do not patch TIMA. We call Samsung’s published SDK.
+
+## Test-without-jar → drop jar later (DEC-0030)
+
+We already compile a **testing** Android Java tree **without**
+`knoxsdk.jar`. Do not invent a second build system.
+
+| Stage | What you have | What you run | Flash phone? |
+|---|---|---|---|
+| Lab / CI (now) | No jar | `make android-java` → **STUB BUILD** | No |
+| Diag soak (PC) | `diag=1` conf (DEC-0027) | `make test` + `atnnode` | No |
+| Partner jar lands | `vendor/knox/knoxsdk.jar` | `make android-java` → **REAL** | Still only after enroll |
+| Enrolled S24–S26 | jar + Device/Profile Owner | device gates REQ-4.x | Yes (SoT still open until gates) |
+
+### Exact paths (this repo — not “app/libs”)
+
+| Role | Path |
+|---|---|
+| Real SDK (gitignored) | `vendor/knox/knoxsdk.jar` |
+| How to get it | `vendor/knox/README.md` + Partner portal |
+| Compile-only stubs | `android/stubs/com/samsung/android/knox/**` |
+| Product daemon Java | `android/java/com/athanor/daemon/**` |
+| Stub detector | `AtnKnoxBuild.isStub()` → true iff stub `ATN_STUB` field exists |
+| Policy call sites | `AtnKnoxPolicy.java` (same imports forever) |
+| Native mesh | `android/jni/` + `make android-so` → `android/libatn.so` |
+| Lab peer conf | `filesDir/atn-node.conf` (DEC-0021/0027/0028/0029) |
+
+### Why we keep `import com.samsung.android.knox…`
+
+Stubs use the **same package and class names** as the Partner jar.
+Product code always imports them. When the jar appears, the Makefile
+drops stubs from the compile line and puts the jar on `-classpath`.
+No uncomment-reflection dance. No Gradle `USE_REAL_KNOX`.
+
+### What we reject from foreign “familymanager” guides
+
+- Gradle + AndroidX / Material / npm / Node Express (SoT: zero outside libs)
+- `app/libs/knox_sdk.jar` naming (ours is `vendor/knox/knoxsdk.jar`)
+- Forbidding Samsung imports until the jar lands (breaks our stub model)
+- HttpURLConnection enroll/poll “command queue” servers
+- `DEVICE_BRICK_LOCK` / wiping or locking devices we do not own
+
+Mesh control plane is **our** UDP tunnel + heartbeat + admin console
+(`atnnode` / `atnhttp`), not a Node registry on port 8080.
 
 ## Toolchain on this builder
 
 | Piece | Where | Notes |
 |---|---|---|
 | JDK | `C:\Program Files\Java\jdk-19` (sdkmanager) and Microsoft JDK 11 | Need 17+ for current sdkmanager |
-| Android SDK | `%LOCALAPPDATA%\Android\Sdk` | already had platform 31 + adb |
-| cmdline-tools | `Sdk\cmdline-tools\latest` | installed this session from Google zip 14742923 |
-| NDK | `Sdk\ndk\27.3.13750724` (r27d) | LTS; aarch64-linux-android |
-| knoxsdk.jar | `vendor/knox/knoxsdk.jar` | **not in git** — Partner Program download |
+| Android SDK | `%LOCALAPPDATA%\Android\Sdk` | platform 31 + adb |
+| cmdline-tools | `Sdk\cmdline-tools\latest` | zip 14742923 |
+| NDK | `Sdk\ndk\27.3.13750724` (r27d) | aarch64-linux-android |
+| knoxsdk.jar | `vendor/knox/knoxsdk.jar` | **not in git** — Partner download |
+| android.jar | `Sdk\platforms\android-31\android.jar` | javac bootclasspath |
 
-LAN DNS on this host (`mydevice.lan` / `10.1.1.1`) does not resolve
-`dl.google.com` or `github.com`. Installers used `--resolve` against
-1.1.1.1 answers. That is a builder workaround, not a product resolver.
+LAN DNS on this host (`mydevice.lan` / `10.1.1.1`) may not resolve
+`dl.google.com` / `github.com`. Installers used `--resolve` against
+1.1.1.1. Builder workaround only — not a product resolver.
 
 ## Getting knoxsdk.jar (human step)
-
-Samsung will not give us the zip without a Knox Developer account:
 
 1. https://partner.samsungknox.com/ — Become a Partner / sign in
 2. Dashboard → SDK Tools → SDK Downloads → Knox SDK
 3. Accept the SDK Agreement
-4. Copy `knoxsdk.jar` to `vendor/knox/knoxsdk.jar`
-5. License key goes in a local file that is gitignored, never in source
+4. Copy the jar to **`vendor/knox/knoxsdk.jar`** (exact path)
+5. License key → gitignored local file, never in source
+6. `make android-java` — must print `REAL knoxsdk.jar: …`
+7. Confirm `AtnKnoxBuild.isStub()` is false on that classpath
 
-Until that file exists, `make android-java` compiles **in-tree stubs**
-(`ATN_STUB=true`, every policy call throws). Dropping the real jar at
-the path above is a classpath switch (DEC-0019). Do not flash a stub
-build. The daemon logs `knoxStub=true` so we cannot pretend policy stuck.
+Until step 4, `make android-java` prints `STUB BUILD` and compiles
+`android/stubs` (`ATN_STUB=true`). Policy APIs throw
+`UnsupportedOperationException`. **Do not flash a stub build** as an
+enrolled Knox device. Daemon must log stub state so we cannot pretend
+USB/password policy stuck.
+
+## Makefile contract
+
+```
+make android-java
+  if vendor/knox/knoxsdk.jar missing:
+    javac stubs + daemon  →  STUB BUILD
+  else:
+    javac -classpath knoxsdk.jar daemon only  →  REAL
+
+make android-so    # NDK libatn.so (mesh native)
+make android       # so + java
+```
+
+Measured on the builder when the jar is absent: stub path only
+(ISS-0016). Real-jar compile is unmeasured here until the file exists.
 
 ## APIs we are allowed to call (cited)
 
-USB charge-only (https://docs.samsungknox.com/dev/knox-sdk/kbas/how-to-restrict-users-from-accessing-and-sharing-device-data):
+USB charge-only (Samsung KBA how-to-restrict USB / data sharing):
 
 - `RestrictionPolicy.setUsbMediaPlayerAvailability(false)` — MTP off
 - `RestrictionPolicy.setUsbDebuggingEnabled(false)` — USB data/debug off
 - `RestrictionPolicy.allowUsbHostStorage(false)` — OTG storage off
 - `RestrictionPolicy.setUsbTethering(false)`
 
-Password / biometric (Knox PasswordPolicy + AOSP DPM, same names in
-Knox docs):
+Password / biometric (Knox PasswordPolicy + AOSP DPM):
 
 - `DevicePolicyManager.setPasswordQuality(..., PASSWORD_QUALITY_ALPHANUMERIC)`
 - `DevicePolicyManager.setPasswordMinimumLength(..., 12)`
-- `PasswordPolicy.setBiometricAuthenticationEnabled(BIOMETRIC_AUTHENTICATION_FINGERPRINT \| IRIS, true)` as convenience **after** quality is set
+- `PasswordPolicy.setBiometricAuthenticationEnabled(BIOMETRIC_AUTHENTICATION_FINGERPRINT \| IRIS, true)` after quality is set
 
 Entry:
 
@@ -60,41 +120,33 @@ Android 15+: app must be Device Owner or Profile Owner.
 work on Android 12+ / Knox 3.8. S24–S26 are Android 14+. We do not call
 it. Device keys go in `AndroidKeyStore` alias `atn-device` (AES-256,
 StrongBox if present, else TEE). RAM copies live in `atn_dmon` and are
-wiped by `atn_dmon_flush`.
+wiped by `atn_dmon_flush` (or LOG_ONLY under DEC-0027 diag).
 
-## Native
+## Native mesh (not HTTP poll)
 
 `android/jni/` links crypto, tun, 2fa, hb, dmon into `libatn.so`.
-Java talks to it with JNI (`AtnNative.tun*`, DEC-0020). No OkHttp, no
-Play services. Peer IPv4 is supplied by `filesDir/atn-node.conf`
-(`peer_ipv4` / `peer_port` / `peer_ek`), not baked in (DEC-0021).
-JNI `tunBind` uses `INADDR_ANY`. INTERNET permission is for that UDP
-socket, not a CDN. Heartbeat rides IPv4 (DEC-0022): 1s pump, HS retry,
-15s KA. IPv6 is not required.
+Java talks via JNI (`AtnNative.tun*`, DEC-0020). No OkHttp, no Play
+services. Peer list: `atn-node.conf` (`peer_*` + optional `hub2_*`…,
+DEC-0028). Heartbeat IPv4 (DEC-0022).
 
-Lab PC: `atnnode listen [port]` prints `peer_port` and `peer_ek`. Put
-those plus this machine's IPv4 into the phone's `atn-node.conf`. Missing
-or incomplete file means the daemon does not connect.
+Lab PC: `atnnode listen [port]` prints `peer_port` / `peer_ek`. Put
+those plus this machine’s IPv4 into the phone conf. Incomplete file →
+do not connect.
 
-## Daemon session (DEC-0017)
+## Daemon session (DEC-0017 / 0025 / 0027 / 0029)
 
-Native `atn_dmon` holds RAM copies. Flush zeros them and Java deletes
-`atn-wrap.bin` so a reboot cannot restore cluster keys.
+Native `atn_dmon` holds RAM copies. Production ZEROIZE deletes wrap so
+reboot cannot restore cluster keys. Diag `flush_mode=log_only` counts
+only (DEC-0027).
 
 | Trigger | What happens |
 |---|---|
-| Heartbeat UNTRUSTED/DEAD (N=3 silent 60s buckets) | `atn_dmon_flush` |
-| 2FA `ATN_ERR_LOCKOUT` (5 fails) | `atn_dmon_flush` |
-| DPM password fail count ≥ 5 | flush + delete wrap + `lockNow` |
+| Heartbeat **DEAD** (after N+G; HOLD can cancel) | flush per DEC-0027 mode |
+| `outage_class=blackout\|maintenance` | local HOLD — no DEAD wipe (DEC-0029) |
+| 2FA `ATN_ERR_LOCKOUT` (5 fails) | flush per mode |
+| DPM password fail count ≥ 5 | flush + delete wrap + `lockNow` (prod) |
 | `ACTION_POWER_CONNECTED` | re-assert USB charge-only |
 | Service `onDestroy` | RAM flush only (wrap file kept) |
-
-Password DPM (AOSP, Knox DA-deprecation mirrors):
-
-- `setPasswordQuality(..., PASSWORD_QUALITY_ALPHANUMERIC)`
-- `setPasswordMinimumLength(..., 12)`
-- `setPasswordMinimumLetters(..., 1)`
-- `setPasswordMinimumNumeric(..., 1)`
 
 Factory-reset-on-fail (`setMaximumFailedPasswordsForWipe`) is **not**
 enabled. Wrap format: NIST SP 800-38D 12-byte IV + AES-GCM ciphertext.

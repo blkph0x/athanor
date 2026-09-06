@@ -4,6 +4,16 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0030: Knox test path is stubs (reject foreign Gradle/Node guide)
+
+- User pasted a “no jar / USE_REAL_KNOX / Node brick lock” guide.
+- Rejected for SoT (AndroidX, npm/Express, wrong jar path, no imports,
+  DEVICE_BRICK_LOCK). Affirmed existing Makefile + android/stubs +
+  vendor/knox/knoxsdk.jar. Rewrote docs/KNOX.md + vendor/knox/README.
+- SoT 4.1 still `[ ]` until real jar + enroll (T-0400).
+
+---
+
 ## 2026-09-06 — DEC-0027/0028/0029 + push to origin
 
 - User: track everything; no guessing; prove gates; keep pushing GitHub;

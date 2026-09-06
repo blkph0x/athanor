@@ -1,7 +1,12 @@
 /*
- * COMPILE-ONLY STUB. Not the Samsung SDK. Throws if executed.
- * Replace by vendor/knox/knoxsdk.jar (DEC-0015).
- * Spec: docs.samsungknox.com EnterpriseDeviceManager.getInstance
+ * COMPILE-ONLY STUB (DEC-0015 / 0030). Not the Samsung SDK.
+ *
+ * Same package/class names as knoxsdk.jar so product Java keeps real imports.
+ * Drop the Partner jar at: vendor/knox/knoxsdk.jar
+ * Then: make android-java  (Makefile omits this file; uses -classpath jar)
+ *
+ * Spec citation for the real API: Samsung Knox docs —
+ * EnterpriseDeviceManager.getInstance(Context).
  */
 package com.samsung.android.knox;
 

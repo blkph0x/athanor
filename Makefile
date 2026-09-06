@@ -284,8 +284,11 @@ clean:
 	-rm -f $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(TEST_CFG) $(TEST_FUZZ) $(TEST_RECIPE) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN) $(CLI_NODE) $(LIB_BIN) atn_*.o android/libatn.so MANIFEST REPORT
 	-cmd /c "del /Q tests\test_crypto.exe tests\test_tun.exe tests\test_2fa.exe tests\test_http.exe tests\test_dns.exe tests\test_tree.exe tests\test_repl.exe tests\test_hb.exe tests\test_dmon.exe tests\test_mldsa.exe tests\test_sign.exe tests\test_cfg.exe tests\test_fuzz.exe tests\test_recipe.exe atn2fa.exe atnhttp.exe atndns.exe atnsign.exe atnnode.exe libatn_crypto.a atn_*.o 2>NUL"
 
-# Android NDK aarch64 shared lib + javac against platform android.jar (DEC-0015).
-# Real Partner jar: vendor/knox/knoxsdk.jar (gitignored). Else in-tree stubs.
+# Android NDK aarch64 shared lib + javac against platform android.jar.
+# Knox without Partner jar (DEC-0015 / 0019 / 0030):
+#   vendor/knox/knoxsdk.jar missing  →  compile android/stubs + daemon (STUB BUILD)
+#   vendor/knox/knoxsdk.jar present →  -classpath that jar, daemon only (REAL)
+# Drop-in path is ONLY vendor/knox/knoxsdk.jar (not app/libs/). No Gradle product recipe.
 ANDROID_NDK ?= $(LOCALAPPDATA)/Android/Sdk/ndk/27.3.13750724
 ANDROID_CC  ?= $(ANDROID_NDK)/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android21-clang.cmd
 ANDROID_AR  ?= $(ANDROID_NDK)/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ar.exe
@@ -314,7 +317,7 @@ android-so:
 
 android-java:
 ifeq ($(REAL_KNOX),)
-	@echo "STUB BUILD: no vendor/knox/knoxsdk.jar - compiling android/stubs (not a device build)"
+	@echo "STUB BUILD: no vendor/knox/knoxsdk.jar - compiling android/stubs (DEC-0030; not a device build)"
 	javac -source 8 -target 8 -bootclasspath "$(ANDROID_JAR)" -d android/out \
 		$(STUB_JAVA) $(DAEMON_JAVA)
 else
