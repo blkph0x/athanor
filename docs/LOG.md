@@ -4,11 +4,11 @@ Newest at the top.
 
 ---
 
-## 2026-09-06 — DEC-0041 airplane/handshake 30s BOOM
+## 2026-09-06 — Narrow DEC-0041: no pre-join unreachable BOOM
 
-- User: plane mode + no connection stayed on HANDSHAKE (no BOOM).
-- Fix: arm soak on tunnel start; BOOM on no-net ≥30s or no ESTABLISHED
-  ≥30s, not only after prior hub contact.
+- User: do not BOOM if not yet joined unless fully enrolled.
+- Lab: airplane/hub-silence BOOM only after `sawEstablished`.
+- Hub restarted for retest; S24 ESTABLISHED.
 
 ---
 

@@ -1110,15 +1110,16 @@ A decision is recorded **before** code that depends on it is written.
 ## DEC-0041 — Lab BOOM on airplane / handshake with no ESTABLISHED
 
 - **Date:** 2026-09-06
-- **Status:** accepted
+- **Status:** accepted (narrowed same day)
 - **Evidence:** User: airplane + no connection still stuck on HANDSHAKE;
-  30s BOOM did not fire. DEC-0039 only armed after ESTABLISHED + hub
-  contact, so a phone that never leaves HANDSHAKE never BOOMed.
-- **Decision (lab only):** while soak is armed (`start` / reconnect):
-  1. **No network / airplane ≥30s** → BOOM `airplane/no net >30s`
-  2. **Not ESTABLISHED (HANDSHAKE/CLOSED attempt) ≥30s** → BOOM
-     `no hub / handshake >30s`
-  3. Prior ESTABLISHED then hub silence ≥30s → unchanged
-  UI shows `net=DOWN/airplane` and unreachable countdown. Keys kept
-  under `log_only`.
-- **Consequences:** Faraday/airplane soak works without a prior mesh.
+  30s BOOM did not fire. Then: do **not** BOOM if it has not joined
+  the network unless fully enrolled.
+- **Decision (lab only):**
+  - Arm soak on tunnel start for UI/probes.
+  - **Unreachable BOOM (airplane / hub silence ≥30s) only after the
+    phone has joined once** (`sawEstablished`). Pre-join HANDSHAKE /
+    airplane does **not** BOOM.
+  - Fully enrolled production (Knox / Device Owner) keeps DEC-0017
+    silence/wipe policy; stub lab is join-gated.
+  - Lock-screen K=5 (DEC-0040) unchanged (independent of mesh join).
+- **Consequences:** Airplane soak = join mesh first, then kill net/hub.

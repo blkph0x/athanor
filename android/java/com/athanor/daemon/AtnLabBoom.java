@@ -82,9 +82,9 @@ public final class AtnLabBoom {
         return sawEstablished;
     }
 
-    /** Seconds into the active unreachable / no-hub watch (for UI). */
+    /** Seconds into unreachable watch (only after join). */
     public static synchronized long watchSeconds(boolean netUp, int tunState) {
-        if (dead || !soakArmed) {
+        if (dead || !soakArmed || !sawEstablished) {
             return 0L;
         }
         long now = System.currentTimeMillis();
@@ -92,10 +92,7 @@ public final class AtnLabBoom {
         if (!netUp && noNetSinceMs > 0L) {
             best = Math.max(best, (now - noNetSinceMs) / 1000L);
         }
-        if (noHubSinceMs > 0L && tunState != AtnNative.TUN_ESTABLISHED) {
-            best = Math.max(best, (now - noHubSinceMs) / 1000L);
-        }
-        if (sawEstablished && lastHubMs > 0L) {
+        if (lastHubMs > 0L) {
             best = Math.max(best, (now - lastHubMs) / 1000L);
         }
         return best;
@@ -116,8 +113,10 @@ public final class AtnLabBoom {
     }
 
     /**
-     * DEC-0041: airplane/no-net, handshake timeout, or post-ESTABLISHED
-     * hub silence — any ≥30s while soak is armed → BOOM.
+     * DEC-0041 narrowed: unreachable BOOM only after the phone has
+     * joined (sawEstablished). Airplane/handshake before join does not
+     * BOOM. Fully enrolled production path is separate (Knox / !stub).
+     * Lab stub: Device Admin + prior ESTABLISHED = soak-enrolled watch.
      */
     public static synchronized boolean maybeUnreachableBoom(boolean netUp,
                                                            int tunState) {
@@ -142,14 +141,16 @@ public final class AtnLabBoom {
             noHubSinceMs = 0L;
         }
 
+        /* Not joined yet → no connection BOOM (user: only after join /
+         * full enroll). Lock-screen K=5 is independent. */
+        if (!sawEstablished) {
+            return false;
+        }
+
         if (noNetSinceMs > 0L && (now - noNetSinceMs) >= SILENCE_MS) {
             return trigger("airplane/no net >30s (lab)");
         }
-        if (noHubSinceMs > 0L && (now - noHubSinceMs) >= SILENCE_MS) {
-            return trigger("no hub / handshake >30s (lab)");
-        }
-        if (sawEstablished && lastHubMs > 0L
-                && (now - lastHubMs) >= SILENCE_MS) {
+        if (lastHubMs > 0L && (now - lastHubMs) >= SILENCE_MS) {
             String why = netUp
                     ? "hub silence >30s (lab)"
                     : "no net/airplane + hub silence >30s (lab)";
