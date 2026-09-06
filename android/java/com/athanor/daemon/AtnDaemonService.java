@@ -30,7 +30,8 @@ public class AtnDaemonService extends Service {
     private static final long BUCKET_MS = 60L * 1000L;
     private static final long TICK_MS = 1000L;
     private static final int KA_TICKS = 15;
-    private static final int PROBE_TICKS = 5;
+    /* Cellular CGNAT: probe every 3s so return path stays warm. */
+    private static final int PROBE_TICKS = 3;
 
     private final Handler tickHandler = new Handler(Looper.getMainLooper());
     private boolean labTun;
@@ -358,24 +359,19 @@ public class AtnDaemonService extends Service {
             /* DEC-0039: Start clears lab BOOM for another soak cycle. */
             AtnLabBoom.reset();
             boomNotified = false;
+            prevTunState = -1;
+            kaTicks = 0;
+            probeTicks = 0;
             AtnLabBoom.reenrollFresh();
             AtnLabBoom.armSoak();
-            Log.i(TAG, "reconnect: lab BOOM reset");
-            int st = AtnNative.tunState();
-                if (st == AtnNative.TUN_ESTABLISHED) {
-                    /* After reset, arm liveness so silence/airplane can tick. */
-                    AtnLabBoom.noteEstablished(true);
-                    labTun = true;
-                    Log.i(TAG, "reconnect: already ESTABLISHED (liveness armed)");
-                    maybeUpdateNotif(st);
-            } else if (st == AtnNative.TUN_HANDSHAKE) {
-                Log.i(TAG, "reconnect: HS retry");
-                AtnNative.tunHsRetry();
-                labTun = true;
-            } else {
-                Log.i(TAG, "reconnect: startLabTunnel");
-                startLabTunnel();
-            }
+            Log.i(TAG, "reconnect: lab BOOM reset; fresh tunnel (WiFi/5G path)");
+            /*
+             * Always re-bind + HS. Stale ESTABLISHED after WiFi→cellular
+             * keeps UDP state while the 5-tuple/NAT path is dead; ping
+             * then returns rc=0 with no hub echo → silence BOOM.
+             */
+            startLabTunnel();
+            maybeUpdateNotif(AtnNative.tunState());
         } else if (ACTION_LAB_BOOM.equals(act)) {
             labTun = false;
             boomNotified = true;

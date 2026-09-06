@@ -237,6 +237,22 @@ public class AtnLabActivity extends Activity {
             byte[] msg = new byte[] { 'p', 'i', 'n', 'g' };
             int rc = AtnNative.tunSend(msg);
             appendLog("tunSend ping rc=" + rc);
+            if (rc != 0) {
+                return;
+            }
+            /* rc=0 is send-only; wait briefly for hub echo (real liveness). */
+            byte[] back = new byte[64];
+            int n = 0;
+            int i;
+            for (i = 0; i < 15; i++) {
+                n = AtnNative.tunRecv(back, 200);
+                if (n > 0) {
+                    AtnLabBoom.noteHubContact();
+                    appendLog("ping echo n=" + n + " (hub live)");
+                    return;
+                }
+            }
+            appendLog("ping: no echo in ~3s (UDP return path dead? Start/reconnect)");
         } catch (Throwable t) {
             appendLog("ping error: " + t.getMessage());
         }

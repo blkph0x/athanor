@@ -4,6 +4,15 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — 5G silence BOOM: UDP return path + stale ESTABLISHED
+
+- `tunSend rc=0` is send-only; boom was hub-silence after WiFi↔5G.
+- Edge: udp_timeout 180 + MASQ; hub re-pins HS_INIT from any IP/port.
+- App: fresh HS on reconnect; ping waits for echo; probe every 3s.
+- Proven: 5G JOIN + 40s soak no boom.
+
+---
+
 ## 2026-09-06 — Public edge mesh.example.org → hub (5G proven)
 
 - VM YOUR_EDGE_LAN_IPV4: UDP DNAT 47000→YOUR_HUB_LAN_IPV4; UPnP WAN map; `/atn/` panel.

@@ -144,12 +144,16 @@ static int cmd_listen(uint16_t port)
     }
     for (;;) {
         size_t n = 0;
+        /* recv_data also accepts HS_INIT (phone WiFi↔5G / reconnect). */
         rc = atn_tun_recv_data(&t, pt, &n, sizeof(pt), 1000);
         if (rc == ATN_OK && n > 0) {
             printf("recv %u\n", (unsigned)n);
             fflush(stdout);
             (void)atn_tun_send(&t, pt, n);
             atn_memzero(pt, n);
+        } else if (rc == ATN_OK && n == 0) {
+            /* KA or HS re-pin with no DATA payload */
+            ;
         } else if (rc == ATN_ERR_STATE) {
             (void)atn_tun_keepalive(&t);
         } else if (rc != ATN_OK) {

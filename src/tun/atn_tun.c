@@ -188,17 +188,17 @@ static int udp_recv(atn_tun *t, uint8_t *buf, size_t max, size_t *out, int timeo
                 if (src != t->peer_addr || sport != t->peer_port) {
                     /*
                      * DEC-0022: ignore stray UDP (do not AEAD-close).
-                     * Exception: responder HS_INIT from the same IPv4 with a
-                     * new UDP port — phone rebound after force-stop / enroll.
+                     * Exception: responder HS_INIT — phone rebound, WiFi↔cellular,
+                     * or CGNAT remapped. Re-pin IPv4+UDP port then process INIT.
                      */
-                    if (!t->initiator && src == t->peer_addr &&
-                        r >= (int)ATN_TUN_HDR_LEN) {
+                    if (!t->initiator && r >= (int)ATN_TUN_HDR_LEN) {
                         uint8_t type;
                         uint32_t len;
                         uint64_t seq;
                         if (hdr_read(buf, (size_t)r, &type, &len, &seq) == ATN_OK &&
                             type == ATN_TUN_HS_INIT &&
                             len == ATN_MLKEM1024_CT_LEN) {
+                            t->peer_addr = src;
                             t->peer_port = sport;
                             *out = (size_t)r;
                             return ATN_OK;
@@ -826,15 +826,19 @@ int atn_tun_recv_data(atn_tun *t, uint8_t *pt, size_t *n, size_t max, int timeou
         return rc;
     }
     if (type == ATN_TUN_HS_INIT) {
+        *n = 0;
         return handle_init(t, dg + ATN_TUN_HDR_LEN, len);
     }
     if (type == ATN_TUN_HS_ACK) {
+        *n = 0;
         return handle_ack(t, dg, got, len, seq);
     }
     if (type == ATN_TUN_REKEY_INIT) {
+        *n = 0;
         return handle_rekey_init(t, dg + ATN_TUN_HDR_LEN, len);
     }
     if (type == ATN_TUN_REKEY_ACK) {
+        *n = 0;
         return handle_rekey_ack(t, dg, got, len, seq);
     }
     if (type == ATN_TUN_CLOSE) {

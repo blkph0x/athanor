@@ -30,8 +30,13 @@ Local USB enroll also accepts `peer_domain` (`tools/enroll-console.ps1`).
 Router: UPnP maps `UDP 47000 → YOUR_EDGE_LAN_IPV4:47000` (Technicolor IGD), then VM
 DNAT → `YOUR_HUB_LAN_IPV4:47000`.
 
-## 5G soak
+## UDP over 5G
 
-1. Hub: `.\atnnode.exe listen 47000` on Windows; paste ek into `/atn/`.
-2. Phone conf `peer_ipv4=<public A of mesh.example.org>`.
-3. Disable Wi‑Fi; enable mobile data; Start/reconnect; expect MESH UP + hub `recv`.
+Yes — mesh is **UDP** (DEC-0007). Cellular works if:
+
+1. Phone conf uses **public** WAN IP (`public_ipv4`), not LAN split-DNS.
+2. Edge uses DNAT+MASQUERADE with **udp_timeout≥180** (default 30s
+   killed return path at boom time). Probes every 3s keep the mapping warm.
+3. After Wi‑Fi↔cellular, tap **Start/reconnect** (fresh HS). Stale
+   `ESTABLISHED` does not mean the return path is alive.
+4. Ping: `rc=0` is send-only; look for `ping echo n=… (hub live)`.
