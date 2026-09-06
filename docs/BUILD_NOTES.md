@@ -4,6 +4,16 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0034 — S24 lab soak ESTABLISHED (2026-09-06)
+
+- **Device:** SM-S901E Android 16; stub APK; `knoxStub=true`.
+- **Hub:** `atnnode listen 47000` on YOUR_HUB_LAN_IPV4 → **ESTABLISHED**.
+- **Fixes in tip:** `AtnKnoxBuildFlags`; `libatn.so` links `atn_cfg.c`;
+  FGS `dataSync`. Firewall UDP 47000 allowed.
+- **SoT:** 4.x still `[ ]` (no Knox enroll).
+
+---
+
 ## BN-0033 — DEC-0038 stub lab APK path (2026-09-06)
 
 - **Host:** Windows x86_64; Android SDK build-tools 34.0.0; NDK r27d.

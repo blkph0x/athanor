@@ -54,4 +54,6 @@ keys/
 android/debug.keystore
 android/apk-work/
 lab/phone-atn-node.conf
+lab/hub-listen.log
+lab/hub-listen.err
 *.idsig

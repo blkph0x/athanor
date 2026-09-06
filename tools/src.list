@@ -13,6 +13,7 @@ android/java/com/athanor/daemon/AtnDaemonService.java
 android/java/com/athanor/daemon/AtnDeviceAdminReceiver.java
 android/java/com/athanor/daemon/AtnKeystore.java
 android/java/com/athanor/daemon/AtnKnoxBuild.java
+android/java/com/athanor/daemon/AtnKnoxBuildFlags.java
 android/java/com/athanor/daemon/AtnKnoxPolicy.java
 android/java/com/athanor/daemon/AtnLabActivity.java
 android/java/com/athanor/daemon/AtnNative.java

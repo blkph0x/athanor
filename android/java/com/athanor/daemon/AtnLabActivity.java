@@ -42,19 +42,26 @@ public class AtnLabActivity extends Activity {
         start.setOnClickListener(new android.view.View.OnClickListener() {
             @Override
             public void onClick(android.view.View v) {
-                Intent svc = new Intent(AtnLabActivity.this, AtnDaemonService.class);
-                if (Build.VERSION.SDK_INT >= 26) {
-                    startForegroundService(svc);
-                } else {
-                    startService(svc);
-                }
-                Log.i(TAG, "startForegroundService requested knoxStub=" + stub);
-                note.setText("Daemon start requested. Watch logcat tag atn-daemon.");
+                startDaemon(note, stub);
             }
         });
         root.addView(start);
 
         setContentView(root);
         Log.i(TAG, "platform lab activity knoxStub=" + stub);
+        if (getIntent() != null && getIntent().getBooleanExtra("autostart", false)) {
+            startDaemon(note, stub);
+        }
+    }
+
+    private void startDaemon(TextView note, boolean stub) {
+        Intent svc = new Intent(AtnLabActivity.this, AtnDaemonService.class);
+        if (Build.VERSION.SDK_INT >= 26) {
+            startForegroundService(svc);
+        } else {
+            startService(svc);
+        }
+        Log.i(TAG, "startForegroundService requested knoxStub=" + stub);
+        note.setText("Daemon start requested. Watch logcat tag atn-daemon.");
     }
 }

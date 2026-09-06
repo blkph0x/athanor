@@ -11,7 +11,6 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
-| T-0401b | open | REQ-4.1 | Lab: USB install stub APK + single-hub soak (DEC-0038 / docs/LAB.md) |
 | T-0400 | blocked | REQ-4.1 | Drop `vendor/knox/knoxsdk.jar` (Partner / PTR) then device-enroll |
 
 ---
@@ -77,3 +76,4 @@ Diag-first flash when jar lands (DEC-0027).
 | T-0803 | done | REQ-2.2 | DEC-0036: WHATWG form percent-decode (ISS-0011) |
 | T-0804 | done | REQ-6.2 | DEC-0037: lab online; NIC-down = release gate only |
 | T-0805 | done | REQ-4.1 | DEC-0038: stub lab APK + skip USB policy; docs/LAB.md |
+| T-0401b | done | REQ-4.1 | S24 stub APK ↔ atnnode listen ESTABLISHED (BN-0034) |

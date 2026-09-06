@@ -4,6 +4,15 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — Lab soak: S24 stub APK ↔ atnnode ESTABLISHED
+
+- Device: SM-S901E (Android 16), Wi‑Fi YOUR_PHONE_LAN_IPV4; hub YOUR_HUB_LAN_IPV4:47000.
+- Fixes: compile-time `AtnKnoxBuildFlags.STUB_BUILD` (Samsung system Knox
+  made runtime ATN_STUB probe false); link `atn_cfg.c` into `libatn.so`;
+  FGS type `dataSync`. Hub log: **ESTABLISHED**. USB policy skipped.
+
+---
+
 ## 2026-09-06 — DEC-0038: stub lab APK for phone↔hub (no Knox yet)
 
 - User: single hub + mock/no Knox; USB adb; USB charge-only is release-only.

@@ -303,6 +303,7 @@ REAL_KNOX   := $(wildcard vendor/knox/knoxsdk.jar)
 JNI_SRC = android/jni/atn_jni.c
 DAEMON_JAVA = \
 	android/java/com/athanor/daemon/AtnNative.java \
+	android/java/com/athanor/daemon/AtnKnoxBuildFlags.java \
 	android/java/com/athanor/daemon/AtnKnoxBuild.java \
 	android/java/com/athanor/daemon/AtnKnoxPolicy.java \
 	android/java/com/athanor/daemon/AtnKeystore.java \
@@ -319,15 +320,17 @@ STUB_JAVA = \
 
 android-so:
 	$(MAKE) CC="$(ANDROID_CC)" AR="$(ANDROID_AR)" lib
-	$(ANDROID_CC) -shared -o android/libatn.so $(JNI_SRC) $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) -Iinclude -llog
+	$(ANDROID_CC) -shared -o android/libatn.so $(JNI_SRC) $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) -Iinclude -llog
 
 android-java:
 ifeq ($(REAL_KNOX),)
 	@echo "STUB BUILD: no vendor/knox/knoxsdk.jar - compiling android/stubs (DEC-0030/0038 lab APK OK)"
+	powershell -NoProfile -Command "Set-Content -Path 'android/java/com/athanor/daemon/AtnKnoxBuildFlags.java' -Encoding ASCII -Value 'package com.athanor.daemon;','public final class AtnKnoxBuildFlags {','    public static final boolean STUB_BUILD = true;','    private AtnKnoxBuildFlags() {}','}'"
 	javac -source 8 -target 8 -bootclasspath "$(ANDROID_JAR)" -d android/out \
 		$(STUB_JAVA) $(DAEMON_JAVA)
 else
 	@echo "REAL knoxsdk.jar: $(REAL_KNOX)"
+	powershell -NoProfile -Command "Set-Content -Path 'android/java/com/athanor/daemon/AtnKnoxBuildFlags.java' -Encoding ASCII -Value 'package com.athanor.daemon;','public final class AtnKnoxBuildFlags {','    public static final boolean STUB_BUILD = false;','    private AtnKnoxBuildFlags() {}','}'"
 	javac -source 8 -target 8 -bootclasspath "$(ANDROID_JAR)" -classpath "$(REAL_KNOX)" -d android/out \
 		$(DAEMON_JAVA)
 endif

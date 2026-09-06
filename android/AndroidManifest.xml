@@ -6,7 +6,7 @@
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="31" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="com.samsung.android.knox.permission.KNOX_RESTRICTION_MGMT" />
     <application
@@ -24,7 +24,7 @@
         <service
             android:name=".AtnDaemonService"
             android:exported="false"
-            android:foregroundServiceType="connectedDevice" />
+            android:foregroundServiceType="dataSync" />
         <receiver
             android:name=".AtnDeviceAdminReceiver"
             android:exported="true"
