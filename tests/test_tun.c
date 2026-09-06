@@ -76,7 +76,16 @@ int main(void)
     rc = atn_tun_pump(&b, 3000);
     check("B rekey INIT", rc == ATN_OK && b.state == ATN_TUN_ESTABLISHED &&
           b.send_seq == 1);
-    rc = atn_tun_pump(&a, 3000);
+    {
+        int i;
+        rc = ATN_ERR_STATE;
+        for (i = 0; i < 8; i++) {
+            rc = atn_tun_pump(&a, 500);
+            if (rc == ATN_OK && !a.rekey_pending && a.send_seq == 1) {
+                break;
+            }
+        }
+    }
     check("A rekey ACK", rc == ATN_OK && a.state == ATN_TUN_ESTABLISHED &&
           !a.rekey_pending && a.send_seq == 1);
     check("post-rekey send", atn_tun_send(&a, hello, 11) == ATN_OK);
@@ -98,8 +107,50 @@ int main(void)
         }
     }
 
-    atn_tun_wipe(&a);
-    atn_tun_wipe(&b);
+    /* Re-establish after bad-mac close, then test phone UDP rebind. */
+    {
+        atn_tun a2;
+        atn_tun_wipe(&a);
+        atn_tun_wipe(&b);
+        check("reopen A", atn_tun_init_initiator(&a, ek) == ATN_OK);
+        check("reopen B",
+              atn_tun_init_responder(&b, dk) == ATN_OK);
+        check("reopen bind",
+              atn_tun_bind(&a, 0) == ATN_OK && atn_tun_bind(&b, 0) == ATN_OK);
+        check("reopen peer",
+              atn_tun_set_peer(&a, 0x7f000001u, b.local_port) == ATN_OK &&
+              atn_tun_set_peer(&b, 0x7f000001u, a.local_port) == ATN_OK);
+        check("reopen HS", atn_tun_hs_send_init(&a) == ATN_OK);
+        check("reopen B pump",
+              atn_tun_pump(&b, 3000) == ATN_OK && b.state == ATN_TUN_ESTABLISHED);
+        check("reopen A pump",
+              atn_tun_pump(&a, 3000) == ATN_OK && a.state == ATN_TUN_ESTABLISHED);
+
+        {
+            uint16_t old_aport = a.local_port;
+            atn_tun_wipe(&a);
+            check("rebind init", atn_tun_init_initiator(&a2, ek) == ATN_OK);
+            check("rebind bind",
+                  atn_tun_bind(&a2, 0) == ATN_OK && a2.local_port != 0 &&
+                  a2.local_port != old_aport);
+            check("rebind peer",
+                  atn_tun_set_peer(&a2, 0x7f000001u, b.local_port) == ATN_OK);
+            check("rebind HS", atn_tun_hs_send_init(&a2) == ATN_OK);
+            rc = atn_tun_recv_data(&b, back, &n, sizeof(back), 3000);
+            check("rebind B INIT",
+                  rc == ATN_OK && b.state == ATN_TUN_ESTABLISHED &&
+                  b.peer_port == a2.local_port);
+            rc = atn_tun_pump(&a2, 3000);
+            check("rebind A ACK",
+                  rc == ATN_OK && a2.state == ATN_TUN_ESTABLISHED);
+            check("rebind send", atn_tun_send(&a2, hello, 11) == ATN_OK);
+            rc = atn_tun_recv_data(&b, back, &n, sizeof(back), 3000);
+            check("rebind echo",
+                  rc == ATN_OK && n == 11 && memcmp(back, hello, 11) == 0);
+            atn_tun_wipe(&a2);
+        }
+        atn_tun_wipe(&b);
+    }
 
     /* DEC-0023: encapsulate to the wrong ek; initiator must not ESTABLISH. */
     {

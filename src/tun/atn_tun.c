@@ -186,7 +186,24 @@ static int udp_recv(atn_tun *t, uint8_t *buf, size_t max, size_t *out, int timeo
             uint16_t sport = ntohs(sa.sin_port);
             if (t->have_peer) {
                 if (src != t->peer_addr || sport != t->peer_port) {
-                    /* DEC-0022: stray IPv4 — do not AEAD-close the session. */
+                    /*
+                     * DEC-0022: ignore stray UDP (do not AEAD-close).
+                     * Exception: responder HS_INIT from the same IPv4 with a
+                     * new UDP port — phone rebound after force-stop / enroll.
+                     */
+                    if (!t->initiator && src == t->peer_addr &&
+                        r >= (int)ATN_TUN_HDR_LEN) {
+                        uint8_t type;
+                        uint32_t len;
+                        uint64_t seq;
+                        if (hdr_read(buf, (size_t)r, &type, &len, &seq) == ATN_OK &&
+                            type == ATN_TUN_HS_INIT &&
+                            len == ATN_MLKEM1024_CT_LEN) {
+                            t->peer_port = sport;
+                            *out = (size_t)r;
+                            return ATN_OK;
+                        }
+                    }
                     if (timeout_ms == 0) {
                         return ATN_ERR_STATE;
                     }
@@ -600,11 +617,20 @@ static int handle_init(atn_tun *t, const uint8_t *pl, uint32_t len)
 {
     uint8_t ss[32];
     int rc;
-    if (t->state == ATN_TUN_ESTABLISHED) {
-        return ATN_OK; /* duplicate HS_INIT from retry, DEC-0022 */
-    }
     if (t->initiator || len != ATN_MLKEM1024_CT_LEN) {
         return ATN_ERR_PARAM;
+    }
+    if (t->state == ATN_TUN_ESTABLISHED) {
+        if (atn_ct_equal(pl, t->kem_ct, ATN_MLKEM1024_CT_LEN)) {
+            /* Same CT: retransmit ACK (initiator lost it / HS retry). */
+            return send_ack(t);
+        }
+        /* New encaps from pinned peer (phone restart): replace session. */
+        session_keys_wipe(t);
+        t->send_seq = 0;
+        t->recv_max = 0;
+        t->recv_win = 0;
+        t->state = ATN_TUN_CLOSED;
     }
     memcpy(t->kem_ct, pl, ATN_MLKEM1024_CT_LEN);
     rc = atn_mlkem1024_decaps(t->own_dk, t->kem_ct, ss);
@@ -629,7 +655,14 @@ static int handle_ack(atn_tun *t, const uint8_t *dg, size_t n, uint32_t len, uin
 {
     uint8_t hdr[16], nonce[12], pt[32];
     int rc;
-    if (!t->initiator || t->state != ATN_TUN_HANDSHAKE) {
+    if (!t->initiator) {
+        return ATN_ERR_PARAM;
+    }
+    if (t->state == ATN_TUN_ESTABLISHED) {
+        /* Responder retransmitted HS_ACK after duplicate HS_INIT — ignore. */
+        return ATN_OK;
+    }
+    if (t->state != ATN_TUN_HANDSHAKE) {
         return ATN_ERR_STATE;
     }
     if (len != 48 || seq != 0 || n != 16 + 48) {
