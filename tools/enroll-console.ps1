@@ -1,10 +1,10 @@
 # DEC-0042: Lab enroll console - loopback plain HTTP only (127.0.0.1).
 # Usage: .\atnenroll.exe serve [port]
-#    or: powershell -NoProfile -File tools/enroll-console.ps1 [-Port 8787]
-# Browser: loopback port 8787 (plain HTTP, 127.0.0.1 only)
+#    or: powershell -NoProfile -File tools/enroll-console.ps1 [-Port 8799]
+# Browser: loopback port 8799 (plain HTTP, 127.0.0.1 only)
 # Phone number = roster label only (never SMS). Air-gap sign = release beta.
 param(
-    [int]$Port = 8787
+    [int]$Port = 8799
 )
 
 $ErrorActionPreference = "Stop"
@@ -185,7 +185,28 @@ function Ensure-EnrollKeys {
     return $null
 }
 
+function Invoke-AdbLogged([string]$label, [string[]]$AdbArgs) {
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $out = & $Adb @AdbArgs 2>&1
+        $code = $LASTEXITCODE
+        foreach ($line in @($out)) {
+            $logLine = ("{0}: {1}" -f $label, ([string]$line))
+            # NativeCommandError objects stringify oddly; force text.
+            if ($line -is [System.Management.Automation.ErrorRecord]) {
+                $logLine = ("{0}: {1}" -f $label, $line.ToString())
+            }
+            $script:LastAdbLog.Add($logLine)
+        }
+        return $code
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
 function Do-Enroll($form) {
+    $script:LastAdbLog = New-Object System.Collections.Generic.List[string]
     $phone = [string]$form["phone_number"]
     $ipv4 = [string]$form["peer_ipv4"]
     $port = [string]$form["peer_port"]
@@ -229,24 +250,45 @@ function Do-Enroll($form) {
     [System.IO.File]::WriteAllText($confPath, (($confLines -join "`n") + "`n"))
     Copy-Item $confPath "lab\phone-atn-node.conf" -Force
 
-    $log = New-Object System.Collections.Generic.List[string]
+    $log = $script:LastAdbLog
     $log.Add("enrollment_id=$id")
     $log.Add("phone_number_label=$phone")
     $log.Add("serial=$serial")
 
-    & $Adb -s $serial install -r "android\athanor-lab.apk" 2>&1 | ForEach-Object { $log.Add("adb_install: $_") }
-    if ($LASTEXITCODE -ne 0) {
-        return @{ Ok=$false; Msg="ERR: adb install failed"; Detail=($log -join "`n") }
+    $inst = Invoke-AdbLogged "adb_install" @("-s", $serial, "install", "-r", "android\athanor-lab.apk")
+    $instText = ($log | Where-Object { $_ -like "adb_install:*" }) -join "`n"
+    if ($inst -ne 0 -or $instText -notmatch 'Success') {
+        return @{ Ok=$false; Msg="ERR: adb install failed (unlock phone / allow install)"; Detail=($log -join "`n") }
     }
 
-    & $Adb -s $serial push $confPath /data/local/tmp/atn-node.conf 2>&1 | ForEach-Object { $log.Add("adb_push: $_") }
-    & $Adb -s $serial shell "run-as com.athanor.daemon mkdir files" 2>&1 | ForEach-Object { $log.Add("adb_mkdir: $_") }
-    $shellCmd = 'run-as com.athanor.daemon sh -c "cat > files/atn-node.conf"'
-    Get-Content -Raw $confPath | & $Adb -s $serial shell $shellCmd 2>&1 | ForEach-Object { $log.Add("adb_conf: $_") }
+    [void](Invoke-AdbLogged "adb_push" @("-s", $serial, "push", $confPath, "/data/local/tmp/atn-node.conf"))
+    [void](Invoke-AdbLogged "adb_mkdir" @("-s", $serial, "shell", "run-as", "com.athanor.daemon", "mkdir", "-p", "files"))
+    # Absolute dest: Windows stdin + relative files/ often fails under run-as sh -c.
+    $confRc = Invoke-AdbLogged "adb_conf" @(
+        "-s", $serial, "shell", "run-as", "com.athanor.daemon",
+        "cp", "/data/local/tmp/atn-node.conf",
+        "/data/user/0/com.athanor.daemon/files/atn-node.conf"
+    )
+    if ($confRc -ne 0) {
+        $prev = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            $shellCmd = "run-as com.athanor.daemon sh -c `"mkdir -p files; cat > /data/user/0/com.athanor.daemon/files/atn-node.conf`""
+            Get-Content -Raw $confPath | & $Adb -s $serial shell $shellCmd 2>&1 | ForEach-Object {
+                $log.Add(("adb_conf_stdin: {0}" -f $_))
+            }
+        } finally {
+            $ErrorActionPreference = $prev
+        }
+    }
 
-    & $Adb -s $serial shell am force-stop com.athanor.daemon 2>&1 | Out-Null
-    & $Adb -s $serial shell am start -n com.athanor.daemon/.AtnLabActivity --ez autostart true --ez request_admin true 2>&1 |
-        ForEach-Object { $log.Add("adb_start: $_") }
+    [void](Invoke-AdbLogged "adb_stop" @("-s", $serial, "shell", "am", "force-stop", "com.athanor.daemon"))
+    [void](Invoke-AdbLogged "adb_start" @(
+        "-s", $serial, "shell", "am", "start",
+        "-n", "com.athanor.daemon/.AtnLabActivity",
+        "--ez", "autostart", "true",
+        "--ez", "request_admin", "true"
+    ))
 
     $receipt = Join-Path $dir "enrollment.txt"
     $hostName = [System.Net.Dns]::GetHostName()
@@ -271,7 +313,13 @@ function Do-Enroll($form) {
     $keys = Ensure-EnrollKeys
     if ($keys) {
         $sig = Join-Path $dir "enrollment.sig"
-        & $keys.Exe sign $keys.Sk $receipt $sig 2>&1 | ForEach-Object { $log.Add("sign: $_") }
+        $prev = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            & $keys.Exe sign $keys.Sk $receipt $sig 2>&1 | ForEach-Object { $log.Add(("sign: {0}" -f $_)) }
+        } finally {
+            $ErrorActionPreference = $prev
+        }
         if (Test-Path $sig) {
             $log.Add("signed=yes pk=$($keys.Pk)")
         } else {

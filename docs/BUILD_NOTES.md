@@ -7,7 +7,7 @@ Newest entry at the top. Record facts, not hopes.
 ## BN-0040 — DEC-0042 lab enroll console (2026-09-06)
 
 - **UI:** `atnenroll serve [port]` → PowerShell `HttpListener` on
-  **127.0.0.1 only** (default 8787). Form: phone roster label, hub
+  **127.0.0.1 only** (default 8799; 8787 often taken on this builder). Form: phone roster label, hub
   `peer_*`, policy; button **Connect & Enroll** (page stays live; `/status`
   polls USB).
 - **Action:** write `lab/enrollments/<id>/`, `adb install -r` stub APK,

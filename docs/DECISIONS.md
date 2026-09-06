@@ -1138,7 +1138,7 @@ A decision is recorded **before** code that depends on it is written.
   still blocked for real DO/USB charge-only.
 - **Decision:**
   - **`atnenroll serve [port]`** binds **127.0.0.1 only** plain
-    HTTP/1.1 (default **8787**) — lab operator UI, **not** the mesh
+    HTTP/1.1 (default **8799**) — lab operator UI, **not** the mesh
     tunnel console (`atnhttp`). No CDN, no bind-any.
   - Form: policy (`diag`, `flush_mode`, `outage_class`), hub
     `peer_ipv4`/`peer_port`/`peer_ek`, **phone_number** as a **local

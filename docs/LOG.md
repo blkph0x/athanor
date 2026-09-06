@@ -8,7 +8,7 @@ Newest at the top.
 
 - User: signed enroll without air-gap yet; local-only web UI for policy +
   phone-number roster label + persistent **Connect & Enroll** over USB debug.
-- Shipped: `atnenroll serve` → `tools/enroll-console.ps1` on 127.0.0.1:8787;
+- Shipped: `atnenroll serve` → `tools/enroll-console.ps1` on 127.0.0.1:8799;
   adb install/push/start with `request_admin`; optional local `atnsign`
   receipt; docs/ENROLL.md. Air-gap = release beta. Knox DO still T-0400.
 

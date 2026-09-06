@@ -72,10 +72,10 @@ See [`ENROLL.md`](ENROLL.md). Short form:
 
 ```bat
 make atnenroll.exe atnsign.exe android-apk
-.\atnenroll.exe serve 8787
+.\atnenroll.exe serve 8799
 ```
 
-Open 127.0.0.1:8787 in a browser - keep the page open; plug phone (USB debugging);
+Open 127.0.0.1:8799 in a browser - keep the page open; plug phone (USB debugging);
 fill hub `peer_*` + phone number label; click **Connect & Enroll**.
 
 Receipts: `lab/enrollments/` (gitignored). Local ML-DSA sign via `atnsign`

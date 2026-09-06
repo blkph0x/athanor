@@ -14,13 +14,13 @@ USB charge-only waits on **T-0400** (`knoxsdk.jar`).
 set PATH=YOUR_GCC_BIN;%PATH%
 make atnenroll.exe atnsign.exe
 make android-apk
-.\atnenroll.exe serve 8787
+.\atnenroll.exe serve 8799
 ```
 
-Open **127.0.0.1:8787** in a browser (loopback only). Keep the page open — USB
+Open **127.0.0.1:8799** in a browser (loopback only). Keep the page open — USB
 device status refreshes; **Connect & Enroll** stays available for each phone.
 
-Or: `powershell -NoProfile -File tools\enroll-console.ps1 -Port 8787`
+Or: `powershell -NoProfile -File tools\enroll-console.ps1 -Port 8799`
 
 ## Form fields
 

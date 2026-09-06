@@ -84,14 +84,14 @@ static int cmd_serve(const char *port)
     n = snprintf(cmd, sizeof(cmd),
                  "powershell -NoProfile -ExecutionPolicy Bypass -File "
                  "tools\\enroll-console.ps1 -Port %s",
-                 port != NULL ? port : "8787");
+                 port != NULL ? port : "8799");
     if (n <= 0 || (size_t)n >= sizeof(cmd)) {
         return 1;
     }
     printf("atnenroll: starting loopback enroll UI on 127.0.0.1:%s\n",
-           port != NULL ? port : "8787");
+           port != NULL ? port : "8799");
     printf("Open loopback port %s in a browser (Ctrl+C in that window to stop)\n",
-           port != NULL ? port : "8787");
+           port != NULL ? port : "8799");
     return system(cmd);
 #else
     (void)port;
