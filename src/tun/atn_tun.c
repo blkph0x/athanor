@@ -1,7 +1,7 @@
 /*
  * Module: atn_tun.c
  * REQ:    REQ-1.2
- * Spec:   docs/TUNNEL.md, DEC-0007, FIPS 203, RFC 8439, RFC 5869
+ * Spec:   docs/TUNNEL.md, DEC-0007, DEC-0035, FIPS 203, RFC 8439, RFC 5869
  */
 
 #include "atn_tun.h"
@@ -203,9 +203,12 @@ static int udp_recv(atn_tun *t, uint8_t *buf, size_t max, size_t *out, int timeo
     }
 }
 
-static int derive_keys(atn_tun *t, const uint8_t ss[32],
-                       const uint8_t ek[ATN_MLKEM1024_EK_LEN],
-                       const uint8_t kem_ct[ATN_MLKEM1024_CT_LEN])
+static int derive_keys_into(int initiator,
+                            const uint8_t ss[32],
+                            const uint8_t ek[ATN_MLKEM1024_EK_LEN],
+                            const uint8_t kem_ct[ATN_MLKEM1024_CT_LEN],
+                            uint8_t k_ack[32], uint8_t k_send[32],
+                            uint8_t k_recv[32], uint8_t confirm[32])
 {
     uint8_t salt[32], info[10 + ATN_MLKEM1024_CT_LEN], okm[96];
     int rc;
@@ -216,19 +219,61 @@ static int derive_keys(atn_tun *t, const uint8_t ss[32],
     if (rc != ATN_OK) {
         return rc;
     }
-    memcpy(t->k_ack, okm, 32);
-    if (t->initiator) {
-        memcpy(t->k_send, okm + 32, 32);
-        memcpy(t->k_recv, okm + 64, 32);
+    memcpy(k_ack, okm, 32);
+    if (initiator) {
+        memcpy(k_send, okm + 32, 32);
+        memcpy(k_recv, okm + 64, 32);
     } else {
-        memcpy(t->k_send, okm + 64, 32);
-        memcpy(t->k_recv, okm + 32, 32);
+        memcpy(k_send, okm + 64, 32);
+        memcpy(k_recv, okm + 32, 32);
     }
-    atn_sha3_256(kem_ct, ATN_MLKEM1024_CT_LEN, t->confirm);
+    atn_sha3_256(kem_ct, ATN_MLKEM1024_CT_LEN, confirm);
     atn_memzero(salt, sizeof(salt));
     atn_memzero(okm, sizeof(okm));
     atn_memzero(info, sizeof(info));
     return ATN_OK;
+}
+
+static int derive_keys(atn_tun *t, const uint8_t ss[32],
+                       const uint8_t ek[ATN_MLKEM1024_EK_LEN],
+                       const uint8_t kem_ct[ATN_MLKEM1024_CT_LEN])
+{
+    return derive_keys_into(t->initiator, ss, ek, kem_ct,
+                            t->k_ack, t->k_send, t->k_recv, t->confirm);
+}
+
+static void session_keys_wipe(atn_tun *t)
+{
+    atn_memzero(t->k_ack, 32);
+    atn_memzero(t->k_send, 32);
+    atn_memzero(t->k_recv, 32);
+    atn_memzero(t->rk_ack, 32);
+    atn_memzero(t->rk_send, 32);
+    atn_memzero(t->rk_recv, 32);
+    atn_memzero(t->rk_confirm, 32);
+    t->rekey_pending = 0;
+}
+
+static void rekey_commit(atn_tun *t, const uint8_t k_ack[32],
+                         const uint8_t k_send[32], const uint8_t k_recv[32],
+                         const uint8_t confirm[32])
+{
+    atn_memzero(t->k_ack, 32);
+    atn_memzero(t->k_send, 32);
+    atn_memzero(t->k_recv, 32);
+    memcpy(t->k_ack, k_ack, 32);
+    memcpy(t->k_send, k_send, 32);
+    memcpy(t->k_recv, k_recv, 32);
+    memcpy(t->confirm, confirm, 32);
+    atn_memzero(t->rk_ack, 32);
+    atn_memzero(t->rk_send, 32);
+    atn_memzero(t->rk_recv, 32);
+    atn_memzero(t->rk_confirm, 32);
+    t->rekey_pending = 0;
+    t->send_seq = 1;
+    t->recv_max = 0;
+    t->recv_win = 0;
+    t->state = ATN_TUN_ESTABLISHED;
 }
 
 static int replay_ok(atn_tun *t, uint64_t seq)
@@ -261,9 +306,7 @@ static int replay_ok(atn_tun *t, uint64_t seq)
 
 static void tun_zero_keys(atn_tun *t)
 {
-    atn_memzero(t->k_ack, 32);
-    atn_memzero(t->k_send, 32);
-    atn_memzero(t->k_recv, 32);
+    session_keys_wipe(t);
     atn_memzero(t->own_dk, sizeof(t->own_dk));
 }
 
@@ -427,14 +470,15 @@ int atn_tun_hs_retry(atn_tun *t)
     return udp_send(t, t->last_wire, t->last_wire_len);
 }
 
-static int send_ack(atn_tun *t)
+static int send_typed_ack(atn_tun *t, uint8_t type,
+                          const uint8_t k_ack[32], const uint8_t confirm[32])
 {
     uint8_t hdr[16], ct[32], tag[16], pkt[16 + 32 + 16];
     uint8_t nonce[12];
     int rc;
-    hdr_write(hdr, ATN_TUN_HS_ACK, 32 + 16, 0);
+    hdr_write(hdr, type, 32 + 16, 0);
     atn_nonce_format(nonce, 0, 0);
-    rc = atn_aead_encrypt(t->k_ack, nonce, hdr, 16, t->confirm, 32, ct, tag);
+    rc = atn_aead_encrypt(k_ack, nonce, hdr, 16, confirm, 32, ct, tag);
     if (rc != ATN_OK) {
         return rc;
     }
@@ -442,6 +486,114 @@ static int send_ack(atn_tun *t)
     memcpy(pkt + 16, ct, 32);
     memcpy(pkt + 48, tag, 16);
     return udp_send(t, pkt, sizeof(pkt));
+}
+
+static int send_ack(atn_tun *t)
+{
+    return send_typed_ack(t, ATN_TUN_HS_ACK, t->k_ack, t->confirm);
+}
+
+int atn_tun_rekey_send(atn_tun *t)
+{
+    uint8_t ss[32], pkt[ATN_TUN_HDR_LEN + ATN_MLKEM1024_CT_LEN];
+    int rc;
+    if (t == NULL || !t->initiator) {
+        return ATN_ERR_PARAM;
+    }
+    if (t->state != ATN_TUN_ESTABLISHED || t->rekey_pending) {
+        return ATN_ERR_STATE;
+    }
+    rc = atn_mlkem1024_encaps(t->peer_ek, ss, t->kem_ct);
+    if (rc != ATN_OK) {
+        return rc;
+    }
+    rc = derive_keys_into(1, ss, t->peer_ek, t->kem_ct,
+                          t->rk_ack, t->rk_send, t->rk_recv, t->rk_confirm);
+    atn_memzero(ss, sizeof(ss));
+    if (rc != ATN_OK) {
+        return rc;
+    }
+    hdr_write(pkt, ATN_TUN_REKEY_INIT, ATN_MLKEM1024_CT_LEN, 0);
+    memcpy(pkt + ATN_TUN_HDR_LEN, t->kem_ct, ATN_MLKEM1024_CT_LEN);
+    rc = udp_send(t, pkt, sizeof(pkt));
+    if (rc != ATN_OK) {
+        atn_memzero(t->rk_ack, 32);
+        atn_memzero(t->rk_send, 32);
+        atn_memzero(t->rk_recv, 32);
+        atn_memzero(t->rk_confirm, 32);
+        return rc;
+    }
+    t->rekey_pending = 1;
+    return ATN_OK;
+}
+
+static int handle_rekey_init(atn_tun *t, const uint8_t *pl, uint32_t len)
+{
+    uint8_t ss[32];
+    uint8_t k_ack[32], k_send[32], k_recv[32], confirm[32];
+    int rc;
+    if (t->initiator || t->state != ATN_TUN_ESTABLISHED) {
+        return ATN_ERR_STATE;
+    }
+    if (len != ATN_MLKEM1024_CT_LEN) {
+        return ATN_ERR_PARAM;
+    }
+    memcpy(t->kem_ct, pl, ATN_MLKEM1024_CT_LEN);
+    rc = atn_mlkem1024_decaps(t->own_dk, t->kem_ct, ss);
+    if (rc != ATN_OK) {
+        return rc;
+    }
+    /* ek is stored in dk at offset 384*k = 1536 for k=4 */
+    rc = derive_keys_into(0, ss, t->own_dk + 1536, t->kem_ct,
+                          k_ack, k_send, k_recv, confirm);
+    atn_memzero(ss, sizeof(ss));
+    if (rc != ATN_OK) {
+        return rc;
+    }
+    rc = send_typed_ack(t, ATN_TUN_REKEY_ACK, k_ack, confirm);
+    if (rc != ATN_OK) {
+        atn_memzero(k_ack, 32);
+        atn_memzero(k_send, 32);
+        atn_memzero(k_recv, 32);
+        atn_memzero(confirm, 32);
+        return rc;
+    }
+    rekey_commit(t, k_ack, k_send, k_recv, confirm);
+    atn_memzero(k_ack, 32);
+    atn_memzero(k_send, 32);
+    atn_memzero(k_recv, 32);
+    atn_memzero(confirm, 32);
+    return ATN_OK;
+}
+
+static int handle_rekey_ack(atn_tun *t, const uint8_t *dg, size_t n,
+                            uint32_t len, uint64_t seq)
+{
+    uint8_t hdr[16], nonce[12], pt[32];
+    int rc;
+    if (!t->initiator || t->state != ATN_TUN_ESTABLISHED || !t->rekey_pending) {
+        return ATN_ERR_STATE;
+    }
+    if (len != 48 || seq != 0 || n != 16 + 48) {
+        return ATN_ERR_LEN;
+    }
+    memcpy(hdr, dg, 16);
+    atn_nonce_format(nonce, 0, 0);
+    rc = atn_aead_decrypt(t->rk_ack, nonce, hdr, 16, dg + 16, 32, dg + 48, pt);
+    if (rc != ATN_OK) {
+        t->state = ATN_TUN_CLOSED;
+        tun_zero_keys(t);
+        return ATN_ERR_AUTH;
+    }
+    if (!atn_ct_equal(pt, t->rk_confirm, 32)) {
+        t->state = ATN_TUN_CLOSED;
+        tun_zero_keys(t);
+        atn_memzero(pt, sizeof(pt));
+        return ATN_ERR_AUTH;
+    }
+    atn_memzero(pt, sizeof(pt));
+    rekey_commit(t, t->rk_ack, t->rk_send, t->rk_recv, t->rk_confirm);
+    return ATN_OK;
 }
 
 static int handle_init(atn_tun *t, const uint8_t *pl, uint32_t len)
@@ -563,6 +715,12 @@ int atn_tun_pump(atn_tun *t, int timeout_ms)
     if (type == ATN_TUN_HS_ACK) {
         return handle_ack(t, dg, n, len, seq);
     }
+    if (type == ATN_TUN_REKEY_INIT) {
+        return handle_rekey_init(t, dg + ATN_TUN_HDR_LEN, len);
+    }
+    if (type == ATN_TUN_REKEY_ACK) {
+        return handle_rekey_ack(t, dg, n, len, seq);
+    }
     if (type == ATN_TUN_CLOSE) {
         t->state = ATN_TUN_CLOSED;
         tun_zero_keys(t);
@@ -639,6 +797,12 @@ int atn_tun_recv_data(atn_tun *t, uint8_t *pt, size_t *n, size_t max, int timeou
     }
     if (type == ATN_TUN_HS_ACK) {
         return handle_ack(t, dg, got, len, seq);
+    }
+    if (type == ATN_TUN_REKEY_INIT) {
+        return handle_rekey_init(t, dg + ATN_TUN_HDR_LEN, len);
+    }
+    if (type == ATN_TUN_REKEY_ACK) {
+        return handle_rekey_ack(t, dg, got, len, seq);
     }
     if (type == ATN_TUN_CLOSE) {
         t->state = ATN_TUN_CLOSED;

@@ -4,6 +4,15 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0035: PQ tunnel rekey (T-0801 / ISS-0008)
+
+- Wire types 6/7 (REKEY_INIT / REKEY_ACK); initiator-only; stage until ACK;
+  same ML-KEM-1024 + HKDF floor as handshake (DEC-0033).
+- Gate: `test_tun` ESTABLISH → echo → `atn_tun_rekey_send` → pump → echo.
+- ISS-0008 closed. SoT unchanged. Next: T-0601 or T-0400.
+
+---
+
 ## 2026-09-06 — DEC-0033/0034: crypto floor + E8 + console outage 2FA
 
 - User: Essential Eight or better; bleeding-edge PQ crypto; no compromise.

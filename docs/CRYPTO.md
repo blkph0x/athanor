@@ -38,7 +38,7 @@ Gate: `make test` → `tests/test_recipe` crypto-floor scan (DEC-0033).
 
 | Item | Status |
 |---|---|
-| PQ tunnel rekey | ISS-0008 — needs TUNNEL.md + DEC |
+| PQ tunnel rekey | Done — DEC-0035 / ISS-0008 closed |
 | IPv6 second socket | ISS-0007 — must not break IPv4 |
 | TLS 1.3 / browser | Out of scope; operators use `atnhttp` (ISS-0009) |
 

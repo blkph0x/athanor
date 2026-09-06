@@ -71,6 +71,19 @@ int main(void)
     rc = atn_tun_recv_data(&b, back, &n, sizeof(back), 3000);
     check("ka recv", rc == ATN_OK && n == 0 && b.state == ATN_TUN_ESTABLISHED);
 
+    /* DEC-0035: PQ rekey then echo again under new DATA keys. */
+    check("rekey send", atn_tun_rekey_send(&a) == ATN_OK && a.rekey_pending);
+    rc = atn_tun_pump(&b, 3000);
+    check("B rekey INIT", rc == ATN_OK && b.state == ATN_TUN_ESTABLISHED &&
+          b.send_seq == 1);
+    rc = atn_tun_pump(&a, 3000);
+    check("A rekey ACK", rc == ATN_OK && a.state == ATN_TUN_ESTABLISHED &&
+          !a.rekey_pending && a.send_seq == 1);
+    check("post-rekey send", atn_tun_send(&a, hello, 11) == ATN_OK);
+    rc = atn_tun_recv_data(&b, back, &n, sizeof(back), 3000);
+    check("post-rekey recv",
+          rc == ATN_OK && n == 11 && memcmp(back, hello, 11) == 0);
+
     {
         /* New seq + flipped ciphertext: window accepts, AEAD must fail and close. */
         if (a.last_wire_len > 24) {

@@ -213,6 +213,7 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | Diag soak | `diag=1` + `flush_mode=log_only` (DEC-0027) | Ready for lab |
 | Hub failover | `tests/test_hub_failover` (DEC-0031 / D-08) | Green |
 | Multi-hub roster | cap **16** hubs/repl (DEC-0032) | Green |
+| PQ tunnel rekey | `test_tun` REKEY_INIT/ACK (DEC-0035) | Green |
 | Crypto floor gate | `test_recipe` forbids weak/third-party tokens (DEC-0033) | Green |
 | Essential Eight map | `docs/ESSENTIAL8.md` | Documented; not an assessed ML3 claim |
 
@@ -234,7 +235,7 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | PC crypto / tunnel / 2FA / HTTP / DNS / tree / repl / hb | **Yes** | Phases 1–3 SoT `[X]` |
 | Multi-hub conf + wire failover (no phone) | **Yes** | DEC-0028/0031/0032 |
 | Diag / no-brick wipe path | **Yes** | DEC-0027; use before any device flash |
-| Outage class (blackout ≠ Faraday) | **Yes** (conf) | DEC-0029; console 2FA set still open |
+| Outage class (blackout ≠ Faraday) | **Yes** | DEC-0029; console 2FA set (DEC-0034) |
 | Lab hub binary | **Yes** | `atnnode listen\|connect\|demo`; connect walks hubs (DEC-0031) |
 | Enrolled Knox S24–S26 | **No** | Waiting `knoxsdk.jar` + Device/Profile Owner |
 | Air-gap sign host / Faraday bag | **No** | REQ-5.x / 5.3 open |
@@ -245,7 +246,7 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 |---|---|
 | REQ-1.1 crypto primitives | Done — RFC 6234 / 4231 / 5869 / 8439 KATs. Residual: ISS-0003. |
 | REQ-1.1-PQ | Done — FIPS 203 **ML-KEM-1024** + FIPS 202 SHAKE/SHA3 + SHA-512. |
-| REQ-1.2 UDP tunnel | Done — ML-KEM-1024 handshake + AEAD. IPv4 required (DEC-0022). |
+| REQ-1.2 UDP tunnel | Done — ML-KEM-1024 handshake + AEAD + PQ rekey (DEC-0035). IPv4 required (DEC-0022). |
 | REQ-1.3 2FA | Done — HMAC-SHA-512. `tests/test_2fa` + `atn2fa demo`. |
 | REQ-2.1 HTTP listener | Done — HTTP/1.1 loopback + DEC-0007 records. Operator: `atnhttp`. |
 | REQ-2.2 admin console | Done — embedded HTML/CSS, POST+CSRF, 2FA on mutate. |

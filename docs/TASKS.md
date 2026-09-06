@@ -11,7 +11,6 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
-| T-0801 | open | REQ-1.2 | ISS-0008: PQ rekey DEC + TUNNEL.md (keep ML-KEM-1024 floor) |
 | T-0601 | open | REQ-6.2 | ISS-0021: measure `make test`/`make export-tree` with default route down |
 | T-0400 | blocked | REQ-4.1 | Drop `vendor/knox/knoxsdk.jar` (Partner / PTR) then device-enroll |
 
@@ -20,9 +19,8 @@ Status: `open` | `in_progress` | `blocked` | `done`
 ## Backlog (do not start early)
 
 Phase 4 device enroll waits on T-0400. Phase 5 air-gap host unmeasured.
-ISS-0003 aarch64/S24 Poly1305. ISS-0011 %-decode. ISS-0007/0008.
-Console-set `outage_class` done (DEC-0034). Diag-first flash when jar lands
-(DEC-0027).
+ISS-0003 aarch64/S24 Poly1305. ISS-0011 %-decode. ISS-0007 IPv6.
+Diag-first flash when jar lands (DEC-0027).
 
 ---
 
@@ -73,4 +71,5 @@ Console-set `outage_class` done (DEC-0034). Diag-first flash when jar lands
 | T-0702 | done | REQ-3.1 | DEC-0032: `ATN_REPL_MAX_NODES`/`ATN_CFG_MAX_HUBS` = 16 |
 | T-0703 | done | REQ-4.1 | `atnnode connect` multi-hub failover (DEC-0031) |
 | T-0800 | done | — | DEC-0033 crypto floor + Essential Eight map + recipe gate |
+| T-0801 | done | REQ-1.2 | DEC-0035: PQ rekey REKEY_INIT/ACK + `test_tun` gate (ISS-0008) |
 | T-0802 | done | REQ-2.2/3.3 | DEC-0034: console 2FA sets `outage_class` |

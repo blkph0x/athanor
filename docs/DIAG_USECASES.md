@@ -37,7 +37,7 @@ causes and must stay distinguishable — **NEEDS DEC** (see §4).
 
 | Capability | Where | Limits today |
 |---|---|---|
-| PQ tunnel (ML-KEM-1024 + AEAD) | `atn_tun`, DEC-0007/0022 | IPv4 required; no rekey (ISS-0008); no IPv6 (ISS-0007) |
+| PQ tunnel (ML-KEM-1024 + AEAD) | `atn_tun`, DEC-0007/0022/0035 | IPv4 required; PQ rekey (DEC-0035); no IPv6 (ISS-0007) |
 | Lab hub responder / initiator | `atnnode listen|connect|demo` | One peer in conf |
 | Replication factor 2, vector clocks | `atn_repl`, DEC-0013/0032 | Cap **16** nodes/hubs |
 | Heartbeat + WARN + grace G=3 + HOLD | `atn_hb`, DEC-0025 | Flush on **DEAD only** (dmon); ~N+G buckets silence |
@@ -282,7 +282,7 @@ Ordered for **diag-first**, still no Knox required until noted.
 | Diag/heavy test build profile | **NEEDS DEC** + harness |
 | Automatic HOLD on total darkness | **NEEDS DEC** (tension with Faraday) |
 | Hub directory via our DNS | Scaffold only |
-| Tunnel rekey | ISS-0008 open |
+| Tunnel rekey | Done — DEC-0035 / ISS-0008 |
 | IPv6 second socket | ISS-0007 open |
 | Browser TLS 1.3 subset | ISS-0009 option (a) open; (b) operator client done |
 | Concurrent HTTP worker pool | Explicitly deferred DEC-0025 |

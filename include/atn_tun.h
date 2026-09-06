@@ -1,5 +1,5 @@
 /*
- * Athanor UDP tunnel (REQ-1.2). Spec: docs/TUNNEL.md, DEC-0007.
+ * Athanor UDP tunnel (REQ-1.2). Spec: docs/TUNNEL.md, DEC-0007 / 0035.
  */
 #ifndef ATN_TUN_H
 #define ATN_TUN_H
@@ -16,6 +16,8 @@
 #define ATN_TUN_DATA        3u
 #define ATN_TUN_KA          4u
 #define ATN_TUN_CLOSE       5u
+#define ATN_TUN_REKEY_INIT  6u /* DEC-0035 */
+#define ATN_TUN_REKEY_ACK   7u
 
 #define ATN_TUN_CLOSED      0
 #define ATN_TUN_HANDSHAKE   1
@@ -35,6 +37,12 @@ typedef struct {
     uint8_t  own_dk[ATN_MLKEM1024_DK_LEN];
     uint8_t  kem_ct[ATN_MLKEM1024_CT_LEN];
     uint8_t  confirm[32];
+    /* DEC-0035: staged keys while waiting for REKEY_ACK (initiator). */
+    uint8_t  rk_ack[32];
+    uint8_t  rk_send[32];
+    uint8_t  rk_recv[32];
+    uint8_t  rk_confirm[32];
+    uint8_t  rekey_pending;
     /* OS socket handle stored as intptr-sized int; INVALID = -1 */
     intptr_t sock;
     uint32_t peer_addr;      /* IPv4 host order */
@@ -54,6 +62,7 @@ int atn_tun_bind_any(atn_tun *t, uint16_t port);       /* INADDR_ANY, DEC-0021 *
 int atn_tun_set_peer(atn_tun *t, uint32_t ipv4_host, uint16_t port);
 int atn_tun_hs_send_init(atn_tun *t);
 int atn_tun_hs_retry(atn_tun *t);                      /* resend HS_INIT, DEC-0022 */
+int atn_tun_rekey_send(atn_tun *t);                    /* initiator REKEY_INIT, DEC-0035 */
 int atn_tun_pump(atn_tun *t, int timeout_ms);          /* recv one datagram */
 int atn_tun_send(atn_tun *t, const uint8_t *pt, size_t n);
 int atn_tun_recv_data(atn_tun *t, uint8_t *pt, size_t *n, size_t max, int timeout_ms);

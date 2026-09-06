@@ -37,8 +37,10 @@ Status: `open` | `closed`
 
 ## ISS-0008 — Tunnel rekey not implemented
 
-- **Status:** open
+- **Status:** closed
 - **Opened:** 2026-09-04
+- **Closed:** 2026-09-06 — DEC-0035 + TUNNEL.md types 6/7;
+  `atn_tun_rekey_send` + `tests/test_tun` ESTABLISH→echo→rekey→echo.
 - **REQ:** REQ-1.2 follow-on
 - **Unknown:** Cause/effect map lists REKEY in the state machine. DEC-0007
   closes the session before seq wrap instead.

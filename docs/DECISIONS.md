@@ -938,3 +938,33 @@ A decision is recorded **before** code that depends on it is written.
     process memory only until next conf apply.
 - **Consequences:** Operator can HOLD blackout class without editing
   files mid-incident. T-0802 closes.
+
+---
+
+## DEC-0035 — PQ tunnel rekey (ML-KEM-1024, same floor)
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** Cause/effect REQ-1.2 lists REKEY; DEC-0007 closed the
+  session before seq wrap (ISS-0008). DEC-0033 forbids classical-only
+  rekey. Handshake is already one-way KEM to the responder’s static ek
+  (TUNNEL.md). Responder has no initiator ek, so only the **initiator**
+  can start a rekey (same encapsulate direction as HS_INIT).
+- **Decision:**
+  - Wire types (version still 1): **6 = REKEY_INIT** (payload =
+    ML-KEM-1024 ct, plaintext, same size as HS_INIT), **7 = REKEY_ACK**
+    (AEAD under the *new* `k_ack`, confirm = SHA3-256(new ct), same
+    layout as HS_ACK).
+  - HKDF: identical to handshake (`atn-tun-v1` ‖ new_ct, ML-KEM-1024 ss).
+  - Initiator `atn_tun_rekey_send`: ESTABLISHED, not already pending;
+    encapsulate; stage new keys; send REKEY_INIT; keep **old** DATA keys
+    until REKEY_ACK verifies.
+  - Responder on REKEY_INIT (pinned peer only): Decaps → stage keys →
+    send REKEY_ACK → **commit** (install new DATA keys, seq=1, clear
+    replay, wipe old session keys). Own dk preserved.
+  - Initiator on REKEY_ACK: verify under staged `k_ack` → commit same way.
+  - Soft policy: callers should rekey before seq exhaustion; hard close
+    at `send_seq == UINT64_MAX` remains. No AES/X25519 rekey path.
+  - Gate: `tests/test_tun` ESTABLISH → echo → rekey → echo.
+- **Consequences:** ISS-0008 closes. Long-lived tunnels stay on category-5
+  KEM without tearing down the UDP socket / peer pin.

@@ -1,11 +1,12 @@
-# Athanor tunnel wire format (DEC-0007)
+# Athanor tunnel wire format (DEC-0007 / 0035)
 
 REQ-1.2. This file is the packet spec. Code must match it. Do not change
 a field without a new DEC.
 
 Identity is a static **ML-KEM-1024 encapsulation key** distributed out of
-band (the same model as a WireGuard public key). ML-DSA-87 is not used
-yet (ISS-0005). A peer that encapsulates to the wrong ek gets garbage.
+band (the same model as a WireGuard public key). Session AEAD is
+ChaCha20-Poly1305 (DEC-0033 floor). A peer that encapsulates to the wrong
+ek gets garbage.
 
 ## UDP datagram
 
@@ -21,8 +22,8 @@ offset  bytes  field
 16      length payload
 ```
 
-Maximum payload we will emit: 1024 bytes (DATA). HS_INIT payload is
-exactly `ATN_MLKEM1024_CT_LEN` (1568).
+Maximum payload we will emit: 1024 bytes (DATA). HS_INIT / REKEY_INIT
+payload is exactly `ATN_MLKEM1024_CT_LEN` (1568).
 
 ## Types
 
@@ -33,6 +34,8 @@ exactly `ATN_MLKEM1024_CT_LEN` (1568).
 | 3 | DATA    | ChaCha20-Poly1305(ct \|\| tag) of application bytes |
 | 4 | KA      | ChaCha20-Poly1305 of empty plaintext (keepalive) |
 | 5 | CLOSE   | ChaCha20-Poly1305 of empty plaintext, then wipe |
+| 6 | REKEY_INIT | ML-KEM-1024 ciphertext (initiator → responder, DEC-0035) |
+| 7 | REKEY_ACK  | Same layout as HS_ACK under the **new** `k_ack` |
 
 AEAD AAD is the 16-byte header. Tag is 16 bytes, appended after ciphertext
 (RFC 8439). `length` includes ciphertext and tag.
@@ -57,18 +60,33 @@ AEAD AAD is the 16-byte header. Tag is 16 bytes, appended after ciphertext
 6. DATA seq starts at 1 on each data key. Nonce = RFC 8439 partition
    (DEC-0002): sender 1 = initiator, sender 2 = responder; counter = seq.
 
+## Rekey (DEC-0035)
+
+Same one-way KEM to the **same** static responder ek. Only the initiator
+may start a rekey (responder has no initiator ek).
+
+1. Initiator (ESTABLISHED): encapsulate a **new** `(ss', ct')`, derive
+   staged keys with the same HKDF as handshake using `ct'`, send
+   REKEY_INIT (payload = `ct'`). Old DATA keys remain live until ACK.
+2. Responder: Decaps → stage → REKEY_ACK under new `k_ack` → commit
+   (install new DATA keys, `send_seq=1`, clear replay window, wipe old
+   session AEAD keys; keep `own_dk`).
+3. Initiator: verify REKEY_ACK under staged `k_ack` → commit same way.
+4. If `send_seq` would reach `UINT64_MAX` without a successful rekey,
+   CLOSE (hard stop). Callers should rekey earlier.
+
 ## Anti-replay
 
 64-packet sliding window on `seq` per data key. Drop if seq is older than
 `highest-63` or already seen. MAC failure → CLOSED, keys wiped, no decrypt
-of a second try with the same packet.
+of a second try with the same packet. Window resets on rekey commit.
 
 ## State
 
 `CLOSED → HANDSHAKE → ESTABLISHED → CLOSED`
 
-REKEY is not implemented. If `seq` would exceed 2^64−2 the session closes
-(ISS-0008). A new handshake is a new tunnel object.
+Rekey does not tear down the socket or peer pin; staged keys sit beside
+ESTABLISHED until ACK (cause/effect “REKEY” step).
 
 ## Sockets
 

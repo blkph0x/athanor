@@ -4,6 +4,15 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0030 — DEC-0035 PQ tunnel rekey (2026-09-06)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0
+- **`make test`:** ALL PASSED including `test_tun` rekey echo.
+- **Wire:** types 6/7; `atn_tun_rekey_send`; ISS-0008 closed.
+- **SoT:** unchanged. T-0801 done.
+
+---
+
 ## BN-0029 — DEC-0033/0034 crypto floor + console outage 2FA (2026-09-06)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0
