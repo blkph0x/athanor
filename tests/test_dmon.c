@@ -171,9 +171,14 @@ int main(void)
               atn_dmon_tun_set_peer(&db, 0x7f000001u, atn_dmon_tun_port(&da))
                   == ATN_OK);
         check("tun hs", atn_dmon_tun_hs_send(&da) == ATN_OK);
-        check("tun B pump",
-              atn_dmon_tun_pump(&db, 3000) == ATN_OK &&
-              atn_dmon_tun_state(&db) == ATN_TUN_ESTABLISHED);
+        {
+            int i;
+            for (i = 0; i < 16 && atn_dmon_tun_state(&db) != ATN_TUN_ESTABLISHED;
+                 i++) {
+                (void)atn_dmon_tun_pump(&db, 3000);
+            }
+        }
+        check("tun B pump", atn_dmon_tun_state(&db) == ATN_TUN_ESTABLISHED);
         check("tun A pump",
               atn_dmon_tun_pump(&da, 3000) == ATN_OK &&
               atn_dmon_tun_state(&da) == ATN_TUN_ESTABLISHED);

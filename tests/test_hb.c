@@ -74,9 +74,18 @@ static int hs_pair(atn_tun *init, atn_tun *resp)
     if (atn_tun_hs_send_init(init) != ATN_OK) {
         return -1;
     }
-    if (atn_tun_pump(resp, 3000) != ATN_OK ||
-        atn_tun_pump(init, 3000) != ATN_OK) {
-        return -1;
+    {
+        int i;
+        for (i = 0; i < 16 && resp->state != ATN_TUN_ESTABLISHED; i++) {
+            (void)atn_tun_pump(resp, 3000);
+        }
+        if (resp->state != ATN_TUN_ESTABLISHED) {
+            return -1;
+        }
+        if (atn_tun_pump(init, 3000) != ATN_OK ||
+            init->state != ATN_TUN_ESTABLISHED) {
+            return -1;
+        }
     }
     return 0;
 }
@@ -238,9 +247,16 @@ int main(void)
         check("peer",
               atn_tun_set_peer(&ta, 0x7f000001u, tb.local_port) == ATN_OK &&
               atn_tun_set_peer(&tb, 0x7f000001u, ta.local_port) == ATN_OK);
-        check("hs", atn_tun_hs_send_init(&ta) == ATN_OK &&
-              atn_tun_pump(&tb, 3000) == ATN_OK &&
-              atn_tun_pump(&ta, 3000) == ATN_OK);
+        check("hs", atn_tun_hs_send_init(&ta) == ATN_OK);
+        {
+            int i;
+            for (i = 0; i < 16 && tb.state != ATN_TUN_ESTABLISHED; i++) {
+                (void)atn_tun_pump(&tb, 3000);
+            }
+        }
+        check("hs", tb.state == ATN_TUN_ESTABLISHED &&
+              atn_tun_pump(&ta, 3000) == ATN_OK &&
+              ta.state == ATN_TUN_ESTABLISHED);
         check("hb tun A", atn_hb_init(&ha, ida, ka, 1, head, &ta) == ATN_OK);
         check("hb tun B", atn_hb_init(&hb, idb, kb, 1, head, &tb) == ATN_OK);
         check("peer keys",

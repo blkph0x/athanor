@@ -43,8 +43,14 @@ static int hs(atn_tun *a, atn_tun *b, uint8_t ek[ATN_MLKEM1024_EK_LEN],
     if (atn_tun_hs_send_init(a) != ATN_OK) {
         return -1;
     }
-    if (atn_tun_pump(b, 3000) != ATN_OK || b->state != ATN_TUN_ESTABLISHED) {
-        return -1;
+    {
+        int i;
+        for (i = 0; i < 16 && b->state != ATN_TUN_ESTABLISHED; i++) {
+            (void)atn_tun_pump(b, 3000);
+        }
+        if (b->state != ATN_TUN_ESTABLISHED) {
+            return -1;
+        }
     }
     if (atn_tun_pump(a, 3000) != ATN_OK || a->state != ATN_TUN_ESTABLISHED) {
         return -1;

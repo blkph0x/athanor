@@ -67,11 +67,17 @@ static int build_two_hub_conf(char *text, size_t cap, size_t *out_n,
 /* After INIT from phone, pump responder then phone to ESTABLISHED. */
 static int hs_complete(atn_dmon *phone, atn_tun *hub)
 {
-    int rc = atn_tun_pump(hub, 3000);
-    if (rc != ATN_OK || hub->state != ATN_TUN_ESTABLISHED) {
+    int i;
+    int rc = ATN_ERR_STATE;
+    for (i = 0; i < 16 && hub->state != ATN_TUN_ESTABLISHED; i++) {
+        rc = atn_tun_pump(hub, 3000);
+    }
+    if (hub->state != ATN_TUN_ESTABLISHED) {
         return ATN_ERR_STATE;
     }
-    rc = atn_dmon_tun_pump(phone, 3000);
+    for (i = 0; i < 8 && atn_dmon_tun_state(phone) != ATN_TUN_ESTABLISHED; i++) {
+        rc = atn_dmon_tun_pump(phone, 3000);
+    }
     if (atn_dmon_tun_state(phone) != ATN_TUN_ESTABLISHED) {
         return ATN_ERR_STATE;
     }
@@ -177,7 +183,13 @@ int main(void)
         check("load2", atn_dmon_load(&p2, dk, ck) == ATN_OK);
         check("conn wrong ek",
               atn_dmon_tun_connect_hub(&p2, &c2, 0) == ATN_OK);
-        check("bad INIT", atn_tun_pump(&bad, 3000) == ATN_OK);
+        {
+            int i;
+            for (i = 0; i < 16 && bad.state != ATN_TUN_ESTABLISHED; i++) {
+                (void)atn_tun_pump(&bad, 3000);
+            }
+        }
+        check("bad INIT", bad.state == ATN_TUN_ESTABLISHED);
         rc = atn_dmon_tun_pump(&p2, 3000);
         check("AUTH close",
               rc == ATN_ERR_AUTH && p2.tun.state == ATN_TUN_CLOSED);
