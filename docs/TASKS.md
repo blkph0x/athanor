@@ -11,9 +11,8 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
-| T-0702 | open | REQ-3.1 | DEC to raise `ATN_REPL_MAX_NODES` above 4 (with hub list) |
-| T-0400 | blocked | REQ-4.1 | Drop `vendor/knox/knoxsdk.jar` (Partner / PTR) then device-enroll |
 | T-0601 | open | REQ-6.2 | ISS-0021: measure `make test`/`make export-tree` with default route down |
+| T-0400 | blocked | REQ-4.1 | Drop `vendor/knox/knoxsdk.jar` (Partner / PTR) then device-enroll |
 
 ---
 
@@ -70,3 +69,5 @@ Diag-first flash when jar lands (DEC-0027).
 | T-0700 | done | REQ-3.3/4.4 | DEC-0027/0028/0029 + cfg/dmon/report gates (BN-0025) |
 | T-0406 | done | REQ-4.1 | DEC-0030: document stub→jar path; reject foreign Gradle/Node guide |
 | T-0701 | done | REQ-3.3 | DEC-0031: dmon hub failover + `test_hub_failover` D-08 (BN-0027) |
+| T-0702 | done | REQ-3.1 | DEC-0032: `ATN_REPL_MAX_NODES`/`ATN_CFG_MAX_HUBS` = 16 |
+| T-0703 | done | REQ-4.1 | `atnnode connect` multi-hub failover (DEC-0031) |

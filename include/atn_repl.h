@@ -10,12 +10,15 @@
 #include "atn_tree.h"
 #include "atn_tun.h"
 
-#define ATN_REPL_MAX_NODES  4u
+#define ATN_REPL_MAX_NODES  16u /* DEC-0032; was 4 in DEC-0013 */
 #define ATN_REPL_FACTOR     2u
 #define ATN_REPL_SHARDS     8u
 #define ATN_REPL_ID_LEN     8u
 #define ATN_REPL_MAX_KEY    64u
 #define ATN_REPL_MAX_VAL    256u
+/* Packed tree-record ceiling: nclock + clocks + nonce + clen + ct + tag + flag */
+#define ATN_REPL_MAX_REC \
+    (1u + ATN_REPL_MAX_NODES * 16u + 12u + 2u + ATN_REPL_MAX_VAL + 16u + 1u)
 
 #define ATN_REPL_PUT         1u
 #define ATN_REPL_CATCHUP_REQ 2u

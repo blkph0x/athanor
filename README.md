@@ -195,24 +195,53 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 
 ## Status
 
-**Specification frozen at SF-ARCH v2.0.0.**
+**Specification frozen at SF-ARCH v2.0.0.**  
+**Public tip:** `origin/main` — local `make test` and GitHub Actions run the **same Makefile** ([`docs/CI.md`](docs/CI.md)). Pre-push refuses a red push.
+
+### Pipeline (how we prove)
+
+| Stage | Command / artifact | Status |
+|---|---|---|
+| Local gate | `make test` (Windows MinGW gcc 11.3.0 on builder) | Green on tip |
+| CI | `.github/workflows/ci.yml` → same `make test` | Badge above |
+| Stub Knox compile | `make android-java` (no jar → STUB) | Green; not a device build |
+| Real Knox | `vendor/knox/knoxsdk.jar` drop-in | **Blocked** Partner / T-0400 |
+| Export | `make export-tree` | Scaffolding OK; NIC-down = ISS-0021 |
+| Diag soak | `diag=1` + `flush_mode=log_only` (DEC-0027) | Ready for lab |
+| Hub failover | `tests/test_hub_failover` (DEC-0031 / D-08) | Green |
+| Multi-hub roster | cap **16** hubs/repl (DEC-0032) | Green |
+
+### Testing-phase readiness
+
+| Track | Ready? | Notes |
+|---|---|---|
+| PC crypto / tunnel / 2FA / HTTP / DNS / tree / repl / hb | **Yes** | Phases 1–3 SoT `[X]` |
+| Multi-hub conf + wire failover (no phone) | **Yes** | DEC-0028/0031/0032 |
+| Diag / no-brick wipe path | **Yes** | DEC-0027; use before any device flash |
+| Outage class (blackout ≠ Faraday) | **Yes** (conf) | DEC-0029; console 2FA set still open |
+| Lab hub binary | **Yes** | `atnnode listen\|connect\|demo`; connect walks hubs (DEC-0031) |
+| Enrolled Knox S24–S26 | **No** | Waiting `knoxsdk.jar` + Device/Profile Owner |
+| Air-gap sign host / Faraday bag | **No** | REQ-5.x / 5.3 open |
+
+### Requirement board
 
 | REQ | Status |
 |---|---|
 | REQ-1.1 crypto primitives | Done — RFC 6234 / 4231 / 5869 / 8439 KATs. Residual: ISS-0003. |
-| REQ-1.1-PQ | Done — FIPS 203 **ML-KEM-1024** (category 5) + FIPS 202 SHAKE/SHA3 + SHA-512. KAT + implicit reject pass. |
-| REQ-1.2 UDP tunnel | Done — ML-KEM-1024 handshake + AEAD data. IPv4 is the required path (DEC-0022). IPv6/rekey: ISS-0007/0008. |
-| REQ-1.3 2FA | Done — HMAC-SHA-512 challenge-response. `tests/test_2fa` + `atn2fa demo`. |
-| REQ-2.1 HTTP listener | Done — HTTP/1.1 on loopback TCP inside DEC-0007 records. Not RFC 8446; operators use `atnhttp` (ISS-0009 narrowed). |
+| REQ-1.1-PQ | Done — FIPS 203 **ML-KEM-1024** + FIPS 202 SHAKE/SHA3 + SHA-512. |
+| REQ-1.2 UDP tunnel | Done — ML-KEM-1024 handshake + AEAD. IPv4 required (DEC-0022). |
+| REQ-1.3 2FA | Done — HMAC-SHA-512. `tests/test_2fa` + `atn2fa demo`. |
+| REQ-2.1 HTTP listener | Done — HTTP/1.1 loopback + DEC-0007 records. Operator: `atnhttp`. |
 | REQ-2.2 admin console | Done — embedded HTML/CSS, POST+CSRF, 2FA on mutate. |
 | REQ-2.3 DNS | Done — RFC 1035 authoritative `atn.test`, no recursion. |
-| REQ-3.2 memory tree | Done — AVL blobs + AEAD snapshot. `tests/test_tree`. |
-| REQ-3.1 replication | Done — sharded AEAD blocks + vector clocks over the tunnel. |
-| REQ-3.3 heartbeat | Done — HMAC-SHA-512 tokens, UNTRUSTED + self-wipe. ISS-0015. |
-| REQ-4.x onward | Native dmon flush + Keystore wrap on this builder (DEC-0017). Device Knox still blocked: ISS-0016. |
-| ML-DSA-87 | Done — FIPS 204 category 5 signatures. ACVP keyGen + Sign_internal KATs. |
-| REQ-5.1 pen | `atnsign manifest tools/src.list`. Air-gap host still open. |
-| Knox | Stub classpath until `vendor/knox/knoxsdk.jar`. Lab file + `atnnode` (DEC-0021). SoT 4.1 `[ ]`. |
+| REQ-3.2 memory tree | Done — AVL + AEAD snapshot. |
+| REQ-3.1 replication | Done — factor 2, vector clocks; roster cap **16** (DEC-0032). |
+| REQ-3.3 heartbeat | Done — WARN/grace/HOLD; hub failover D-08 (DEC-0031). |
+| REQ-4.x Knox device | Native dmon + stubs OK. **Device SoT `[ ]`** until T-0400. |
+| ML-DSA-87 / REQ-5.1 pen | Done KATs + `atnsign`. Air-gap host open. |
+| REQ-6.x isolation/export | Partial — URL scan + export-tree; NIC-down open. |
+
+Desk trackers (always current with the tip): [`docs/TASKS.md`](docs/TASKS.md), [`docs/LOG.md`](docs/LOG.md), [`docs/BUILD_NOTES.md`](docs/BUILD_NOTES.md), [`docs/DIAG_USECASES.md`](docs/DIAG_USECASES.md).
 
 Until a requirement’s gate is green, treat that capability as *intended*, not *done*.
 

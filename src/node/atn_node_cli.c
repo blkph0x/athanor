@@ -1,12 +1,15 @@
 /*
- * Lab node responder (REQ-4.1 / DEC-0021).
+ * Lab node responder (REQ-4.1 / DEC-0021 / 0031 / 0032).
  *   atnnode demo
  *   atnnode listen [port]
+ *   atnnode connect <atn-node.conf>
  *
+ * connect walks hub2..hub16 on AUTH/timeout (DEC-0031). listen is one hub.
  * Prints peer_port + peer_ek. Operator fills peer_ipv4. No LAN guess.
  */
 #include "atn_cfg.h"
 #include "atn_crypto.h"
+#include "atn_dmon.h"
 #include "atn_platform.h"
 #include "atn_tun.h"
 
@@ -161,51 +164,80 @@ static int cmd_listen(uint16_t port)
     }
 }
 
+/*
+ * Purpose:  Lab initiator with DEC-0031 hub failover (two-process soak).
+ * Spec:     Walk hubs; peer listen process pumps ACK on the live hub.
+ */
 static int cmd_connect(const char *path)
 {
     atn_cfg c;
-    atn_tun t;
-    uint8_t hello[4], back[64];
+    atn_dmon d;
+    uint8_t dk[32], ck[32], hello[4], back[64];
     size_t n = 0;
+    unsigned count, hub, attempt;
     int rc;
+    int established = 0;
 
     if (atn_cfg_load_file(path, &c) != ATN_OK || !atn_cfg_ready(&c)) {
         fprintf(stderr, "conf not ready\n");
         return 1;
     }
-    if (atn_tun_init_initiator(&t, c.ek) != ATN_OK ||
-        atn_tun_bind_any(&t, 0) != ATN_OK ||
-        atn_tun_set_peer(&t, c.ipv4_host, c.port) != ATN_OK) {
-        atn_tun_wipe(&t);
+    count = atn_cfg_hub_count(&c);
+    if (count == 0) {
+        fprintf(stderr, "no hubs\n");
         return 1;
     }
-    if (atn_tun_hs_send_init(&t) != ATN_OK) {
-        atn_tun_wipe(&t);
+    if (atn_random_bytes(dk, 32) != ATN_OK ||
+        atn_random_bytes(ck, 32) != ATN_OK) {
         return 1;
     }
-    for (;;) {
-        rc = atn_tun_pump(&t, 3000);
-        if (t.state == ATN_TUN_ESTABLISHED) {
-            break;
+    atn_dmon_init(&d);
+    if (atn_dmon_load(&d, dk, ck) != ATN_OK) {
+        return 1;
+    }
+    atn_memzero(dk, sizeof(dk));
+    atn_memzero(ck, sizeof(ck));
+
+    for (hub = 0; hub < count && !established; hub++) {
+        rc = atn_dmon_tun_connect_hub(&d, &c, hub);
+        if (rc != ATN_OK) {
+            continue;
         }
-        if (rc != ATN_OK && rc != ATN_ERR_STATE) {
-            atn_tun_wipe(&t);
-            return 1;
-        }
-        if (atn_tun_hs_retry(&t) != ATN_OK && t.state != ATN_TUN_ESTABLISHED) {
-            atn_tun_wipe(&t);
-            return 1;
+        for (attempt = 0; attempt < ATN_DMON_HUB_HS_ATTEMPTS; attempt++) {
+            if (atn_dmon_tun_state(&d) == ATN_TUN_ESTABLISHED) {
+                established = 1;
+                break;
+            }
+            rc = atn_dmon_tun_pump(&d, 1000);
+            if (atn_dmon_tun_state(&d) == ATN_TUN_ESTABLISHED) {
+                established = 1;
+                break;
+            }
+            if (rc == ATN_ERR_AUTH || d.tun.state == ATN_TUN_CLOSED) {
+                break;
+            }
+            if (d.tun.state == ATN_TUN_HANDSHAKE) {
+                (void)atn_dmon_tun_hs_retry(&d);
+            }
         }
     }
+    if (!established) {
+        fprintf(stderr, "connect failed all %u hubs\n", count);
+        atn_dmon_flush(&d);
+        return 1;
+    }
+
     memcpy(hello, "lab!", 4);
-    if (atn_tun_send(&t, hello, 4) != ATN_OK ||
-        atn_tun_recv_data(&t, back, &n, sizeof(back), 3000) != ATN_OK ||
+    if (atn_dmon_tun_send(&d, hello, 4) != ATN_OK ||
+        atn_dmon_tun_recv(&d, back, &n, sizeof(back), 3000) != ATN_OK ||
         n != 4 || memcmp(back, hello, 4) != 0) {
-        atn_tun_wipe(&t);
+        fprintf(stderr, "echo failed\n");
+        atn_dmon_flush(&d);
         return 1;
     }
-    atn_tun_wipe(&t);
-    printf("atnnode connect: echo OK\n");
+    printf("atnnode connect: echo OK hub=%u of %u (DEC-0031)\n",
+           atn_dmon_hub_idx(&d), count);
+    atn_dmon_flush(&d);
     return 0;
 }
 

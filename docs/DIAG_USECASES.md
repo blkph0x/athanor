@@ -39,7 +39,7 @@ causes and must stay distinguishable — **NEEDS DEC** (see §4).
 |---|---|---|
 | PQ tunnel (ML-KEM-1024 + AEAD) | `atn_tun`, DEC-0007/0022 | IPv4 required; no rekey (ISS-0008); no IPv6 (ISS-0007) |
 | Lab hub responder / initiator | `atnnode listen|connect|demo` | One peer in conf |
-| Replication factor 2, vector clocks | `atn_repl`, DEC-0013 | **`ATN_REPL_MAX_NODES=4`** — too small for many sites |
+| Replication factor 2, vector clocks | `atn_repl`, DEC-0013/0032 | Cap **16** nodes/hubs |
 | Heartbeat + WARN + grace G=3 + HOLD | `atn_hb`, DEC-0025 | Flush on **DEAD only** (dmon); ~N+G buckets silence |
 | Witness retrieve (HMAC, no SMS) | DEC-0025 / ISS-0020 | Witness is roster id, not auto-dial |
 | Admin console + roster HOLD/WIPE | `atnhttp` | Loopback / DEC-0009 records; operator CLI DEC-0026 |
@@ -67,7 +67,7 @@ What it does **not** yet buy:
 
 - Live multi-hub wire failover on the phone (PC harness done T-0701; device still needs jar)
 - Automatic RF/power sensing of blackout vs bag (out of scope; DEC-0029 is conf class)
-- Hub roster > 4 for replication (T-0702)
+- Hub roster > 16 for replication (would need a new DEC; 16 = DEC-0032)
 - Device Knox enroll (needs jar — T-0400)
 
 ---
@@ -94,7 +94,7 @@ to the lab fleet by default.
 | `flush_mode` | `log_only` | `zeroize` | Diag counts DEAD events without zeroizing keys |
 | `wipe_armed=1` | off | off | Forces ZEROIZE even in diag |
 | `outage_class` | conf (DEC-0029) | `normal` | blackout/maintenance HOLD; faraday/capture wipe |
-| hub2..hub4 | optional | optional | Failover list (DEC-0028); wire loop T-0701 |
+| hub2..hub16 | optional | optional | Failover list (DEC-0028/0032); wire DEC-0031 |
 
 USB charge-only lab unlock still needs Knox + DEC for time-boxed debug.
 

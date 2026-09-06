@@ -1,5 +1,5 @@
 /*
- * Lab / daemon config (REQ-4.1). Spec: DEC-0021 / 0027 / 0028 / 0029.
+ * Lab / daemon config (REQ-4.1). Spec: DEC-0021 / 0027 / 0028 / 0029 / 0032.
  *
  * Text file, key=value lines. Unknown keys fail closed.
  * peer_ipv4 is required for ready() (DEC-0022: IPv4-only networks).
@@ -9,8 +9,8 @@
 
 #include "atn_crypto.h"
 
-/* Matches ATN_REPL_MAX_NODES until a migration DEC raises both (DEC-0028). */
-#define ATN_CFG_MAX_HUBS 4u
+/* Matches ATN_REPL_MAX_NODES (DEC-0028 / 0032). */
+#define ATN_CFG_MAX_HUBS 16u
 
 #define ATN_CFG_FLUSH_ZEROIZE  0u
 #define ATN_CFG_FLUSH_LOG_ONLY 1u

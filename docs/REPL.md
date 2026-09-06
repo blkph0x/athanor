@@ -1,4 +1,4 @@
-# Athanor replication (DEC-0013)
+# Athanor replication (DEC-0013 / 0032)
 
 REQ-3.1. This file is the block/shard/clock spec. Code must match it.
 
@@ -11,12 +11,13 @@ even after a good tunnel MAC.
 
 | name | value | why |
 |---|---:|---|
-| `ATN_REPL_MAX_NODES` | 4 | roster cap for this DEC |
+| `ATN_REPL_MAX_NODES` | 16 | roster cap (DEC-0032; was 4) |
 | `ATN_REPL_FACTOR` | 2 | minimum replica count (compile-time) |
 | `ATN_REPL_SHARDS` | 8 | shard table size |
 | `ATN_REPL_ID_LEN` | 8 | node id = first 8 bytes of SHA3-256(ek) or a test id |
 | `ATN_REPL_MAX_KEY` | 64 | must fit a tunnel DATA with clocks + AEAD |
 | `ATN_REPL_MAX_VAL` | 256 | same |
+| `ATN_REPL_MAX_REC` | 544 | packed record ceiling at max nodes/value |
 
 Changing shards or the hash is a migration, not a silent tweak.
 

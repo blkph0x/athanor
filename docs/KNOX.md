@@ -126,8 +126,8 @@ wiped by `atn_dmon_flush` (or LOG_ONLY under DEC-0027 diag).
 
 `android/jni/` links crypto, tun, 2fa, hb, dmon into `libatn.so`.
 Java talks via JNI (`AtnNative.tun*`, DEC-0020). No OkHttp, no Play
-services. Peer list: `atn-node.conf` (`peer_*` + optional `hub2_*`…,
-DEC-0028). Heartbeat IPv4 (DEC-0022).
+services. Peer list: `atn-node.conf` (`peer_*` + optional `hub2_*`…`hub16_*`,
+DEC-0028/0032). Heartbeat IPv4 (DEC-0022).
 
 Lab PC: `atnnode listen [port]` prints `peer_port` / `peer_ek`. Put
 those plus this machine’s IPv4 into the phone conf. Incomplete file →

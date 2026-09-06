@@ -1,11 +1,11 @@
 package com.athanor.daemon;
 
 /**
- * Lab / daemon file atn-node.conf. DEC-0021 / 0027 / 0028 / 0029.
+ * Lab / daemon file atn-node.conf. DEC-0021 / 0027 / 0028 / 0029 / 0032.
  * Same keys as atn_cfg.c. ready() still requires peer_* only.
  */
 public final class AtnNodeConfig {
-    public static final int MAX_HUBS = 4;
+    public static final int MAX_HUBS = 16; /* DEC-0032; match ATN_CFG_MAX_HUBS */
     public static final int FLUSH_ZEROIZE = 0;
     public static final int FLUSH_LOG_ONLY = 1;
     public static final int OUTAGE_NORMAL = 0;
@@ -152,10 +152,22 @@ public final class AtnNodeConfig {
                     return null;
                 }
                 haveOutage = true;
-            } else if (k.length() >= 7 && k.startsWith("hub") && k.charAt(3) >= '2'
-                    && k.charAt(3) <= '4' && k.charAt(4) == '_') {
-                int idx = (k.charAt(3) - '0') - 1;
-                String field = k.substring(5);
+            } else if (k.startsWith("hub") && k.length() >= 7) {
+                /* hub2_* … hub16_* (DEC-0032). */
+                int di = 3;
+                int num = 0;
+                while (di < k.length() && k.charAt(di) >= '0' && k.charAt(di) <= '9') {
+                    num = num * 10 + (k.charAt(di) - '0');
+                    if (num > MAX_HUBS) {
+                        return null;
+                    }
+                    di++;
+                }
+                if (di >= k.length() || k.charAt(di) != '_' || num < 2 || num > MAX_HUBS) {
+                    return null;
+                }
+                int idx = num - 1;
+                String field = k.substring(di + 1);
                 Hub hub = c.hubs[idx];
                 if (field.equals("ipv4")) {
                     int ip = parseIpv4(v);

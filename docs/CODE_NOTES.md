@@ -34,9 +34,9 @@ same commit.
 | `tests/test_dns.c` | REQ-2.3 | gates | In-zone A, REFUSED, NXDOMAIN, loopback querier |
 | `include/atn_tree.h` / `src/store/atn_tree.c` | REQ-3.2 | DEC-0012 | AVL blobs + AEAD snapshot |
 | `tests/test_tree.c` | REQ-3.2 | gates | put/get/del/scan, snapshot hides plaintext, restore |
-| `docs/REPL.md` | REQ-3.1 | DEC-0013 | Block, shard, vector clock, PUT/CATCHUP |
-| `include/atn_repl.h` / `src/repl/atn_repl.c` | REQ-3.1 | DEC-0013 | Replicate AEAD blocks over the tunnel |
-| `tests/test_repl.c` | REQ-3.1 | gates | A→B, kill A, tamper AUTH, catch-up, shard |
+| `docs/REPL.md` | REQ-3.1 | DEC-0013 / 0032 | Block, shard, vector clock, PUT/CATCHUP |
+| `include/atn_repl.h` / `src/repl/atn_repl.c` | REQ-3.1 | DEC-0013 / 0032 | Replicate AEAD blocks; max 16 nodes |
+| `tests/test_repl.c` | REQ-3.1 | gates | A→B, kill A, tamper AUTH, catch-up, cap16 |
 | `include/atn_hb.h` / `src/hb/atn_hb.c` | REQ-3.3 | DEC-0014 / 0025 | HMAC hb; WARN/vote/grace; 16 peers |
 | `include/atn_sync.h` / `src/sync/atn_sync.c` | — | DEC-0025 | Recursive mutex (CS / pthread) |
 | `tests/test_hb.c` | REQ-3.3 | gates | 3-node live, forge, silence wipe, one UDP hop, 3-pair mesh + lossy AC |
@@ -54,8 +54,8 @@ same commit.
 | `tests/test_fuzz.c` | REQ-6.1 | DEC-0023 | In-house HTTP/DNS/cfg mutator; not N-hour fuzz |
 | `tests/test_dmon.c` | REQ-4.4 | gates | ZEROIZE / LOG_ONLY / blackout HOLD |
 | `tests/test_hub_failover.c` | REQ-3.3 | DEC-0031 / D-08 | Dark hub0 → hub1; wrong-ek AUTH advance; all-dark failover |
-| `include/atn_cfg.h` / `src/cfg/atn_cfg.c` | REQ-4.1 | DEC-0021/0027/0028/0029 | peer + hub2..4 + diag + outage |
-| `tests/test_cfg.c` | REQ-4.1 | gates | parse/ready/hubs/diag/outage |
+| `include/atn_cfg.h` / `src/cfg/atn_cfg.c` | REQ-4.1 | DEC-0021/0027/0028/0029/0032 | peer + hub2..16 + diag + outage |
+| `tests/test_cfg.c` | REQ-4.1 | gates | parse/ready/hubs/diag/outage/cap16 |
 | `include/atn_sign.h` / `src/sign/atn_sign.c` | REQ-5.1 | DEC-0019/0021/0027 | Manifest + report `diag=` |
 | `docs/SIGN.md` | REQ-5.1 | DEC-0019/0021/0027 | Manifest + report wire format |
 | `docs/DIAG_USECASES.md` | — | planning | Diag / multi-hub / blackout inventory |
@@ -64,7 +64,7 @@ same commit.
 | `android/java/.../AtnBootReceiver.java` | REQ-4.1 | DEC-0015 | Start daemon on BOOT_COMPLETED |
 | `src/sign/atn_sign_cli.c` | REQ-5.1 | DEC-0019 / 0021 | `atnsign` CLI (manifest + report) |
 | `tests/test_sign.c` | REQ-5.1 | gates | sort, sign, verify, tamper; report diag |
-| `src/node/atn_node_cli.c` | REQ-4.1 | DEC-0021 / 0023 | `atnnode` lab responder; demo = conf handshake |
+| `src/node/atn_node_cli.c` | REQ-4.1 | DEC-0021 / 0023 / 0031 / 0032 | `atnnode` listen/demo; connect multi-hub failover |
 | `android/java/.../AtnNodeConfig.java` | REQ-4.1 | DEC-0021 | Java mirror of atn_cfg.c |
 | `src/crypto/atn_hmac.c` | REQ-1.1 | RFC 2104 | HMAC-SHA-256 |
 | `src/crypto/atn_hkdf.c` | REQ-1.1 | RFC 5869 §§2.2–2.3 | Extract then expand, SHA-256 |

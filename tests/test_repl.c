@@ -148,6 +148,27 @@ int main(void)
     atn_repl_wipe(&b);
     atn_tun_wipe(&ta);
     atn_tun_wipe(&tb);
+
+    /* DEC-0032: roster cap 16. */
+    {
+        atn_repl wide;
+        uint8_t ids[ATN_REPL_MAX_NODES][ATN_REPL_ID_LEN];
+        unsigned u;
+        for (u = 0; u < ATN_REPL_MAX_NODES; u++) {
+            memset(ids[u], (int)(u + 1u), ATN_REPL_ID_LEN);
+        }
+        check("init 16",
+              atn_repl_init(&wide, ids[0], cluster, ids, ATN_REPL_MAX_NODES,
+                            0, NULL) == ATN_OK);
+        check("init 17 fail",
+              atn_repl_init(&wide, ids[0], cluster, ids, ATN_REPL_MAX_NODES + 1u,
+                            0, NULL) == ATN_ERR_PARAM);
+        atn_repl_wipe(&wide);
+        check("max nodes 16", ATN_REPL_MAX_NODES == 16u);
+        check("max rec fits tun",
+              2u + ATN_REPL_MAX_KEY + ATN_REPL_MAX_REC <= ATN_TUN_MAX_PT);
+    }
+
     atn_net_fini();
     if (g_fail == 0) {
         printf("ALL PASSED\n");

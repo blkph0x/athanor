@@ -4,6 +4,18 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0032: roster/hub cap 16 + README pipeline board
+
+- Raised `ATN_REPL_MAX_NODES` and `ATN_CFG_MAX_HUBS` to 16 (match hb
+  peers). Conf `hub2_*`…`hub16_*`; `ATN_REPL_MAX_REC` replaces 512-byte
+  truncating buffers. Java `AtnNodeConfig.MAX_HUBS=16`.
+- Gates: test_cfg hub2..10 + hub17 reject; test_repl init 16 / reject 17.
+- README Status rebuilt: pipeline table + testing-phase readiness + REQ
+  board. T-0702 done. T-0703: `atnnode connect` walks hubs via dmon
+  (DEC-0031). SoT unchanged.
+
+---
+
 ## 2026-09-06 — DEC-0031: D-08 hub failover wire path (T-0701)
 
 - `atn_dmon_tun_connect_hub` / `atn_dmon_tun_failover` (3 HS attempts

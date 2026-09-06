@@ -229,8 +229,8 @@ $(TEST_HUB): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(C
 $(TEST_FUZZ): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(CFG_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_fuzz.c
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(CFG_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_fuzz.c $(LDFLAGS)
 
-$(CLI_NODE): $(SRC) $(TUN_SRC) $(CFG_SRC) src/node/atn_node_cli.c include/atn_cfg.h include/atn_tun.h
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(CFG_SRC) src/node/atn_node_cli.c $(LDFLAGS)
+$(CLI_NODE): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) src/node/atn_node_cli.c include/atn_cfg.h include/atn_tun.h include/atn_dmon.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) src/node/atn_node_cli.c $(LDFLAGS)
 
 $(TEST_RECIPE): tests/test_recipe.c
 	$(CC) $(CFLAGS) -o $@ tests/test_recipe.c

@@ -23,6 +23,9 @@ In-tree trackers are canonical so work continues when GitHub is unreachable
 | [ISOLATION.md](ISOLATION.md) | REQ-6.2 URL scan notes (DEC-0024). |
 | [DIAG_USECASES.md](DIAG_USECASES.md) | Diag build, multi-hub/IRC model, blackout failsafe, feature inventory. |
 
+Root [`../README.md`](../README.md) **Status** section holds the live pipeline +
+testing-phase board; update it in the same commit as tip changes.
+
 Rules: [`../DEVELOPMENT_RULES.md`](../DEVELOPMENT_RULES.md).
 Architecture: [`../SOURCE_OF_TRUTH.md`](../SOURCE_OF_TRUTH.md).
 Why/how/effect: [`../CAUSE_EFFECT_MAP.md`](../CAUSE_EFFECT_MAP.md).

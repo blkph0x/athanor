@@ -4,6 +4,17 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0028 — DEC-0032 repl/hub cap 16 + atnnode multi-hub connect (2026-09-06)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0
+- **`make test`:** ALL PASSED (`test_cfg` hub2..10 / hub17 reject;
+  `test_repl` init 16 / reject 17; `ATN_REPL_MAX_REC` fits tunnel;
+  `atnnode demo` OK with dmon-linked CLI).
+- **README:** pipeline + testing-phase board updated.
+- **SoT:** 4.x/5.x/6.x stay `[ ]`. T-0702 + T-0703 done.
+
+---
+
 ## BN-0027 — DEC-0031 hub failover D-08 (2026-09-06)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0

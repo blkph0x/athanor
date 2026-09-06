@@ -234,7 +234,7 @@ static int vc_cmp(const atn_vc *a, unsigned na, const atn_vc *b, unsigned nb)
 static int load_vc(const atn_repl *r, const uint8_t *key, size_t klen,
                    atn_vc *vc, unsigned *nvc)
 {
-    uint8_t rec[512];
+    uint8_t rec[ATN_REPL_MAX_REC];
     size_t n = 0, used = 0, clen = 0;
     const uint8_t *nonce, *ct, *tag;
     unsigned conf;
@@ -272,7 +272,7 @@ int atn_repl_put(atn_repl *r, const uint8_t *key, size_t klen,
 {
     atn_vc vc[ATN_REPL_MAX_NODES];
     unsigned nvc = 0, i, found = 0;
-    uint8_t nonce[12], ct[ATN_REPL_MAX_VAL], tag[16], rec[512];
+    uint8_t nonce[12], ct[ATN_REPL_MAX_VAL], tag[16], rec[ATN_REPL_MAX_REC];
     size_t rn = 0;
     int rc;
 
@@ -328,7 +328,7 @@ int atn_repl_put(atn_repl *r, const uint8_t *key, size_t klen,
 int atn_repl_get(const atn_repl *r, const uint8_t *key, size_t klen,
                  uint8_t *val, size_t *vlen, size_t max)
 {
-    uint8_t rec[512];
+    uint8_t rec[ATN_REPL_MAX_REC];
     size_t n = 0, used = 0, clen = 0;
     atn_vc vc[ATN_REPL_MAX_NODES];
     unsigned nvc = 0, conf;
@@ -395,7 +395,7 @@ static int apply_put_body(atn_repl *r, const uint8_t *key, size_t klen,
     /* concurrent */
     r->conflicts++;
     {
-        uint8_t keep[512];
+        uint8_t keep[ATN_REPL_MAX_REC];
         size_t kn = 0;
         atn_vc kvc[ATN_REPL_MAX_NODES];
         unsigned knc;

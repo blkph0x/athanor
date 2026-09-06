@@ -113,18 +113,28 @@ static int parse_01(const char *s, size_t n, uint8_t *out)
 static int hub_index_from_key(const char *k, size_t klen, unsigned *idx,
                               char *field, size_t field_max)
 {
-    /* hub2_ipv4 / hub3_port / hub4_ek → idx 1..3 (hub2_ek is 7 chars). */
-    unsigned digit, fi = 0;
+    /* hub2_ipv4 … hub16_ek (DEC-0032). Decimal after "hub", then '_'. */
+    unsigned num = 0, di = 3, fi = 0;
     if (klen < 7u || memcmp(k, "hub", 3) != 0) {
         return ATN_ERR_PARAM;
     }
-    if (k[3] < '2' || k[3] > '4' || k[4] != '_') {
+    if (k[3] < '0' || k[3] > '9') {
         return ATN_ERR_PARAM;
     }
-    digit = (unsigned)(k[3] - '0');
-    *idx = digit - 1u; /* hub2 → 1 */
-    klen -= 5u;
-    k += 5;
+    while (di < klen && k[di] >= '0' && k[di] <= '9') {
+        num = num * 10u + (unsigned)(k[di] - '0');
+        if (num > ATN_CFG_MAX_HUBS) {
+            return ATN_ERR_PARAM;
+        }
+        di++;
+    }
+    if (di >= klen || k[di] != '_' || num < 2u || num > ATN_CFG_MAX_HUBS) {
+        return ATN_ERR_PARAM;
+    }
+    *idx = num - 1u; /* hub2 → 1, hub16 → 15 */
+    di++; /* skip '_' */
+    klen -= di;
+    k += di;
     if (klen + 1u > field_max) {
         return ATN_ERR_PARAM;
     }

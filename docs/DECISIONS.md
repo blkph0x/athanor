@@ -857,3 +857,29 @@ A decision is recorded **before** code that depends on it is written.
 - **Consequences:** IRC-like attach is proven on PC without Knox.
   Phone JNI can call the same APIs later. T-0702 still needed to raise
   hub/repl cap above 4.
+
+---
+
+## DEC-0032 — Raise repl/hub roster cap to 16 (match hb peers)
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** DEC-0013 froze `ATN_REPL_MAX_NODES=4`; DEC-0028 tied
+  `ATN_CFG_MAX_HUBS` to that cap. Multi-site IRC-like attach (DIAG UC-02/03)
+  needs more than four hubs. DEC-0025 already set `ATN_HB_MAX_PEERS=16`.
+  PUT record with 16 clocks + max value is 544 bytes; tunnel DATA max is
+  1024 (fits). Factor stays 2; shard count stays 8 (changing either is a
+  separate migration DEC).
+- **Decision:**
+  - `ATN_REPL_MAX_NODES` = **16**. `ATN_CFG_MAX_HUBS` = **16** (same
+    number; keep them equal).
+  - Conf optional hubs: `hub2_*` … `hub16_*` (decimal after `hub`, then
+    `_ipv4`/`_port`/`_ek`). Partial slot and gaps still fail closed.
+  - `ATN_REPL_MAX_REC` = packed tree-record ceiling for max clocks +
+    max value; replace fixed `512` stack buffers that would truncate.
+  - Factor 2 and 8 shards unchanged. On-disk / wire records already
+    carry `nclock`; old 4-node data remains readable.
+  - Java `AtnNodeConfig.MAX_HUBS` mirrors 16.
+- **Consequences:** Lab can list up to 16 failover hubs / repl roster
+  slots. SoT 3.1 stays done (gate was factor-2 + clocks; cap is policy).
+  Larger mesh soak is still a harness task, not a SoT flip.
