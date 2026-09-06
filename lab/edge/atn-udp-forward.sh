@@ -1,78 +1,85 @@
 #!/bin/bash
-# Athanor lab edge: DNAT UDP mesh to Windows hub (DEC lab / org-edge).
-# Usage: sudo HUB_IP=YOUR_HUB_LAN_IPV4 HUB_PORT=47000 bash atn-udp-forward.sh install|status|remove
-#
-# Do NOT use default 30s UDP conntrack with MASQUERADE — that matched lab
-# BOOM and dropped 5G echoes while ESTABLISHED/ping rc=0 still looked fine.
-# Keep MASQUERADE (needed on this Technicolor edge) + udp_timeout>=180.
+# Athanor edge: DNAT+MASQ UDP :HUB_PORT -> Windows hub on LAN.
+# Org must pass HUB_IP (no baked-in lab addresses).
+# Example: sudo HUB_IP=192.168.1.10 HUB_PORT=47000 bash atn-udp-forward.sh install
 set -euo pipefail
-HUB_IP="${HUB_IP:-YOUR_HUB_LAN_IPV4}"
+HUB_IP="${HUB_IP:-}"
 HUB_PORT="${HUB_PORT:-47000}"
 CHAIN="ATN_UDP_FORWARD"
 
-install_rules() {
+if [[ -z "$HUB_IP" ]]; then
+  echo "HUB_IP is required (Windows hub LAN IPv4). Set by org edge panel / operator." >&2
+  exit 1
+fi
+if [[ ! "$HUB_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "HUB_IP must be dotted IPv4" >&2
+  exit 1
+fi
+
+harden_sysctl() {
   sysctl -w net.ipv4.ip_forward=1 >/dev/null
-  # Keep UDP mappings long enough for cellular CGNAT / probe cadence.
+  for k in all default eth0; do
+    sysctl -w "net.ipv4.conf.${k}.rp_filter=0" >/dev/null 2>&1 || true
+  done
   sysctl -w net.netfilter.nf_conntrack_udp_timeout=180 >/dev/null 2>&1 || true
   sysctl -w net.netfilter.nf_conntrack_udp_timeout_stream=300 >/dev/null 2>&1 || true
   mkdir -p /etc/sysctl.d
   cat >/etc/sysctl.d/99-atn-forward.conf <<EOF
 net.ipv4.ip_forward=1
+net.ipv4.conf.all.rp_filter=0
+net.ipv4.conf.default.rp_filter=0
+net.ipv4.conf.eth0.rp_filter=0
 net.netfilter.nf_conntrack_udp_timeout=180
 net.netfilter.nf_conntrack_udp_timeout_stream=300
 EOF
+}
 
-  iptables -t nat -N "$CHAIN" 2>/dev/null || iptables -t nat -F "$CHAIN"
+install_rules() {
+  harden_sysctl
+  iptables -t nat -N "$CHAIN" 2>/dev/null || true
+  iptables -t nat -F "$CHAIN"
   iptables -t nat -C PREROUTING -j "$CHAIN" 2>/dev/null || \
     iptables -t nat -I PREROUTING 1 -j "$CHAIN"
   iptables -t nat -A "$CHAIN" -p udp --dport "$HUB_PORT" \
     -j DNAT --to-destination "${HUB_IP}:${HUB_PORT}"
-
-  # MASQUERADE so hub replies via this edge (required on this Technicolor
-  # path). Pair with raised nf_conntrack_udp_timeout — default 30s matched
-  # lab BOOM and killed 5G return path while tunSend still returned 0.
-  iptables -t nat -C POSTROUTING -p udp -d "$HUB_IP" --dport "$HUB_PORT" \
-    -j MASQUERADE 2>/dev/null || \
-    iptables -t nat -A POSTROUTING -p udp -d "$HUB_IP" --dport "$HUB_PORT" \
-    -j MASQUERADE
-
+  iptables -t nat -C POSTROUTING -p udp -d "$HUB_IP" --dport "$HUB_PORT" -j MASQUERADE 2>/dev/null || \
+    iptables -t nat -A POSTROUTING -p udp -d "$HUB_IP" --dport "$HUB_PORT" -j MASQUERADE
+  iptables -C FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
+    iptables -I FORWARD 1 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
   iptables -C FORWARD -p udp -d "$HUB_IP" --dport "$HUB_PORT" -j ACCEPT 2>/dev/null || \
     iptables -I FORWARD 1 -p udp -d "$HUB_IP" --dport "$HUB_PORT" -j ACCEPT
   iptables -C FORWARD -p udp -s "$HUB_IP" --sport "$HUB_PORT" -j ACCEPT 2>/dev/null || \
     iptables -I FORWARD 1 -p udp -s "$HUB_IP" --sport "$HUB_PORT" -j ACCEPT
-
   if command -v netfilter-persistent >/dev/null 2>&1; then
     netfilter-persistent save || true
   elif command -v iptables-save >/dev/null 2>&1; then
     mkdir -p /etc/iptables
     iptables-save >/etc/iptables/rules.v4 || true
   fi
-  echo "ATN_UDP_FORWARD installed -> ${HUB_IP}:${HUB_PORT} (DNAT+MASQ, udp_timeout=180)"
+  echo "ATN edge OK: *:udp/${HUB_PORT} DNAT+MASQ -> ${HUB_IP}:${HUB_PORT}"
 }
 
 remove_rules() {
   iptables -t nat -D PREROUTING -j "$CHAIN" 2>/dev/null || true
   iptables -t nat -F "$CHAIN" 2>/dev/null || true
   iptables -t nat -X "$CHAIN" 2>/dev/null || true
-  iptables -t nat -D POSTROUTING -p udp -d "$HUB_IP" --dport "$HUB_PORT" \
-    -j MASQUERADE 2>/dev/null || true
+  while iptables -t nat -D POSTROUTING -p udp -d "$HUB_IP" --dport "$HUB_PORT" -j MASQUERADE 2>/dev/null; do :; done
   iptables -D FORWARD -p udp -d "$HUB_IP" --dport "$HUB_PORT" -j ACCEPT 2>/dev/null || true
   iptables -D FORWARD -p udp -s "$HUB_IP" --sport "$HUB_PORT" -j ACCEPT 2>/dev/null || true
-  echo "ATN_UDP_FORWARD removed"
+  echo removed
 }
 
 status_rules() {
-  echo "ip_forward=$(sysctl -n net.ipv4.ip_forward)"
-  sysctl net.netfilter.nf_conntrack_udp_timeout \
-    net.netfilter.nf_conntrack_udp_timeout_stream 2>/dev/null || true
-  iptables -t nat -S "$CHAIN" 2>/dev/null || echo "(no $CHAIN)"
-  iptables -t nat -S POSTROUTING | grep -F "$HUB_IP" || echo "(no POSTROUTING MASQ)"
-  iptables -S FORWARD | grep -F "$HUB_PORT" || true
+  echo "HUB_IP=${HUB_IP} HUB_PORT=${HUB_PORT}"
+  echo "ip_forward=$(sysctl -n net.ipv4.ip_forward) rp_filter_eth0=$(sysctl -n net.ipv4.conf.eth0.rp_filter 2>/dev/null || echo n/a)"
+  iptables -t nat -S | grep -E "ATN|${HUB_PORT}|${HUB_IP}" || true
+  iptables -S FORWARD | grep -E "${HUB_PORT}|${HUB_IP}|ESTABLISHED" || true
+  iptables -t nat -L "$CHAIN" -n -v 2>/dev/null || true
 }
 
 case "${1:-status}" in
   install) install_rules ;;
   remove) remove_rules ;;
   status) status_rules ;;
-  *) echo "usage: $0 install|status|remove"; exit 1 ;;
+  *) echo "usage: HUB_IP=x.x.x.x $0 install|status|remove"; exit 1 ;;
 esac

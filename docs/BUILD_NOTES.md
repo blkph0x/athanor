@@ -77,7 +77,7 @@ Newest entry at the top. Record facts, not hopes.
 ## BN-0035 — Lab UI + phone situation matrix (2026-09-06)
 
 - **Device:** SM-S901E; stub APK reinstall; UI shows `state=ESTABLISHED`.
-- **Hub:** `atnnode listen 47000` @ YOUR_HUB_LAN_IPV4; ping → `recv 4`.
+- **Hub:** `atnnode listen 47000` on hub LAN; ping → `recv 4`.
 - **Matrix:** happy/ping/reconnect-up/restore PASS; hub-kill dead-peer
   detect open; wrong-ek phone stays non-ESTABLISHED.
 - **SoT:** 4.x still `[ ]`. No Knox.
@@ -87,7 +87,7 @@ Newest entry at the top. Record facts, not hopes.
 ## BN-0034 — S24 lab soak ESTABLISHED (2026-09-06)
 
 - **Device:** SM-S901E Android 16; stub APK; `knoxStub=true`.
-- **Hub:** `atnnode listen 47000` on YOUR_HUB_LAN_IPV4 → **ESTABLISHED**.
+- **Hub:** `atnnode listen 47000` on hub LAN → **ESTABLISHED**.
 - **Fixes in tip:** `AtnKnoxBuildFlags`; `libatn.so` links `atn_cfg.c`;
   FGS `dataSync`. Firewall UDP 47000 allowed.
 - **SoT:** 4.x still `[ ]` (no Knox enroll).
@@ -188,9 +188,8 @@ Newest entry at the top. Record facts, not hopes.
 ## BN-0024 — DEC-0026 operator client + Poly1305 wall + export-tree (2026-09-06)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0
-- **Network:** default route `0.0.0.0/0` → `10.1.1.1` on `Ethernet 10`.
-  `Test-Connection 1.1.1.1` quiet=True. **Not** a disconnected build
-  (ISS-0021).
+- **Network:** default route via LAN gateway. `Test-Connection 1.1.1.1`
+  quiet=True. **Not** a disconnected build (ISS-0021).
 - **`make test`:** ALL PASSED.
   - `note poly1305 wall N=50000 msg=1024 key_a_ms=40 key_b_ms=40
     (ISS-0003; not a CT proof)` then `ok poly1305 timing ran`
@@ -323,7 +322,7 @@ Newest entry at the top. Record facts, not hopes.
 
 ## BN-0012 — Android NDK r27d installed; Knox jar still Partner-gated (2026-09-04)
 
-- **Host:** Windows x86_64. LAN DNS (`10.1.1.1`) does not resolve
+- **Host:** Windows x86_64. Local LAN DNS did not resolve
   `dl.google.com` / `github.com`. Used `curl --resolve` with 1.1.1.1 answers.
 - **cmdline-tools:** `commandlinetools-win-14742923_latest.zip` (150532528 bytes)
   → `%LOCALAPPDATA%\Android\Sdk\cmdline-tools\latest`. sdkmanager 20.0 with
@@ -466,7 +465,8 @@ Newest entry at the top. Record facts, not hopes.
 
 ## BN-0002 — REQ-1.1 compile + KATs (2026-09-04)
 
-- **Host:** Windows, user `Blkph0x`
+- **Host:** Windows (local operator account)
+
 - **Compiler:** gcc.exe (GCC) 11.3.0
 - **Flags:** `-std=c99 -Wall -Wextra -Werror -O2 -Iinclude`
 - **Link:** `-lbcrypt` (Windows OS CSPRNG only; not a third-party crypto lib)
@@ -493,8 +493,9 @@ Newest entry at the top. Record facts, not hopes.
 
 ## BN-0001 — Toolchain survey (2026-09-04)
 
-- **Host:** Windows, user `Blkph0x`
-- **cwd:** `YOUR_REPO_ROOT`
+- **Host:** Windows (local operator account)
+
+- **cwd:** repo root
 - **Measured:**
   - `gcc --version` → `gcc.exe (GCC) 11.3.0`
   - `clang` → not on PATH

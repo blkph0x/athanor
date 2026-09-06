@@ -125,9 +125,9 @@ Bind: 127.0.0.1:{PORT}/
 <label>Phone number (roster label)</label>
 <input name="phone_number" required placeholder="+61..." pattern="\\+?[0-9][0-9 \\-]{{5,30}}[0-9]"/>
 <label>Hub domain (optional; resolves to peer_ipv4)</label>
-<input name="peer_domain" value="mesh.example.org" placeholder="mesh.example.org"/>
+<input name="peer_domain" value="" placeholder="mesh.example.org"/>
 <label>Hub peer_ipv4 (dotted; leave blank to use domain)</label>
-<input name="peer_ipv4" value="" placeholder="auto from domain or YOUR_HUB_LAN_IPV4"/>
+<input name="peer_ipv4" value="" placeholder="hub or public IPv4"/>
 <label>Hub peer_port</label>
 <input name="peer_port" value="47000" required/>
 <label>Hub peer_ek (hex from atnnode listen)</label>

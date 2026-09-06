@@ -1,8 +1,10 @@
 # Example phone → single hub conf (DEC-0038)
-# Copy to lab/phone-atn-node.conf and fill peer_* from: atnnode listen
-# peer_ipv4 MUST be the hub PC LAN address (not 127.0.0.1).
+# Copy to lab/phone-atn-node.conf (gitignored) and fill from:
+#   - atnnode listen  (peer_port / peer_ek)
+#   - edge panel      (hub_lan_ipv4 on Wi‑Fi, or public_ipv4 off-LAN)
+# peer_ipv4 MUST NOT be 127.0.0.1 (phone is another host).
 
-peer_ipv4=YOUR_HUB_LAN_IPV4
+peer_ipv4=REPLACE_WITH_HUB_OR_PUBLIC_IPV4
 peer_port=47000
 peer_ek=REPLACE_WITH_HEX_FROM_LISTEN
 diag=1

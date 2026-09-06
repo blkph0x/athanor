@@ -40,11 +40,25 @@ int main(void)
     check("peer A", atn_tun_set_peer(&a, 0x7f000001u, b.local_port) == ATN_OK);
     check("peer B", atn_tun_set_peer(&b, 0x7f000001u, a.local_port) == ATN_OK);
     check("hs init", atn_tun_hs_send_init(&a) == ATN_OK);
-    check("hs retry", atn_tun_hs_retry(&a) == ATN_OK);
     check("A handshake", a.state == ATN_TUN_HANDSHAKE);
-    rc = atn_tun_pump(&b, 3000);
-    check("B pump INIT", rc == ATN_OK && b.state == ATN_TUN_ESTABLISHED);
-    (void)atn_tun_pump(&b, 200); /* drain HS_INIT retry */
+    {
+        int i;
+        for (i = 0; i < 16 && b.state != ATN_TUN_ESTABLISHED; i++) {
+            (void)atn_tun_pump(&b, 3000);
+        }
+        check("B pump INIT", b.state == ATN_TUN_ESTABLISHED);
+        /* Drain duplicate/retry HS chunks so DATA is next. */
+        for (i = 0; i < 8; i++) {
+            (void)atn_tun_pump(&b, 50);
+        }
+    }
+    check("hs retry", atn_tun_hs_retry(&a) == ATN_OK);
+    {
+        int i;
+        for (i = 0; i < 8; i++) {
+            (void)atn_tun_pump(&b, 200);
+        }
+    }
     rc = atn_tun_pump(&a, 3000);
     check("A pump ACK", rc == ATN_OK && a.state == ATN_TUN_ESTABLISHED);
     check("send", atn_tun_send(&a, hello, 11) == ATN_OK);
@@ -73,9 +87,20 @@ int main(void)
 
     /* DEC-0035: PQ rekey then echo again under new DATA keys. */
     check("rekey send", atn_tun_rekey_send(&a) == ATN_OK && a.rekey_pending);
-    rc = atn_tun_pump(&b, 3000);
-    check("B rekey INIT", rc == ATN_OK && b.state == ATN_TUN_ESTABLISHED &&
-          b.send_seq == 1);
+    {
+        int i;
+        rc = ATN_ERR_STATE;
+        for (i = 0; i < 16; i++) {
+            rc = atn_tun_pump(&b, 3000);
+            if (rc == ATN_OK && b.state == ATN_TUN_ESTABLISHED && b.send_seq == 1 &&
+                b.hs_asm_bits == 0) {
+                /* After full REKEY_INIT, responder commits immediately. */
+                break;
+            }
+        }
+        check("B rekey INIT", rc == ATN_OK && b.state == ATN_TUN_ESTABLISHED &&
+              b.send_seq == 1);
+    }
     {
         int i;
         rc = ATN_ERR_STATE;
@@ -121,8 +146,13 @@ int main(void)
               atn_tun_set_peer(&a, 0x7f000001u, b.local_port) == ATN_OK &&
               atn_tun_set_peer(&b, 0x7f000001u, a.local_port) == ATN_OK);
         check("reopen HS", atn_tun_hs_send_init(&a) == ATN_OK);
-        check("reopen B pump",
-              atn_tun_pump(&b, 3000) == ATN_OK && b.state == ATN_TUN_ESTABLISHED);
+        {
+            int i;
+            for (i = 0; i < 16 && b.state != ATN_TUN_ESTABLISHED; i++) {
+                (void)atn_tun_pump(&b, 3000);
+            }
+        }
+        check("reopen B pump", b.state == ATN_TUN_ESTABLISHED);
         check("reopen A pump",
               atn_tun_pump(&a, 3000) == ATN_OK && a.state == ATN_TUN_ESTABLISHED);
 
@@ -136,13 +166,28 @@ int main(void)
             check("rebind peer",
                   atn_tun_set_peer(&a2, 0x7f000001u, b.local_port) == ATN_OK);
             check("rebind HS", atn_tun_hs_send_init(&a2) == ATN_OK);
-            rc = atn_tun_recv_data(&b, back, &n, sizeof(back), 3000);
+            {
+                int i;
+                rc = ATN_OK;
+                for (i = 0; i < (int)ATN_TUN_HS_NCHUNKS; i++) {
+                    int pr;
+                    pr = atn_tun_recv_data(&b, back, &n, sizeof(back), 3000);
+                    if (pr != ATN_OK) {
+                        rc = pr;
+                    }
+                    (void)atn_tun_pump(&a2, 0);
+                }
+            }
             check("rebind B INIT",
                   rc == ATN_OK && b.state == ATN_TUN_ESTABLISHED &&
                   b.peer_port == a2.local_port);
-            rc = atn_tun_pump(&a2, 3000);
-            check("rebind A ACK",
-                  rc == ATN_OK && a2.state == ATN_TUN_ESTABLISHED);
+            {
+                int i;
+                for (i = 0; i < 8 && a2.state != ATN_TUN_ESTABLISHED; i++) {
+                    (void)atn_tun_pump(&a2, 1000);
+                }
+            }
+            check("rebind A ACK", a2.state == ATN_TUN_ESTABLISHED);
             check("rebind send", atn_tun_send(&a2, hello, 11) == ATN_OK);
             rc = atn_tun_recv_data(&b, back, &n, sizeof(back), 3000);
             check("rebind echo",
@@ -169,7 +214,15 @@ int main(void)
               atn_tun_set_peer(&wa, 0x7f000001u, wb.local_port) == ATN_OK &&
               atn_tun_set_peer(&wb, 0x7f000001u, wa.local_port) == ATN_OK);
         check("bad-ek hs", atn_tun_hs_send_init(&wa) == ATN_OK);
-        rc = atn_tun_pump(&wb, 3000);
+        {
+            int i;
+            for (i = 0; i < 16; i++) {
+                rc = atn_tun_pump(&wb, 3000);
+                if (wb.state == ATN_TUN_ESTABLISHED) {
+                    break;
+                }
+            }
+        }
         check("bad-ek B INIT", rc == ATN_OK);
         rc = atn_tun_pump(&wa, 3000);
         check("bad-ek A not established",

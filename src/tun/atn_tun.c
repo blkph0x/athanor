@@ -195,11 +195,13 @@ static int udp_recv(atn_tun *t, uint8_t *buf, size_t max, size_t *out, int timeo
                         uint8_t type;
                         uint32_t len;
                         uint64_t seq;
+                        /* DEC-0044: re-pin on any HS_INIT (mono or chunk). */
                         if (hdr_read(buf, (size_t)r, &type, &len, &seq) == ATN_OK &&
-                            type == ATN_TUN_HS_INIT &&
-                            len == ATN_MLKEM1024_CT_LEN) {
+                            type == ATN_TUN_HS_INIT) {
                             t->peer_addr = src;
                             t->peer_port = sport;
+                            t->hs_asm_bits = 0;
+                            t->hs_asm_type = 0;
                             *out = (size_t)r;
                             return ATN_OK;
                         }
@@ -259,6 +261,13 @@ static int derive_keys(atn_tun *t, const uint8_t ss[32],
                             t->k_ack, t->k_send, t->k_recv, t->confirm);
 }
 
+static void hs_asm_reset(atn_tun *t)
+{
+    atn_memzero(t->hs_asm, sizeof(t->hs_asm));
+    t->hs_asm_bits = 0;
+    t->hs_asm_type = 0;
+}
+
 static void session_keys_wipe(atn_tun *t)
 {
     atn_memzero(t->k_ack, 32);
@@ -269,6 +278,7 @@ static void session_keys_wipe(atn_tun *t)
     atn_memzero(t->rk_recv, 32);
     atn_memzero(t->rk_confirm, 32);
     t->rekey_pending = 0;
+    hs_asm_reset(t);
 }
 
 static void rekey_commit(atn_tun *t, const uint8_t k_ack[32],
@@ -447,9 +457,34 @@ int atn_tun_set_peer(atn_tun *t, uint32_t ipv4_host, uint16_t port)
     return ATN_OK;
 }
 
+/* DEC-0044: send KEM CT as ≤512-byte UDP chunks (cellular CLAT MTU). */
+static int send_kem_ct(atn_tun *t, uint8_t type,
+                       const uint8_t ct[ATN_MLKEM1024_CT_LEN])
+{
+    uint32_t off = 0;
+    while (off < ATN_MLKEM1024_CT_LEN) {
+        uint8_t pkt[ATN_TUN_HDR_LEN + ATN_TUN_HS_CHUNK];
+        uint32_t n = ATN_MLKEM1024_CT_LEN - off;
+        uint64_t seq;
+        int rc;
+        if (n > ATN_TUN_HS_CHUNK) {
+            n = ATN_TUN_HS_CHUNK;
+        }
+        seq = ((uint64_t)ATN_MLKEM1024_CT_LEN << 32) | (uint64_t)off;
+        hdr_write(pkt, type, n, seq);
+        memcpy(pkt + ATN_TUN_HDR_LEN, ct + off, n);
+        rc = udp_send(t, pkt, ATN_TUN_HDR_LEN + (size_t)n);
+        if (rc != ATN_OK) {
+            return rc;
+        }
+        off += n;
+    }
+    return ATN_OK;
+}
+
 int atn_tun_hs_send_init(atn_tun *t)
 {
-    uint8_t ss[32], pkt[ATN_TUN_HDR_LEN + ATN_MLKEM1024_CT_LEN];
+    uint8_t ss[32];
     int rc;
     if (t == NULL || !t->initiator) {
         return ATN_ERR_PARAM;
@@ -466,9 +501,7 @@ int atn_tun_hs_send_init(atn_tun *t)
     if (rc != ATN_OK) {
         return rc;
     }
-    hdr_write(pkt, ATN_TUN_HS_INIT, ATN_MLKEM1024_CT_LEN, 0);
-    memcpy(pkt + ATN_TUN_HDR_LEN, t->kem_ct, ATN_MLKEM1024_CT_LEN);
-    rc = udp_send(t, pkt, sizeof(pkt));
+    rc = send_kem_ct(t, ATN_TUN_HS_INIT, t->kem_ct);
     if (rc != ATN_OK) {
         return rc;
     }
@@ -481,10 +514,10 @@ int atn_tun_hs_retry(atn_tun *t)
     if (t == NULL || t->state != ATN_TUN_HANDSHAKE) {
         return ATN_ERR_STATE;
     }
-    if (t->last_wire_len == 0) {
+    if (!t->initiator) {
         return ATN_ERR_PARAM;
     }
-    return udp_send(t, t->last_wire, t->last_wire_len);
+    return send_kem_ct(t, ATN_TUN_HS_INIT, t->kem_ct);
 }
 
 static int send_typed_ack(atn_tun *t, uint8_t type,
@@ -512,7 +545,7 @@ static int send_ack(atn_tun *t)
 
 int atn_tun_rekey_send(atn_tun *t)
 {
-    uint8_t ss[32], pkt[ATN_TUN_HDR_LEN + ATN_MLKEM1024_CT_LEN];
+    uint8_t ss[32];
     int rc;
     if (t == NULL || !t->initiator) {
         return ATN_ERR_PARAM;
@@ -530,9 +563,7 @@ int atn_tun_rekey_send(atn_tun *t)
     if (rc != ATN_OK) {
         return rc;
     }
-    hdr_write(pkt, ATN_TUN_REKEY_INIT, ATN_MLKEM1024_CT_LEN, 0);
-    memcpy(pkt + ATN_TUN_HDR_LEN, t->kem_ct, ATN_MLKEM1024_CT_LEN);
-    rc = udp_send(t, pkt, sizeof(pkt));
+    rc = send_kem_ct(t, ATN_TUN_REKEY_INIT, t->kem_ct);
     if (rc != ATN_OK) {
         atn_memzero(t->rk_ack, 32);
         atn_memzero(t->rk_send, 32);
@@ -613,15 +644,78 @@ static int handle_rekey_ack(atn_tun *t, const uint8_t *dg, size_t n,
     return ATN_OK;
 }
 
+static int hs_asm_done(const atn_tun *t)
+{
+    unsigned mask = (1u << ATN_TUN_HS_NCHUNKS) - 1u;
+    return (t->hs_asm_bits & (uint8_t)mask) == (uint8_t)mask;
+}
+
+/* DEC-0044: ingest mono or chunked KEM CT; invoke handler when complete. */
+static int ingest_kem_ct(atn_tun *t, uint8_t type, const uint8_t *pl,
+                         uint32_t len, uint64_t seq,
+                         int (*done_fn)(atn_tun *, const uint8_t *, uint32_t))
+{
+    uint32_t total;
+    uint32_t offset;
+    uint32_t idx;
+    if (t->initiator) {
+        return ATN_ERR_PARAM;
+    }
+    /* Legacy monolithic datagram. */
+    if (len == ATN_MLKEM1024_CT_LEN && seq == 0) {
+        hs_asm_reset(t);
+        return done_fn(t, pl, len);
+    }
+    total = (uint32_t)(seq >> 32);
+    offset = (uint32_t)seq;
+    if (total != ATN_MLKEM1024_CT_LEN || len == 0 || len > ATN_TUN_HS_CHUNK) {
+        return ATN_ERR_PARAM;
+    }
+    if (offset % ATN_TUN_HS_CHUNK != 0) {
+        return ATN_ERR_PARAM;
+    }
+    if ((uint64_t)offset + (uint64_t)len > (uint64_t)total) {
+        return ATN_ERR_LEN;
+    }
+    idx = offset / ATN_TUN_HS_CHUNK;
+    if (idx >= ATN_TUN_HS_NCHUNKS) {
+        return ATN_ERR_PARAM;
+    }
+    if (offset == 0 || t->hs_asm_type != type || t->hs_asm_bits == 0) {
+        if (offset == 0 || t->hs_asm_type != type) {
+            hs_asm_reset(t);
+        }
+    }
+    if (t->hs_asm_bits == 0) {
+        t->hs_asm_type = type;
+    } else if (t->hs_asm_type != type) {
+        hs_asm_reset(t);
+        t->hs_asm_type = type;
+    }
+    memcpy(t->hs_asm + offset, pl, len);
+    t->hs_asm_bits = (uint8_t)(t->hs_asm_bits | (uint8_t)(1u << idx));
+    if (!hs_asm_done(t)) {
+        return ATN_OK;
+    }
+    {
+        int rc = done_fn(t, t->hs_asm, ATN_MLKEM1024_CT_LEN);
+        hs_asm_reset(t);
+        return rc;
+    }
+}
+
 static int handle_init(atn_tun *t, const uint8_t *pl, uint32_t len)
 {
     uint8_t ss[32];
+    uint8_t ct[ATN_MLKEM1024_CT_LEN];
     int rc;
-    if (t->initiator || len != ATN_MLKEM1024_CT_LEN) {
+    if (t->initiator || len != ATN_MLKEM1024_CT_LEN || pl == NULL) {
         return ATN_ERR_PARAM;
     }
+    /* pl may alias t->hs_asm; copy before any wipe (DEC-0044). */
+    memcpy(ct, pl, ATN_MLKEM1024_CT_LEN);
     if (t->state == ATN_TUN_ESTABLISHED) {
-        if (atn_ct_equal(pl, t->kem_ct, ATN_MLKEM1024_CT_LEN)) {
+        if (atn_ct_equal(ct, t->kem_ct, ATN_MLKEM1024_CT_LEN)) {
             /* Same CT: retransmit ACK (initiator lost it / HS retry). */
             return send_ack(t);
         }
@@ -632,7 +726,7 @@ static int handle_init(atn_tun *t, const uint8_t *pl, uint32_t len)
         t->recv_win = 0;
         t->state = ATN_TUN_CLOSED;
     }
-    memcpy(t->kem_ct, pl, ATN_MLKEM1024_CT_LEN);
+    memcpy(t->kem_ct, ct, ATN_MLKEM1024_CT_LEN);
     rc = atn_mlkem1024_decaps(t->own_dk, t->kem_ct, ss);
     if (rc != ATN_OK) {
         return rc;
@@ -640,6 +734,7 @@ static int handle_init(atn_tun *t, const uint8_t *pl, uint32_t len)
     /* ek is stored in dk at offset 384*k = 1536 for k=4 */
     rc = derive_keys(t, ss, t->own_dk + 1536, t->kem_ct);
     atn_memzero(ss, sizeof(ss));
+    atn_memzero(ct, sizeof(ct));
     if (rc != ATN_OK) {
         return rc;
     }
@@ -743,13 +838,14 @@ int atn_tun_pump(atn_tun *t, int timeout_ms)
         return rc;
     }
     if (type == ATN_TUN_HS_INIT) {
-        return handle_init(t, dg + ATN_TUN_HDR_LEN, len);
+        return ingest_kem_ct(t, type, dg + ATN_TUN_HDR_LEN, len, seq, handle_init);
     }
     if (type == ATN_TUN_HS_ACK) {
         return handle_ack(t, dg, n, len, seq);
     }
     if (type == ATN_TUN_REKEY_INIT) {
-        return handle_rekey_init(t, dg + ATN_TUN_HDR_LEN, len);
+        return ingest_kem_ct(t, type, dg + ATN_TUN_HDR_LEN, len, seq,
+                             handle_rekey_init);
     }
     if (type == ATN_TUN_REKEY_ACK) {
         return handle_rekey_ack(t, dg, n, len, seq);
@@ -827,7 +923,7 @@ int atn_tun_recv_data(atn_tun *t, uint8_t *pt, size_t *n, size_t max, int timeou
     }
     if (type == ATN_TUN_HS_INIT) {
         *n = 0;
-        return handle_init(t, dg + ATN_TUN_HDR_LEN, len);
+        return ingest_kem_ct(t, type, dg + ATN_TUN_HDR_LEN, len, seq, handle_init);
     }
     if (type == ATN_TUN_HS_ACK) {
         *n = 0;
@@ -835,7 +931,8 @@ int atn_tun_recv_data(atn_tun *t, uint8_t *pt, size_t *n, size_t max, int timeou
     }
     if (type == ATN_TUN_REKEY_INIT) {
         *n = 0;
-        return handle_rekey_init(t, dg + ATN_TUN_HDR_LEN, len);
+        return ingest_kem_ct(t, type, dg + ATN_TUN_HDR_LEN, len, seq,
+                             handle_rekey_init);
     }
     if (type == ATN_TUN_REKEY_ACK) {
         *n = 0;

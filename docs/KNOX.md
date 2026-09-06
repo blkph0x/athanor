@@ -57,7 +57,7 @@ Mesh control plane is **our** UDP tunnel + heartbeat + admin console
 | knoxsdk.jar | `vendor/knox/knoxsdk.jar` | **not in git** — Partner download |
 | android.jar | `Sdk\platforms\android-31\android.jar` | javac bootclasspath |
 
-LAN DNS on this host (`mydevice.lan` / `10.1.1.1`) may not resolve
+LAN DNS on this host may not resolve
 `dl.google.com` / `github.com`. Installers used `--resolve` against
 1.1.1.1. Builder workaround only — not a product resolver.
 

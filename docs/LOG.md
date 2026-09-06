@@ -13,10 +13,11 @@ Newest at the top.
 
 ---
 
-## 2026-09-06 — Public edge mesh.example.org → hub (5G proven)
+## 2026-09-06 — Public edge → hub (cellular proven)
 
-- VM YOUR_EDGE_LAN_IPV4: UDP DNAT 47000→YOUR_HUB_LAN_IPV4; UPnP WAN map; `/atn/` panel.
-- Phone 5G (Wi‑Fi off): ESTABLISHED + lab recv heartbeat via YOUR_PUBLIC_IPV4.
+- Edge VM: UDP DNAT hub port → Windows hub LAN; WAN UDP map; `/atn/` panel
+  (org fills domain/IPs; no baked-in addresses in git).
+- Phone cellular (Wi‑Fi off): ESTABLISHED + lab recv via public_ipv4.
 
 ---
 
@@ -102,7 +103,7 @@ Newest at the top.
 
 ## 2026-09-06 — Lab soak: S24 stub APK ↔ atnnode ESTABLISHED
 
-- Device: SM-S901E (Android 16), Wi‑Fi YOUR_PHONE_LAN_IPV4; hub YOUR_HUB_LAN_IPV4:47000.
+- Device: SM-S901E (Android 16), Wi‑Fi on hub LAN; hub listen :47000.
 - Fixes: compile-time `AtnKnoxBuildFlags.STUB_BUILD` (Samsung system Knox
   made runtime ATN_STUB probe false); link `atn_cfg.c` into `libatn.so`;
   FGS type `dataSync`. Hub log: **ESTABLISHED**. USB policy skipped.

@@ -14,30 +14,31 @@ Phone:   stub APK → AtnLabActivity → AtnDaemonService
          filesDir/atn-node.conf → ML-KEM HS → ESTABLISHED
 USB:     adb install + logcat only (mesh may be LAN or public edge)
 
-Public edge (5G): see [`EDGE.md`](EDGE.md) — `mesh.example.org` / VM
-`YOUR_EDGE_LAN_IPV4` DNATs UDP to this hub.
+Public edge (cellular): see [`EDGE.md`](EDGE.md) — org edge host DNATs
+UDP to this hub (IPs entered in the edge panel, not in git).
 ```
 
 ## 1. Hub (PC on LAN)
 
 ```bat
-set PATH=YOUR_GCC_BIN;%PATH%
+REM put your MinGW/gcc bin on PATH
 make atnnode.exe
 .\atnnode.exe listen 47000
 ```
 
 Copy the printed `peer_port` / `peer_ek`. Set `peer_ipv4` to this PC's
-LAN address (e.g. `YOUR_HUB_LAN_IPV4`), **not** 127.0.0.1 (phone is another host).
+LAN address (from the edge panel **hub_lan_ipv4**, or `ipconfig`),
+**not** 127.0.0.1 (phone is another host).
 
 Leave the process running. After **ESTABLISHED**, the hub only echoes;
 restart `listen` (new `peer_ek`) before a fresh phone soak.
 
 ## 2. Phone conf
 
-Create `lab/phone-atn-node.conf` (gitignored local copy OK):
+Create `lab/phone-atn-node.conf` (gitignored; copy from example):
 
 ```
-peer_ipv4=YOUR_HUB_LAN_IPV4
+peer_ipv4=<hub_lan_or_public_ipv4>
 peer_port=47000
 peer_ek=<hex from listen>
 diag=1

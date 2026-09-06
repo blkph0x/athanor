@@ -324,7 +324,7 @@ A decision is recorded **before** code that depends on it is written.
   to Knox/TIMA through Samsung’s supported APIs, we do not patch
   firmware. Samsung distributes the Knox SDK only through the Knox
   Partner Program (docs.samsungknox.com get-started: sign-in required).
-  This host’s LAN DNS (`10.1.1.1`) does not resolve `dl.google.com` /
+  This host’s LAN DNS does not resolve `dl.google.com` /
   `github.com`; public resolvers do. Android SDK already present at
   `%LOCALAPPDATA%\Android\Sdk` (platform 31, build-tools 31, adb 31.0.3).
   Java 11 and 19 are installed. Cited Knox APIs (not invented):
@@ -1123,6 +1123,24 @@ A decision is recorded **before** code that depends on it is written.
     silence/wipe policy; stub lab is join-gated.
   - Lock-screen K=5 (DEC-0040) unchanged (independent of mesh join).
 - **Consequences:** Airplane soak = join mesh first, then kill net/hub.
+
+---
+
+## DEC-0044 — Cellular MTU: fragment HS_INIT / REKEY_INIT
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** Lab phone on carrier CLAT (private CLAT addr, route MTU
+  ~1428). Edge DNAT to hub LAN was correct; small UDP reached the hub;
+  monolithic ML-KEM-1024 HS (~1584 B UDP) often never arrived on
+  cellular → HANDSHAKE forever. Wi‑Fi LAN OK.
+- **Decision:** Emit HS_INIT and REKEY_INIT as **chunked** UDP datagrams
+  (payload ≤ `ATN_TUN_HS_CHUNK` = 512). Header `seq` =
+  `(total<<32)|offset` with `total=ATN_MLKEM1024_CT_LEN`; `length` =
+  this chunk. Responder reassembles; legacy monolithic
+  (`length=1568`, `seq=0`) still accepted. Retry resends all chunks.
+- **Consequences:** Both peers need this build. Cellular join uses
+  public WAN IP; Wi‑Fi lab may still use LAN hub IP.
 
 ---
 

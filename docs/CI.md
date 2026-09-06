@@ -29,7 +29,7 @@ Already installed here (BN-0001 / this session):
 
 | Tool | Where | Version |
 |---|---|---|
-| gcc | `YOUR_GCC_BIN` | 11.3.0 |
+| gcc | operator MinGW `bin` on PATH | 11.3.0 |
 | make | same | GNU Make 4.3 |
 | git | PATH | 2.41.0.windows.1 |
 | gh | PATH | 2.94.0 |

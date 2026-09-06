@@ -79,7 +79,13 @@ static int cmd_demo(void)
         atn_tun_wipe(&resp);
         return 1;
     }
-    rc = atn_tun_pump(&resp, 3000);
+    {
+        int i;
+        rc = ATN_ERR_STATE;
+        for (i = 0; i < 16 && resp.state != ATN_TUN_ESTABLISHED; i++) {
+            rc = atn_tun_pump(&resp, 3000);
+        }
+    }
     if (rc != ATN_OK || atn_tun_pump(&init, 3000) != ATN_OK ||
         init.state != ATN_TUN_ESTABLISHED ||
         resp.state != ATN_TUN_ESTABLISHED) {

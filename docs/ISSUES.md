@@ -135,7 +135,7 @@ Status: `open` | `closed`
 - **Status:** open
 - **Opened:** 2026-09-04
 - **REQ:** toolchain
-- **Evidence:** `nslookup` via `mydevice.lan` (10.1.1.1) timed out.
+- **Evidence:** `nslookup` via local LAN DNS timed out.
   `1.1.1.1` resolved the names. Install used curl `--resolve`.
 - **Must not invent:** product code that talks to 8.8.8.8.
 - **Unblock by:** fix LAN DNS or keep `--resolve` in the builder notes.

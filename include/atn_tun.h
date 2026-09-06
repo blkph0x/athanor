@@ -10,6 +10,10 @@
 #define ATN_TUN_HDR_LEN     16u
 #define ATN_TUN_MAX_PT      1024u
 #define ATN_TUN_MAX_DG      (ATN_TUN_HDR_LEN + ATN_MLKEM1024_CT_LEN)
+/* DEC-0044: cellular CLAT MTU — KEM CT split into this many payload bytes. */
+#define ATN_TUN_HS_CHUNK    512u
+#define ATN_TUN_HS_NCHUNKS  \
+    ((ATN_MLKEM1024_CT_LEN + ATN_TUN_HS_CHUNK - 1u) / ATN_TUN_HS_CHUNK)
 
 #define ATN_TUN_HS_INIT     1u
 #define ATN_TUN_HS_ACK      2u
@@ -50,6 +54,10 @@ typedef struct {
     int      have_peer;
     uint8_t  last_wire[ATN_TUN_MAX_DG];
     size_t   last_wire_len;
+    /* DEC-0044: reassemble fragmented HS_INIT / REKEY_INIT */
+    uint8_t  hs_asm[ATN_MLKEM1024_CT_LEN];
+    uint8_t  hs_asm_bits;   /* bit i = chunk i received */
+    uint8_t  hs_asm_type;   /* ATN_TUN_HS_INIT or REKEY_INIT while assembling */
 } atn_tun;
 
 int atn_net_init(void);

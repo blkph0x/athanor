@@ -10,7 +10,8 @@ ek gets garbage.
 
 ## UDP datagram
 
-Little-endian fields. One tunnel message = one UDP datagram.
+Little-endian fields. One tunnel message = one UDP datagram
+(DEC-0044: HS_INIT / REKEY_INIT may be **several** datagrams).
 
 ```
 offset  bytes  field
@@ -18,12 +19,15 @@ offset  bytes  field
 1       1      type        see below
 2       2      reserved    must be 0
 4       4      length      payload bytes after this 16-byte header
-8       8      seq         per-direction counter (DATA/KA/CLOSE)
+8       8      seq         per-direction counter (DATA/KA/CLOSE);
+                           HS_INIT/REKEY_INIT: see fragmentation below
 16      length payload
 ```
 
 Maximum payload we will emit: 1024 bytes (DATA). HS_INIT / REKEY_INIT
-payload is exactly `ATN_MLKEM1024_CT_LEN` (1568).
+ciphertext is `ATN_MLKEM1024_CT_LEN` (1568), sent either as one datagram
+(`length=1568`, `seq=0`) or as DEC-0044 chunks (`length≤512`,
+`seq = (1568<<32)|offset`).
 
 ## Types
 

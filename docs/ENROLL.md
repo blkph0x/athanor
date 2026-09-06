@@ -11,7 +11,7 @@ USB charge-only waits on **T-0400** (`knoxsdk.jar`).
 ## Start
 
 ```bat
-set PATH=YOUR_GCC_BIN;%PATH%
+set PATH=%GCC_BIN%;%PATH%
 make atnenroll.exe atnsign.exe
 make android-apk
 .\atnenroll.exe serve 8799
