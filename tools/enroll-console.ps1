@@ -110,8 +110,10 @@ __DETAIL__
 <form method="POST" action="/enroll" id="enrollForm">
 <label>Phone number (roster label)</label>
 <input name="phone_number" required placeholder="+61..." pattern="\+?[0-9][0-9 \-]{5,30}[0-9]"/>
-<label>Hub peer_ipv4</label>
-<input name="peer_ipv4" value="YOUR_HUB_LAN_IPV4" required/>
+<label>Hub domain (optional; resolves to peer_ipv4)</label>
+<input name="peer_domain" value="mesh.example.org" placeholder="mesh.example.org"/>
+<label>Hub peer_ipv4 (dotted; leave blank to use domain)</label>
+<input name="peer_ipv4" value="" placeholder="auto from domain or YOUR_HUB_LAN_IPV4"/>
 <label>Hub peer_port</label>
 <input name="peer_port" value="47000" required/>
 <label>Hub peer_ek (hex from atnnode listen)</label>
@@ -208,7 +210,8 @@ function Invoke-AdbLogged([string]$label, [string[]]$AdbArgs) {
 function Do-Enroll($form) {
     $script:LastAdbLog = New-Object System.Collections.Generic.List[string]
     $phone = [string]$form["phone_number"]
-    $ipv4 = [string]$form["peer_ipv4"]
+    $domain = ([string]$form["peer_domain"]).Trim()
+    $ipv4 = ([string]$form["peer_ipv4"]).Trim()
     $port = [string]$form["peer_port"]
     $ek = ([string]$form["peer_ek"]).Trim() -replace '\s',''
     $diag = [string]$form["diag"]
@@ -216,7 +219,17 @@ function Do-Enroll($form) {
     $outage = [string]$form["outage_class"]
 
     if (-not (Test-PhoneLabel $phone)) { return @{ Ok=$false; Msg="ERR: bad phone_number label" } }
-    if ($ipv4 -notmatch '^\d{1,3}(\.\d{1,3}){3}$') { return @{ Ok=$false; Msg="ERR: bad peer_ipv4" } }
+    if ($ipv4 -eq "" -and $domain -ne "") {
+        try {
+            $addrs = [System.Net.Dns]::GetHostAddresses($domain)
+            $v4 = $addrs | Where-Object { $_.AddressFamily -eq 'InterNetwork' } | Select-Object -First 1
+            if ($null -eq $v4) { return @{ Ok=$false; Msg="ERR: domain has no A record" } }
+            $ipv4 = $v4.ToString()
+        } catch {
+            return @{ Ok=$false; Msg="ERR: domain resolve failed" }
+        }
+    }
+    if ($ipv4 -notmatch '^\d{1,3}(\.\d{1,3}){3}$') { return @{ Ok=$false; Msg="ERR: bad peer_ipv4 (or set peer_domain)" } }
     if ($port -notmatch '^\d{1,5}$') { return @{ Ok=$false; Msg="ERR: bad peer_port" } }
     if ($ek.Length -ne 3136 -or $ek -notmatch '^[0-9a-fA-F]+$') {
         return @{ Ok=$false; Msg="ERR: peer_ek must be 3136 hex chars (ML-KEM-1024)" }

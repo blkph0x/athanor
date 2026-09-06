@@ -4,6 +4,13 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — Public edge mesh.example.org → hub (5G proven)
+
+- VM YOUR_EDGE_LAN_IPV4: UDP DNAT 47000→YOUR_HUB_LAN_IPV4; UPnP WAN map; `/atn/` panel.
+- Phone 5G (Wi‑Fi off): ESTABLISHED + lab recv heartbeat via YOUR_PUBLIC_IPV4.
+
+---
+
 ## 2026-09-06 — Lab soak: heartbeat liveness + airplane BOOM proven
 
 - Hub+APK reinstall; online: `lab recv` keeps timer OFF.

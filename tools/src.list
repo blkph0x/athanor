@@ -119,3 +119,8 @@ docs/CRYPTO.md
 docs/ENROLL.md
 docs/ESSENTIAL8.md
 vendor/knox/README.md
+docs/EDGE.md
+lab/edge/atn-udp-forward.sh
+lab/edge/apache-atn.conf
+lab/edge/www/index.php
+tools/enroll-console.ps1

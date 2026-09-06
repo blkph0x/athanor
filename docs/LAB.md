@@ -12,7 +12,10 @@ Build stays Makefile + `android/stubs` + optional `vendor/knox/knoxsdk.jar`.
 PC hub:  atnnode listen <port>     (INADDR_ANY, prints peer_ek)
 Phone:   stub APK → AtnLabActivity → AtnDaemonService
          filesDir/atn-node.conf → ML-KEM HS → ESTABLISHED
-USB:     adb install + logcat only (mesh runs over Wi-Fi / LAN)
+USB:     adb install + logcat only (mesh may be LAN or public edge)
+
+Public edge (5G): see [`EDGE.md`](EDGE.md) — `mesh.example.org` / VM
+`YOUR_EDGE_LAN_IPV4` DNATs UDP to this hub.
 ```
 
 ## 1. Hub (PC on LAN)

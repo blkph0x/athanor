@@ -20,6 +20,7 @@ exec python3 - <<'PY'
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -123,8 +124,10 @@ Bind: 127.0.0.1:{PORT}/
 <form method="POST" action="/enroll" id="enrollForm">
 <label>Phone number (roster label)</label>
 <input name="phone_number" required placeholder="+61..." pattern="\\+?[0-9][0-9 \\-]{{5,30}}[0-9]"/>
-<label>Hub peer_ipv4</label>
-<input name="peer_ipv4" value="YOUR_HUB_LAN_IPV4" required/>
+<label>Hub domain (optional; resolves to peer_ipv4)</label>
+<input name="peer_domain" value="mesh.example.org" placeholder="mesh.example.org"/>
+<label>Hub peer_ipv4 (dotted; leave blank to use domain)</label>
+<input name="peer_ipv4" value="" placeholder="auto from domain or YOUR_HUB_LAN_IPV4"/>
 <label>Hub peer_port</label>
 <input name="peer_port" value="47000" required/>
 <label>Hub peer_ek (hex from atnnode listen)</label>
@@ -176,7 +179,8 @@ def adb(serial, *args):
 
 def do_enroll(form):
     phone = form.get("phone_number", [""])[0]
-    ipv4 = form.get("peer_ipv4", [""])[0]
+    domain = form.get("peer_domain", [""])[0].strip()
+    ipv4 = form.get("peer_ipv4", [""])[0].strip()
     port = form.get("peer_port", [""])[0]
     ek = re.sub(r"\s+", "", form.get("peer_ek", [""])[0].strip())
     diag = form.get("diag", ["1"])[0]
@@ -185,8 +189,13 @@ def do_enroll(form):
 
     if not phone_ok(phone):
         return False, "ERR: bad phone_number label", ""
+    if ipv4 == "" and domain:
+        try:
+            ipv4 = socket.gethostbyname(domain)
+        except OSError:
+            return False, "ERR: domain resolve failed", ""
     if not re.match(r"^\d{1,3}(\.\d{1,3}){3}$", ipv4):
-        return False, "ERR: bad peer_ipv4", ""
+        return False, "ERR: bad peer_ipv4 (or set peer_domain)", ""
     if not re.match(r"^\d{1,5}$", port):
         return False, "ERR: bad peer_port", ""
     if len(ek) != 3136 or not re.match(r"^[0-9a-fA-F]+$", ek):
