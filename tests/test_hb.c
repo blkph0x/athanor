@@ -187,6 +187,44 @@ int main(void)
         check("A key live", memcmp(a.key, z, 32) != 0);
     }
 
+    /* DEC-0025: retrieve H during grace restores LIVE. */
+    {
+        atn_hb xa, xb;
+        uint8_t tok[1 + 8 + 8 + 32 + ATN_HB_MAC_LEN];
+        check("ret init",
+              atn_hb_init(&xa, ida, ka, 1, head, NULL) == ATN_OK &&
+              atn_hb_init(&xb, idb, kb, 1, head, NULL) == ATN_OK);
+        check("ret peers",
+              atn_hb_add_peer(&xa, idb, kb) == ATN_OK &&
+              atn_hb_add_peer(&xb, ida, ka) == ATN_OK);
+        (void)atn_hb_tick(&xa, 1);
+        (void)atn_hb_tick(&xa, 2);
+        (void)atn_hb_tick(&xa, 3);
+        check("ret untrusted", xa.state == ATN_HB_UNTRUSTED);
+        check("ret pack", pack(&xb, 3, tok) == 0);
+        check("ret ingest", atn_hb_ingest(&xa, tok, sizeof(tok)) == ATN_OK);
+        check("ret live", xa.state == ATN_HB_LIVE);
+        atn_hb_wipe(&xa);
+        atn_hb_wipe(&xb);
+    }
+
+    /* HOLD vote cancels wipe after grace. */
+    {
+        atn_hb x;
+        unsigned u;
+        check("hold init", atn_hb_init(&x, ida, ka, 1, head, NULL) == ATN_OK);
+        check("hold peer", atn_hb_add_peer(&x, idb, kb) == ATN_OK);
+        for (u = 1; u <= ATN_HB_N + ATN_HB_G - 1u; u++) {
+            (void)atn_hb_tick(&x, u);
+        }
+        check("hold window", x.state == ATN_HB_UNTRUSTED);
+        check("hold vote",
+              atn_hb_vote(&x, 5, ida, ATN_HB_VOTE_HOLD) == ATN_OK);
+        (void)atn_hb_tick(&x, ATN_HB_N + ATN_HB_G);
+        check("hold survives", x.state == ATN_HB_LIVE);
+        atn_hb_wipe(&x);
+    }
+
     /* One tunnel hop: emit on DATA, peer pump verifies MAC. */
     {
         atn_tun ta, tb;

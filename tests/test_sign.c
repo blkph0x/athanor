@@ -61,10 +61,16 @@ int main(void)
     body[n] = 0;
     check("report hdr", memcmp(body, "ATN-REPORT-1\n", 13) == 0);
     check("report pass", strstr((const char *)body, "status=PASS") != NULL);
+    check("report diag0", strstr((const char *)body, "diag=0\n") != NULL);
     check("report sign", atn_report_sign(sk, body, n, sig) == ATN_OK);
     check("report verify", atn_report_verify(pk, body, n, sig) == ATN_OK);
     body[14] ^= 1;
     check("report tamper", atn_report_verify(pk, body, n, sig) == ATN_ERR_AUTH);
+    check("report diag1",
+          atn_report_encode_ex(1, atn_platform_id(), 1, body, &n, sizeof(body))
+          == ATN_OK);
+    body[n] = 0;
+    check("report diag1 line", strstr((const char *)body, "diag=1\n") != NULL);
     atn_memzero(sk, sizeof(sk));
 
     if (g_fail == 0) {

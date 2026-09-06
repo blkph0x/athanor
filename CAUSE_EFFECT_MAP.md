@@ -268,8 +268,8 @@ VERIFICATION GATE
   [X] Oversized headers / unknown methods are rejected
   [X] Unauthenticated sockets cannot read admin pages
   [X] Traffic is authenticated+encrypted (our handshake or our tunnel)
-      Residual: ISS-0009 (not RFC 8446; browsers cannot connect).
-      Residual: ISS-0010 (no HTTP keep-alive / pipelining).
+      Residual: ISS-0009 narrowed (DEC-0026 operator client; not RFC 8446).
+      Residual: ISS-0010 closed (DEC-0024 keep-alive max 8).
 
 
 --------------------------------------------------------------------------------
@@ -943,14 +943,14 @@ PHASE 1
 [X] REQ-1.3  2FA binary            — CAUSE: own the second factor; EFFECT: password theft is not enough
 
 PHASE 2
-[ ] REQ-2.1  HTTP/TLS listener     — CAUSE: own the socket; EFFECT: no Nginx/Node
-[ ] REQ-2.2  Admin console         — CAUSE: own the UI bytes; EFFECT: no CDN/framework
-[ ] REQ-2.3  Auth DNS              — CAUSE: own the names; EFFECT: no public resolver
+[X] REQ-2.1  HTTP/TLS listener     — CAUSE: own the socket; EFFECT: no Nginx/Node
+[X] REQ-2.2  Admin console         — CAUSE: own the UI bytes; EFFECT: no CDN/framework
+[X] REQ-2.3  Auth DNS              — CAUSE: own the names; EFFECT: no public resolver
 
 PHASE 3
-[ ] REQ-3.1  Replicate/shard       — CAUSE: no cloud disk; EFFECT: node loss is not data loss
-[ ] REQ-3.2  Memory trees          — CAUSE: no vendor DB; EFFECT: state is our process
-[ ] REQ-3.3  Heartbeat mesh        — CAUSE: need a live proof of "still ours"; EFFECT: wipe has a trigger
+[X] REQ-3.1  Replicate/shard       — CAUSE: no cloud disk; EFFECT: node loss is not data loss
+[X] REQ-3.2  Memory trees          — CAUSE: no vendor DB; EFFECT: state is our process
+[X] REQ-3.3  Heartbeat mesh        — CAUSE: need a live proof of "still ours"; EFFECT: wipe has a trigger
 
 PHASE 4
 [ ] REQ-4.1  Knox daemon           — CAUSE: phone must be a mesh member; EFFECT: 4.2–4.4 have a process

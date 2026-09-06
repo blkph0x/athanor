@@ -112,6 +112,7 @@ int main(void)
 {
     atn_http_req req;
     atn_http_srv srv;
+    atn_hb mesh;
     uint8_t ek[ATN_MLKEM1024_EK_LEN], dk[ATN_MLKEM1024_DK_LEN];
     uint8_t resp[ATN_HTTP_MAX_PT];
     uint8_t raw[512];
@@ -175,6 +176,17 @@ int main(void)
     check("kem keygen", atn_mlkem1024_keygen(ek, dk) == ATN_OK);
     check("listen loopback", atn_http_listen(&srv, 0, ek, dk) == ATN_OK &&
           atn_http_port(&srv) != 0);
+    {
+        uint8_t hid[8], hk[32], hh[32], pid[8], pk[32];
+        memset(hid, 0xa1, 8);
+        memset(pid, 0xb2, 8);
+        memset(hk, 0x11, 32);
+        memset(pk, 0x22, 32);
+        memset(hh, 0x33, 32);
+        check("mesh init", atn_hb_init(&mesh, hid, hk, 1, hh, NULL) == ATN_OK);
+        check("mesh peer", atn_hb_add_peer(&mesh, pid, pk) == ATN_OK);
+        atn_http_attach_mesh(&srv, &mesh);
+    }
 
     rc = roundtrip(&srv, ek, "GET", "/", resp, &n, sizeof(resp));
     check("GET / rc", rc == ATN_OK);
@@ -381,6 +393,8 @@ int main(void)
             check("login console",
                   rc == ATN_OK && status_is(resp, n, "200") &&
                   memmem_absent(resp, n, (const uint8_t *)"ATN-CONSOLE-PAGE", 16) == 0);
+            check("mesh roster",
+                  memmem_absent(resp, n, (const uint8_t *)"ATN-MESH-ROSTER", 15) == 0);
         }
 
         p = (const uint8_t *)strstr((const char *)resp, "id=\"chal\">");
@@ -420,6 +434,7 @@ int main(void)
     }
 
     atn_http_close(&srv);
+    atn_hb_wipe(&mesh);
     if (g_fail == 0) {
         printf("ALL PASSED\n");
         return 0;

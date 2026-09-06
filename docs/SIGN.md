@@ -34,9 +34,12 @@ atnsign verify keys/mldsa87.pk MANIFEST MANIFEST.sig
 ATN-REPORT-1
 status=PASS|FAIL
 platform=<atn_platform_id()>
+diag=0|1
 ```
 
 Signature: ML-DSA-87 over those exact bytes, context `atn-rp-v1`.
+`diag=` is required (DEC-0027). `atn_report_encode` writes `diag=0`;
+`atn_report_encode_ex(..., 1, ...)` writes `diag=1`.
 
 ```
 atnsign report PASS REPORT

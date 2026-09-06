@@ -11,15 +11,19 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
+| T-0701 | open | REQ-3.3 | Live multi-`atnnode` failover harness (D-08 wire path) |
+| T-0702 | open | REQ-3.1 | DEC to raise `ATN_REPL_MAX_NODES` above 4 (with hub list) |
 | T-0400 | blocked | REQ-4.1 | Drop `vendor/knox/knoxsdk.jar` (Partner / PTR) then device-enroll |
+| T-0601 | open | REQ-6.2 | ISS-0021: measure `make test`/`make export-tree` with default route down |
 
 ---
 
 ## Backlog (do not start early)
 
-Phase 4 device enroll waits on T-0400 (real knoxsdk.jar). Stub
-classpath is in place. Phase 5 air-gap host (no default route, frozen
-compiler) is still unmeasured.
+Phase 4 device enroll waits on T-0400. Phase 5 air-gap host unmeasured.
+ISS-0003 aarch64/S24 Poly1305. ISS-0011 %-decode. ISS-0007/0008.
+Console-set `outage_class` (2FA) still open — conf-only today (DEC-0029).
+Diag-first flash when jar lands (DEC-0027).
 
 ---
 
@@ -60,3 +64,8 @@ compiler) is still unmeasured.
 | T-0204 | done | REQ-2.3 | DNS TCP on recorded tcp_port when UDP port is busy (DEC-0024). |
 | T-0405 | done | REQ-4.1 | `atnnode connect <file>` initiator (DEC-0024). Device SoT still blocked. |
 | T-0600 | done | REQ-6.2 | `docs/ISOLATION.md` + export.ps1 scaffolding. SoT 6.x still open. |
+| T-0304 | done | REQ-3.3 | DEC-0025: WARN/vote/grace, witness retrieve, console roster, atn_lock |
+| T-0205 | done | REQ-2.1 | DEC-0026: `atnhttp serve-once` / `get`; ISS-0009 narrowed |
+| T-0006b | done | REQ-1.1 | DEC-0026: Poly1305 wall-clock note in test_crypto (ISS-0003 still open) |
+| T-0602 | done | REQ-6.3 | DEC-0026: `make export-tree`; isolation doc notes SoT in export tree |
+| T-0700 | done | REQ-3.3/4.4 | DEC-0027/0028/0029 + cfg/dmon/report gates (BN-0025) |

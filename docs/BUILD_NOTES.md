@@ -4,6 +4,47 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0025 — DEC-0027/0028/0029 diag + hubs + outage (2026-09-06)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0
+- **Network:** default route present (not ISS-0021).
+- **`make test`:** ALL PASSED.
+  - `test_cfg`: hub2 parse/count/get; `log_only` without `diag` rejected;
+    `outage_class=blackout`.
+  - `test_dmon`: diag `log_only` DEAD keeps keys + `flush_log_count`;
+    blackout class silence keeps LIVE/keys; production ZEROIZE path
+    unchanged.
+  - `test_sign`: `diag=0` / `diag=1` in ATN-REPORT-1.
+- **SoT:** 4.x/5.x/6.x stay `[ ]`. ISS-0022/0023 narrowed closed.
+
+---
+
+## BN-0024 — DEC-0026 operator client + Poly1305 wall + export-tree (2026-09-06)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0
+- **Network:** default route `0.0.0.0/0` → `10.1.1.1` on `Ethernet 10`.
+  `Test-Connection 1.1.1.1` quiet=True. **Not** a disconnected build
+  (ISS-0021).
+- **`make test`:** ALL PASSED.
+  - `note poly1305 wall N=50000 msg=1024 key_a_ms=40 key_b_ms=40
+    (ISS-0003; not a CT proof)` then `ok poly1305 timing ran`
+  - `atnhttp demo: GET / and GET /admin + conf reload OK (DEC-0009/0026)`
+- **`make export-tree`:** `export ok ...\export\athanor-src` with
+  `SOURCE_OF_TRUTH.md`, `CAUSE_EFFECT_MAP.md`, `docs/ISOLATION.md`.
+- **SoT:** 4.x / 5.x / 6.x stay `[ ]`. ISS-0009 narrowed closed.
+  ISS-0003 remains open (no aarch64/S24 timing yet).
+
+---
+
+## BN-0023 — org failsafe / mesh console (DEC-0025) (2026-09-04)
+
+- **Host:** Windows x86_64
+- **`make test`:** ALL PASSED (verified 2026-09-06 before DEC-0026).
+  Gates: hb retrieve/hold, dmon grace→DEAD flush, HTTP `mesh roster`.
+- **Prior note:** entry was written pending the run; this completes it.
+
+---
+
 ## BN-0022 — keep-alive / DNS TCP / connect (DEC-0024) (2026-09-04)
 
 - **Host:** Windows x86_64

@@ -623,3 +623,165 @@ A decision is recorded **before** code that depends on it is written.
     copies `tools/src.list` into `export/` and refuses `*.jar`.
 - **Consequences:** ISS-0010 closed. ISS-0012 TCP gap closed; pcap is
   still not taken. SoT 4.x / 5.x / 6.x stay `[ ]`.
+
+---
+
+## DEC-0025 — Org failsafe: witness retrieve, vote before wipe, console mesh
+
+- **Date:** 2026-09-04
+- **Status:** accepted
+- **Evidence:** User: if heartbeat fails, automatically contact a known
+  node to retrieve a heartbeat; warn all nodes; collectively decide
+  partition vs down before wipe; org interconnected mesh; management
+  website; multiple connections; memory- and thread-safe C buffers.
+  SoT forbids carrier/SMS/Twilio. DEC-0014 auto-wipes at N+M with no
+  vote. Console still prints “nodes: none”. No mutex exists.
+- **Decision:**
+  - **No PSTN/SMS API.** A “number” is a roster **witness node id**
+    (8 bytes). Distress and retrieve ride DEC-0007 DATA. An optional
+    `witness_note` (ASCII, ≤32) is shown on the console for a human
+    to call; we do not dial.
+  - On N consecutive misses: UNTRUSTED, emit **WARN**
+    (`W||bucket||epoch||suspect_id||mac`, HMAC-SHA-512, ctx none —
+    MAC over those bytes). Recipients **immediately emit H** (retrieve
+    heartbeat from a known node). Distressed node keeps emitting H.
+    Any valid H during grace resets misses → LIVE.
+  - Grace **G=3** buckets after UNTRUSTED. **Vote**
+    (`V||bucket||epoch||suspect||0=hold|1=wipe||mac`). Wipe (DEAD,
+    `atn_memzero` own keys) only if grace expires **and** `hold_votes==0`.
+    A HOLD vote (peer or local operator) cancels wipe. Peers do not
+    wipe anyone else.
+  - `ATN_HB_MAX_PEERS=16` (DEC-0014’s 4 was the old cap).
+  - Daemon flush (DEC-0017) on **DEAD only**, not UNTRUSTED (grace).
+  - Console: roster + HOLD/WIPE forms (2FA+CSRF). `atn_http_attach_mesh`.
+  - **Threads:** portable `atn_lock` (Windows `CRITICAL_SECTION`,
+    POSIX `pthread_mutex`). Guard HTTP sessions and hb. We still
+    **accept one TCP client at a time** (`serve_one`); backlog stays 8.
+    That is the memory-safe default — no worker pool yet (would be a
+    new DEC). All new parsers have explicit caps; secrets `atn_memzero`.
+- **Consequences:** Faraday “silence always wipes” is delayed by G and
+  can be cancelled by HOLD. Capture without votes still wipes after
+  grace. ISS-0020 records “no auto SMS”. SoT 4.x/5.3 stay `[ ]`.
+
+---
+
+## DEC-0026 — Operator HTTP client; Poly1305 wall-clock note; export/isolation evidence
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** User: keep moving without `knoxsdk.jar`; track everything;
+  no guessing. ISS-0009 unblock path (b) is “in-tree operator client”
+  now that ML-DSA-87 exists (ISS-0005 closed). Browsers still cannot
+  speak DEC-0009. ISS-0003 asks for a BUILD_NOTES timing note, not a
+  invented CT badge. REQ-6.2/6.3 still need measured evidence; NIC-down
+  is not available without admin on this builder. BN-0023 was pending
+  `make test` for DEC-0025 (now green). Cause/effect roll-up still
+  showed Phase 2–3 open while SoT had them [X].
+- **Decision:**
+  - **Operator client (ISS-0009-b):** `atnhttp serve-once [port]` keygens,
+    binds loopback, prints `peer_ipv4=127.0.0.1`, `peer_port=`, and
+    `peer_ek=` (3136 hex), then accepts **one** client (`serve_one`) and
+    exits. `atnhttp get <conf> <path>` loads DEC-0021 keys
+    (`peer_ipv4`/`peer_port`/`peer_ek`), requires `127.0.0.1` (listener
+    is loopback-only; no inventing bind-any for HTTP), handshakes, GETs
+    the path, writes the HTTP response to stdout. `atnhttp demo` also
+    writes a temp conf and reloads it so the conf path is gated
+    in-process. This is **not** RFC 8446. Browsers remain unsupported.
+  - **Poly1305 timing (ISS-0003):** `tests/test_crypto` runs a fixed
+    iteration wall-clock probe (`clock()`) for two keys on a 1024-byte
+    message and prints `note poly1305 wall …`. The gate is “ops
+    completed”, not a delta threshold (inventing a CT bound is a
+    guess). Record the numbers in BUILD_NOTES. ISS-0003 stays open
+    until measured on enrolled S24/ARM targets.
+  - **Isolation / export:** `make export-tree` runs `tools/export.ps1`
+    (named so it does not collide with the `export/` directory).
+    `docs/ISOLATION.md` records: recipe URL scan (existing), export
+    contains SoT + map, and whether a default route was present during
+    the measured `make test`. Do **not** claim NIC-down or SoT 6.2 [X].
+  - **Tracker hygiene:** Cause/effect roll-up Phase 2–3 mirrors SoT [X].
+    REQ-2.1 residual ISS-0010 marked closed (DEC-0024). SoT 4.x/5.x/6.x
+    stay `[ ]`.
+- **Consequences:** Operators can use `atnhttp` without a browser.
+  ISS-0009 narrows to “no browser TLS”. ISS-0003 has a Windows-x86_64
+  wall-clock note only. Knox / air-gap / Faraday remain blocked.
+
+---
+
+## DEC-0027 — Diagnostic profile (no-brick first flash)
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** User: first build is a heavy test/diag build; test fully
+  without bricking lab phones/systems; prove before SoT mark-off; keep
+  trackers current. `docs/DIAG_USECASES.md` §3. DEC-0017 already refuses
+  DPM factory-reset wipe. DEC-0025 DEAD still calls `atn_dmon_flush`
+  (ZEROIZE). Lab needs a measured non-destructive path.
+- **Decision:**
+  - Conf keys (unknown still fail closed): `diag=0|1` (default absent=0),
+    `flush_mode=zeroize|log_only` (absent: `zeroize` if `diag=0`,
+    `log_only` if `diag=1`), `wipe_armed=0|1` (default 0).
+  - `flush_mode=log_only` is **illegal** unless `diag=1` (parse error).
+  - `atn_dmon`: on DEAD or 2FA lockout, if `log_only` **and**
+    `wipe_armed=0`: increment `flush_log_count`, do **not** zero
+    device/cluster keys, do **not** clear `loaded`. If `wipe_armed=1`
+    or `flush_mode=zeroize`: existing `atn_dmon_flush` ZEROIZE.
+  - `ATN-REPORT-1` gains a required line `diag=0|1` after `platform=`
+    (ctx still `atn-rp-v1`). Default encode uses `diag=0`.
+  - SoT 4.x/5.x stay `[ ]`. Diag is not a device Knox gate.
+- **Consequences:** Lab can soak wipe *paths* without destroying keys.
+  Production conf omits `diag` → ZEROIZE as today.
+
+---
+
+## DEC-0028 — Multi-hub failover list (IRC-like attach)
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** User: hubs at different sites, synced; any node may use
+  any hub (IRC reconnect). ISS-0023: single `peer_ipv4` blocks that.
+  `ATN_REPL_MAX_NODES=4` (DEC-0013) caps the roster we can honestly
+  mirror without a migration DEC — hub list size matches that cap.
+  DEC-0022: IPv4 required; pin stray UDP; intentional peer change is
+  not “stray”.
+- **Decision:**
+  - Primary remains `peer_ipv4` / `peer_port` / `peer_ek` (hub index 0).
+    `atn_cfg_ready` unchanged.
+  - Optional hubs 2..4: `hub2_ipv4`, `hub2_port`, `hub2_ek`, … `hub4_*`.
+    A hub slot counts only if all three keys are present; partial slot
+    is parse error. Max hubs = `ATN_CFG_MAX_HUBS` = 4 (= repl cap).
+  - `atn_cfg_hub_count`, `atn_cfg_hub_get(i, …)` for i in [0, count).
+  - Failover: on tunnel AUTH/close or HS failure, initiator may advance
+    to the next hub index, `atn_tun_set_peer` + new ek, clear pin, retry
+    HS. Documented in `docs/DIAG_USECASES.md` D-08. Raising hub count
+    above 4 requires a repl-cap DEC first.
+  - No public DNS forwarding. Hub addresses are conf/roster only.
+- **Consequences:** Site blackout of hub0 can still reach hub1..3 without
+  wipe. ISS-0023 progresses; full phone daemon wire-up still needs jar.
+
+---
+
+## DEC-0029 — Outage classes (blackout ≠ Faraday)
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** User: power-outage failsafe — phones must not self-wipe
+  in a blackout. REQ-5.3 Faraday still wants flush on RF isolation.
+  ISS-0022: those collide if silence alone is the only signal. We have
+  **no** cited power/RF sensor API in-tree; inventing one is forbidden.
+  Operator/conf class is the only evidence-backed discriminator now.
+  Multi-hub failover (DEC-0028) already covers single-site blackout when
+  another hub answers.
+- **Decision:**
+  - Conf key `outage_class=` one of: `normal` (default if absent),
+    `maintenance`, `blackout`, `faraday`, `capture`.
+  - **normal:** DEC-0025 silence → DEAD → dmon flush policy (DEC-0027).
+  - **maintenance** / **blackout:** while class is set, daemon injects
+    a local HOLD before grace expiry so silence does **not** reach DEAD
+    wipe. Keys stay. Class is cleared only by conf/console change (not
+    by guessing power restoration).
+  - **faraday** / **capture:** DEC-0025 wipe path remains (DEAD → flush
+    per DEC-0027 mode). Bag proof still REQ-5.3 / ISS-0019.
+  - Automatic “detect blackout vs bag from RF alone” stays **out of
+    scope** (ISS-0022 residual). Console may set class after 2FA later.
+- **Consequences:** Blackout + `outage_class=blackout` (or multi-hub
+  success) will not brick. Faraday/capture still can. SoT 5.3 stays `[ ]`.

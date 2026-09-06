@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 static int g_fail;
 
@@ -208,6 +209,48 @@ static void test_poly1305(void)
     hex_to_bytes("a8061dc1305136c6c22b8baf0c0127a9", expect, 16);
     check("poly1305 rc", atn_poly1305(key, (const uint8_t *)msg, 34, tag) == ATN_OK);
     check("poly1305 §2.5.2", bytes_eq(tag, expect, 16));
+}
+
+/*
+ * ISS-0003 / DEC-0026: wall-clock probe only. Do not invent a CT delta
+ * threshold. Numbers go to stdout + BUILD_NOTES; gate is “ops ran”.
+ */
+static void test_poly1305_timing(void)
+{
+    uint8_t key_a[32], key_b[32], msg[1024], tag[16];
+    clock_t t0, t1, t2;
+    unsigned i;
+    const unsigned N = 50000u;
+    long ms_a, ms_b;
+    int ok = 1;
+
+    memset(msg, 0x5a, sizeof(msg));
+    memset(key_a, 0x11, sizeof(key_a));
+    memset(key_b, 0x22, sizeof(key_b));
+    t0 = clock();
+    for (i = 0; i < N; i++) {
+        if (atn_poly1305(key_a, msg, sizeof(msg), tag) != ATN_OK) {
+            ok = 0;
+            break;
+        }
+    }
+    t1 = clock();
+    for (i = 0; i < N; i++) {
+        if (atn_poly1305(key_b, msg, sizeof(msg), tag) != ATN_OK) {
+            ok = 0;
+            break;
+        }
+    }
+    t2 = clock();
+    ms_a = (long)(((double)(t1 - t0) * 1000.0) / (double)CLOCKS_PER_SEC);
+    ms_b = (long)(((double)(t2 - t1) * 1000.0) / (double)CLOCKS_PER_SEC);
+    printf("note poly1305 wall N=%u msg=1024 key_a_ms=%ld key_b_ms=%ld "
+           "(ISS-0003; not a CT proof)\n",
+           N, ms_a, ms_b);
+    check("poly1305 timing ran", ok);
+    atn_memzero(key_a, sizeof(key_a));
+    atn_memzero(key_b, sizeof(key_b));
+    atn_memzero(tag, sizeof(tag));
 }
 
 /* ----- AEAD: RFC 8439 §2.8.2 ----- */
@@ -427,6 +470,7 @@ int main(void)
     test_hkdf();
     test_chacha20();
     test_poly1305();
+    test_poly1305_timing();
     test_aead();
     test_sha3_shake();
     test_sha512();

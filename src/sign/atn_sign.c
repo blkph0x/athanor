@@ -173,14 +173,26 @@ int atn_mf_verify(const uint8_t pk[ATN_MLDSA87_PK_LEN],
 int atn_report_encode(int pass, const char *platform,
                       uint8_t *out, size_t *n, size_t max)
 {
+    return atn_report_encode_ex(pass, platform, 0, out, n, max);
+}
+
+int atn_report_encode_ex(int pass, const char *platform, int diag,
+                         uint8_t *out, size_t *n, size_t max)
+{
     size_t used = 0, plen;
     const char *st;
+    const char *dg;
     if (out == NULL || n == NULL || platform == NULL || platform[0] == 0) {
+        return ATN_ERR_PARAM;
+    }
+    if (diag != 0 && diag != 1) {
         return ATN_ERR_PARAM;
     }
     plen = strlen(platform);
     st = pass ? "status=PASS\n" : "status=FAIL\n";
-    if (used + strlen(ATN_RP_HDR) + strlen(st) + 9u + plen + 1u > max) {
+    dg = diag ? "diag=1\n" : "diag=0\n";
+    if (used + strlen(ATN_RP_HDR) + strlen(st) + 9u + plen + 1u +
+        strlen(dg) > max) {
         return ATN_ERR_LEN;
     }
     memcpy(out + used, ATN_RP_HDR, strlen(ATN_RP_HDR));
@@ -192,6 +204,8 @@ int atn_report_encode(int pass, const char *platform,
     memcpy(out + used, platform, plen);
     used += plen;
     out[used++] = '\n';
+    memcpy(out + used, dg, strlen(dg));
+    used += strlen(dg);
     *n = used;
     return ATN_OK;
 }

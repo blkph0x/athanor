@@ -41,6 +41,9 @@ int  atn_mf_verify(const uint8_t pk[ATN_MLDSA87_PK_LEN],
 
 int atn_report_encode(int pass, const char *platform,
                       uint8_t *out, size_t *n, size_t max);
+/* DEC-0027: ATN-REPORT-1 includes diag=0|1 after platform. */
+int atn_report_encode_ex(int pass, const char *platform, int diag,
+                         uint8_t *out, size_t *n, size_t max);
 int atn_report_sign(const uint8_t sk[ATN_MLDSA87_SK_LEN],
                     const uint8_t *rp, size_t n,
                     uint8_t sig[ATN_MLDSA87_SIG_LEN]);

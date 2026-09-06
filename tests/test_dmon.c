@@ -71,12 +71,65 @@ int main(void)
     check("add peer", atn_dmon_hb_add_peer(&d, pid, pkey) == ATN_OK);
     check("tick 1 live", atn_dmon_hb_tick(&d, 11) == ATN_OK);
     check("tick 2 live", atn_dmon_hb_tick(&d, 12) == ATN_OK);
-    check("tick 3 flush", atn_dmon_hb_tick(&d, 13) == ATN_ERR_STATE);
-    check("untrusted wiped keys", atn_dmon_require(&d) == ATN_ERR_STATE);
-    check("untrusted device zero", memcmp(d.device_key, z, 32) == 0);
-    check("untrusted cluster zero", memcmp(d.cluster, z, 32) == 0);
+    check("tick 3 untrusted",
+          atn_dmon_hb_tick(&d, 13) == ATN_OK &&
+          atn_dmon_require(&d) == ATN_OK &&
+          atn_dmon_hb_state(&d) == ATN_HB_UNTRUSTED);
+    check("tick 4 grace", atn_dmon_hb_tick(&d, 14) == ATN_OK);
+    check("tick 5 grace", atn_dmon_hb_tick(&d, 15) == ATN_OK);
+    check("tick 6 flush", atn_dmon_hb_tick(&d, 16) == ATN_ERR_STATE);
+    check("dead wiped keys", atn_dmon_require(&d) == ATN_ERR_STATE);
+    check("dead device zero", memcmp(d.device_key, z, 32) == 0);
+    check("dead cluster zero", memcmp(d.cluster, z, 32) == 0);
+
+    /* DEC-0027: diag log_only — DEAD path counted, keys kept. */
+    {
+        atn_cfg cfg;
+        atn_cfg_init(&cfg);
+        cfg.diag = 1;
+        cfg.flush_mode = ATN_CFG_FLUSH_LOG_ONLY;
+        cfg.wipe_armed = 0;
+        cfg.outage_class = ATN_CFG_OUTAGE_NORMAL;
+        check("reload diag", atn_dmon_load(&d, dk, ck) == ATN_OK);
+        check("apply diag", atn_dmon_apply_cfg(&d, &cfg) == ATN_OK);
+        check("hb diag", atn_dmon_hb_init(&d, hid, 1, head) == ATN_OK);
+        check("peer diag", atn_dmon_hb_add_peer(&d, pid, pkey) == ATN_OK);
+        check("d1", atn_dmon_hb_tick(&d, 21) == ATN_OK);
+        check("d2", atn_dmon_hb_tick(&d, 22) == ATN_OK);
+        check("d3", atn_dmon_hb_tick(&d, 23) == ATN_OK);
+        check("d4", atn_dmon_hb_tick(&d, 24) == ATN_OK);
+        check("d5", atn_dmon_hb_tick(&d, 25) == ATN_OK);
+        check("d6 log", atn_dmon_hb_tick(&d, 26) == ATN_ERR_STATE);
+        check("log kept keys", atn_dmon_require(&d) == ATN_OK);
+        check("log count", d.flush_log_count >= 1u);
+        check("log device live", memcmp(d.device_key, z, 32) != 0);
+    }
+
+    /* DEC-0029: blackout class — silence does not wipe. */
+    {
+        atn_cfg cfg;
+        atn_cfg_init(&cfg);
+        cfg.diag = 1;
+        cfg.flush_mode = ATN_CFG_FLUSH_LOG_ONLY;
+        cfg.outage_class = ATN_CFG_OUTAGE_BLACKOUT;
+        atn_dmon_init(&d);
+        check("bo load", atn_dmon_load(&d, dk, ck) == ATN_OK);
+        check("bo apply", atn_dmon_apply_cfg(&d, &cfg) == ATN_OK);
+        check("bo hb", atn_dmon_hb_init(&d, hid, 1, head) == ATN_OK);
+        check("bo peer", atn_dmon_hb_add_peer(&d, pid, pkey) == ATN_OK);
+        for (i = 31; i <= 50; i++) {
+            if (atn_dmon_hb_tick(&d, i) != ATN_OK) {
+                printf("FAIL bo tick %u state=%d\n", i, atn_dmon_hb_state(&d));
+                g_fail++;
+                break;
+            }
+        }
+        check("blackout keeps keys", atn_dmon_require(&d) == ATN_OK);
+        check("blackout not dead", atn_dmon_hb_state(&d) != ATN_HB_DEAD);
+    }
 
     /* 2FA lockout flushes (ATN_2FA_FAIL_MAX=5). */
+    atn_dmon_init(&d);
     check("reload 2fa", atn_dmon_load(&d, dk, ck) == ATN_OK);
     memset(id, 0x55, 32);
     check("enroll lock", atn_dmon_2fa_enroll(&d, id, key) == ATN_OK);

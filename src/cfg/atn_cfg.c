@@ -1,7 +1,7 @@
 /*
  * Module: atn_cfg.c
  * REQ:    REQ-4.1
- * Spec:   DEC-0021. peer_ipv4 / peer_port / peer_ek only.
+ * Spec:   DEC-0021 / 0027 / 0028 / 0029.
  */
 
 #include "atn_cfg.h"
@@ -101,9 +101,45 @@ static int parse_ek(const char *s, size_t n, uint8_t ek[ATN_MLKEM1024_EK_LEN])
     return ATN_OK;
 }
 
+static int parse_01(const char *s, size_t n, uint8_t *out)
+{
+    if (n != 1u || (s[0] != '0' && s[0] != '1')) {
+        return ATN_ERR_PARAM;
+    }
+    *out = (uint8_t)(s[0] - '0');
+    return ATN_OK;
+}
+
+static int hub_index_from_key(const char *k, size_t klen, unsigned *idx,
+                              char *field, size_t field_max)
+{
+    /* hub2_ipv4 / hub3_port / hub4_ek → idx 1..3 (hub2_ek is 7 chars). */
+    unsigned digit, fi = 0;
+    if (klen < 7u || memcmp(k, "hub", 3) != 0) {
+        return ATN_ERR_PARAM;
+    }
+    if (k[3] < '2' || k[3] > '4' || k[4] != '_') {
+        return ATN_ERR_PARAM;
+    }
+    digit = (unsigned)(k[3] - '0');
+    *idx = digit - 1u; /* hub2 → 1 */
+    klen -= 5u;
+    k += 5;
+    if (klen + 1u > field_max) {
+        return ATN_ERR_PARAM;
+    }
+    while (fi < klen) {
+        field[fi] = k[fi];
+        fi++;
+    }
+    field[fi] = 0;
+    return ATN_OK;
+}
+
 int atn_cfg_parse(const char *text, size_t n, atn_cfg *c)
 {
     size_t i, line0;
+    unsigned h;
     if (text == NULL || c == NULL) {
         return ATN_ERR_PARAM;
     }
@@ -156,8 +192,125 @@ int atn_cfg_parse(const char *text, size_t n, atn_cfg *c)
                 return ATN_ERR_PARAM;
             }
             c->have_ek = 1;
+        } else if (klen == 10 && memcmp(text + line0, "witness_id", 10) == 0) {
+            if (vlen != 16u) {
+                return ATN_ERR_LEN;
+            }
+            {
+                size_t wi;
+                for (wi = 0; wi < 8u; wi++) {
+                    int a = hexnib(eq[1 + 2u * wi]);
+                    int b = hexnib(eq[1 + 2u * wi + 1u]);
+                    if (a < 0 || b < 0) {
+                        return ATN_ERR_PARAM;
+                    }
+                    c->witness[wi] = (uint8_t)((a << 4) | b);
+                }
+            }
+            c->have_witness = 1;
+        } else if (klen == 4 && memcmp(text + line0, "diag", 4) == 0) {
+            if (parse_01(eq + 1, vlen, &c->diag) != ATN_OK) {
+                return ATN_ERR_PARAM;
+            }
+            c->have_diag = 1;
+        } else if (klen == 10 && memcmp(text + line0, "flush_mode", 10) == 0) {
+            if (vlen == 7 && memcmp(eq + 1, "zeroize", 7) == 0) {
+                c->flush_mode = ATN_CFG_FLUSH_ZEROIZE;
+            } else if (vlen == 8 && memcmp(eq + 1, "log_only", 8) == 0) {
+                c->flush_mode = ATN_CFG_FLUSH_LOG_ONLY;
+            } else {
+                return ATN_ERR_PARAM;
+            }
+            c->have_flush_mode = 1;
+        } else if (klen == 10 && memcmp(text + line0, "wipe_armed", 10) == 0) {
+            if (parse_01(eq + 1, vlen, &c->wipe_armed) != ATN_OK) {
+                return ATN_ERR_PARAM;
+            }
+            c->have_wipe_armed = 1;
+        } else if (klen == 12 && memcmp(text + line0, "outage_class", 12) == 0) {
+            if (vlen == 6 && memcmp(eq + 1, "normal", 6) == 0) {
+                c->outage_class = ATN_CFG_OUTAGE_NORMAL;
+            } else if (vlen == 11 && memcmp(eq + 1, "maintenance", 11) == 0) {
+                c->outage_class = ATN_CFG_OUTAGE_MAINTENANCE;
+            } else if (vlen == 8 && memcmp(eq + 1, "blackout", 8) == 0) {
+                c->outage_class = ATN_CFG_OUTAGE_BLACKOUT;
+            } else if (vlen == 7 && memcmp(eq + 1, "faraday", 7) == 0) {
+                c->outage_class = ATN_CFG_OUTAGE_FARADAY;
+            } else if (vlen == 7 && memcmp(eq + 1, "capture", 7) == 0) {
+                c->outage_class = ATN_CFG_OUTAGE_CAPTURE;
+            } else {
+                return ATN_ERR_PARAM;
+            }
+            c->have_outage = 1;
         } else {
+            unsigned idx = 0;
+            char field[16];
+            if (hub_index_from_key(text + line0, klen, &idx, field,
+                                   sizeof(field)) != ATN_OK) {
+                return ATN_ERR_PARAM;
+            }
+            if (strcmp(field, "ipv4") == 0) {
+                if (parse_ipv4(eq + 1, vlen, &c->hub[idx].ipv4_host) != ATN_OK) {
+                    return ATN_ERR_PARAM;
+                }
+                c->hub[idx].have_ipv4 = 1;
+            } else if (strcmp(field, "port") == 0) {
+                if (parse_port(eq + 1, vlen, &c->hub[idx].port) != ATN_OK) {
+                    return ATN_ERR_PARAM;
+                }
+                c->hub[idx].have_port = 1;
+            } else if (strcmp(field, "ek") == 0) {
+                if (parse_ek(eq + 1, vlen, c->hub[idx].ek) != ATN_OK) {
+                    return ATN_ERR_PARAM;
+                }
+                c->hub[idx].have_ek = 1;
+            } else {
+                return ATN_ERR_PARAM;
+            }
+        }
+    }
+    /* Defaults (DEC-0027). */
+    if (!c->have_diag) {
+        c->diag = 0;
+    }
+    if (!c->have_wipe_armed) {
+        c->wipe_armed = 0;
+    }
+    if (!c->have_flush_mode) {
+        c->flush_mode = c->diag ? ATN_CFG_FLUSH_LOG_ONLY : ATN_CFG_FLUSH_ZEROIZE;
+    }
+    if (!c->have_outage) {
+        c->outage_class = ATN_CFG_OUTAGE_NORMAL;
+    }
+    if (c->flush_mode == ATN_CFG_FLUSH_LOG_ONLY && !c->diag) {
+        return ATN_ERR_PARAM;
+    }
+    /* Mirror primary into hub[0]; reject partial optional hubs. */
+    c->hub[0].ipv4_host = c->ipv4_host;
+    c->hub[0].port = c->port;
+    if (c->have_ek) {
+        memcpy(c->hub[0].ek, c->ek, ATN_MLKEM1024_EK_LEN);
+    }
+    c->hub[0].have_ipv4 = c->have_ipv4;
+    c->hub[0].have_port = c->have_port;
+    c->hub[0].have_ek = c->have_ek;
+    for (h = 1; h < ATN_CFG_MAX_HUBS; h++) {
+        unsigned bits = (unsigned)c->hub[h].have_ipv4 + c->hub[h].have_port +
+                        c->hub[h].have_ek;
+        if (bits != 0u && bits != 3u) {
             return ATN_ERR_PARAM;
+        }
+    }
+    {
+        int gap = 0;
+        for (h = 1; h < ATN_CFG_MAX_HUBS; h++) {
+            int full = c->hub[h].have_ipv4 && c->hub[h].have_port &&
+                       c->hub[h].have_ek;
+            if (!full) {
+                gap = 1;
+            } else if (gap) {
+                return ATN_ERR_PARAM; /* hubN without hub(N-1) */
+            }
         }
     }
     return ATN_OK;
@@ -166,7 +319,7 @@ int atn_cfg_parse(const char *text, size_t n, atn_cfg *c)
 int atn_cfg_load_file(const char *path, atn_cfg *c)
 {
     FILE *f;
-    char buf[8192];
+    char buf[65536];
     size_t n;
     int rc;
 
@@ -194,4 +347,36 @@ int atn_cfg_ready(const atn_cfg *c)
         return 0;
     }
     return c->have_ipv4 && c->have_port && c->have_ek;
+}
+
+unsigned atn_cfg_hub_count(const atn_cfg *c)
+{
+    unsigned n = 0, h;
+    if (c == NULL || !atn_cfg_ready(c)) {
+        return 0;
+    }
+    n = 1;
+    for (h = 1; h < ATN_CFG_MAX_HUBS; h++) {
+        if (c->hub[h].have_ipv4 && c->hub[h].have_port && c->hub[h].have_ek) {
+            n++;
+        } else {
+            break; /* contiguous from 2 upward */
+        }
+    }
+    return n;
+}
+
+int atn_cfg_hub_get(const atn_cfg *c, unsigned i, uint32_t *ipv4_host,
+                    uint16_t *port, uint8_t ek[ATN_MLKEM1024_EK_LEN])
+{
+    if (c == NULL || ipv4_host == NULL || port == NULL || ek == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    if (i >= atn_cfg_hub_count(c)) {
+        return ATN_ERR_PARAM;
+    }
+    *ipv4_host = c->hub[i].ipv4_host;
+    *port = c->hub[i].port;
+    memcpy(ek, c->hub[i].ek, ATN_MLKEM1024_EK_LEN);
+    return ATN_OK;
 }

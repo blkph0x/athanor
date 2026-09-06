@@ -12,6 +12,8 @@
 
 #include "atn_2fa.h"
 #include "atn_crypto.h"
+#include "atn_hb.h"
+#include "atn_sync.h"
 
 #define ATN_HTTP_MAX_HDR     8192u
 #define ATN_HTTP_MAX_PT      8192u
@@ -64,6 +66,8 @@ typedef struct {
     atn_2fa_store twofa;
     atn_http_sess sess[ATN_HTTP_SESS_MAX];
     int      wipe_armed;
+    atn_hb  *mesh;   /* DEC-0025: optional roster for console */
+    atn_lock lock;
 } atn_http_srv;
 
 typedef struct {
@@ -108,6 +112,7 @@ const uint8_t *atn_http_page_admin(size_t *n);
 int atn_http_listen(atn_http_srv *s, uint16_t port,
                     const uint8_t ek[ATN_MLKEM1024_EK_LEN],
                     const uint8_t dk[ATN_MLKEM1024_DK_LEN]);
+void atn_http_attach_mesh(atn_http_srv *s, atn_hb *mesh);
 
 uint16_t atn_http_port(const atn_http_srv *s);
 

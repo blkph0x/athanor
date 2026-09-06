@@ -23,10 +23,10 @@ same commit.
 | `src/auth/atn_2fa_cli.c` | REQ-1.3 | DEC-0008 | `atn2fa` standalone binary |
 | `tests/test_tun.c` | REQ-1.2 | gates | Loopback handshake, echo, replay, bad MAC |
 | `tests/test_2fa.c` | REQ-1.3 | gates | Enroll, wrong key, replay, lockout |
-| `docs/HTTP.md` | REQ-2.1 | DEC-0009 / 0024 | Listener spec. Keep-alive max 8. Not TLS 1.3. |
-| `docs/ISOLATION.md` | REQ-6.2 | DEC-0024 | Measured URL scan; not a disconnected-NIC proof |
+| `docs/HTTP.md` | REQ-2.1 | DEC-0009 / 0024 / 0026 | Listener + operator client. Not TLS 1.3. |
+| `docs/ISOLATION.md` | REQ-6.2 | DEC-0024 / 0026 | Measured URL scan + export notes; not NIC-down |
 | `include/atn_http.h` / `src/http/atn_http.c` | REQ-2.1 | DEC-0009 | Loopback TCP + DEC-0007 records + HTTP/1.1. Reuses `atn_net_init` in `atn_tun.c`. |
-| `src/http/atn_http_cli.c` | REQ-2.1 | DEC-0009 | `atnhttp` standalone binary |
+| `src/http/atn_http_cli.c` | REQ-2.1 | DEC-0009 / 0026 | `atnhttp` demo / serve-once / get (operator client) |
 | `tests/test_http.c` | REQ-2.1/2.2 | gates | Parse, GET exact `/`, unauth close, login/2FA/wipe mutate |
 | `docs/DNS.md` | REQ-2.3 | DEC-0011 | RFC 1035 subset. Recursion off. |
 | `include/atn_dns.h` / `src/dns/atn_dns.c` | REQ-2.3 | RFC 1035 | Authoritative zone `atn.test`. Reuses `atn_net_init`. |
@@ -37,27 +37,29 @@ same commit.
 | `docs/REPL.md` | REQ-3.1 | DEC-0013 | Block, shard, vector clock, PUT/CATCHUP |
 | `include/atn_repl.h` / `src/repl/atn_repl.c` | REQ-3.1 | DEC-0013 | Replicate AEAD blocks over the tunnel |
 | `tests/test_repl.c` | REQ-3.1 | gates | A→B, kill A, tamper AUTH, catch-up, shard |
-| `include/atn_hb.h` / `src/hb/atn_hb.c` | REQ-3.3 | DEC-0014 | HMAC-SHA-512 heartbeat |
+| `include/atn_hb.h` / `src/hb/atn_hb.c` | REQ-3.3 | DEC-0014 / 0025 | HMAC hb; WARN/vote/grace; 16 peers |
+| `include/atn_sync.h` / `src/sync/atn_sync.c` | — | DEC-0025 | Recursive mutex (CS / pthread) |
 | `tests/test_hb.c` | REQ-3.3 | gates | 3-node live, forge, silence wipe, one UDP hop, 3-pair mesh + lossy AC |
 | `android/` | REQ-4.1 | DEC-0015 | Daemon Java + JNI. Stubs until knoxsdk.jar. |
 | `android/jni/atn_jni.c` | REQ-4.1 | DEC-0015 | JNI to libatn.so |
 | `vendor/knox/README.md` | REQ-4.1 | DEC-0015 | Drop-in path for knoxsdk.jar |
-| `include/atn_dmon.h` / `src/dmon/atn_dmon.c` | REQ-4.1/4.4 | DEC-0016/0017/0020/0021 | Native session; hb/2FA flush; DEC-0007 tunnel; bind_any |
+| `include/atn_dmon.h` / `src/dmon/atn_dmon.c` | REQ-4.1/4.4 | DEC-0016/0017/0020/0021/0027/0029 | Session; LOG_ONLY; blackout HOLD; tunnel |
 | `tools/src.list` | REQ-5.1 | DEC-0020 | Frozen path list for `atnsign manifest` |
-| `tools/export.ps1` | REQ-6.3 | DEC-0024 | Copy src.list to export/; refuse jars |
+| `tools/export.ps1` | REQ-6.3 | DEC-0024 / 0026 | Copy src.list to export/; refuse jars; `make export-tree` |
 | `tests/test_recipe.c` | REQ-5.1 / 6.2 | DEC-0020 / 0023 | Makefile + src/include/android: no fetch URLs |
 | `tests/test_fuzz.c` | REQ-6.1 | DEC-0023 | In-house HTTP/DNS/cfg mutator; not N-hour fuzz |
-| `tests/test_dmon.c` | REQ-4.4 | gates | flush zeros keys; silence UNTRUSTED; 2FA lockout |
-| `android/java/.../AtnKeystore.java` | REQ-4.1 | DEC-0016/0017 | AndroidKeyStore AES-256 GCM wrap, StrongBox then TEE |
+| `tests/test_dmon.c` | REQ-4.4 | gates | ZEROIZE / LOG_ONLY / blackout HOLD |
+| `include/atn_cfg.h` / `src/cfg/atn_cfg.c` | REQ-4.1 | DEC-0021/0027/0028/0029 | peer + hub2..4 + diag + outage |
+| `tests/test_cfg.c` | REQ-4.1 | gates | parse/ready/hubs/diag/outage |
+| `include/atn_sign.h` / `src/sign/atn_sign.c` | REQ-5.1 | DEC-0019/0021/0027 | Manifest + report `diag=` |
+| `docs/SIGN.md` | REQ-5.1 | DEC-0019/0021/0027 | Manifest + report wire format |
+| `docs/DIAG_USECASES.md` | — | planning | Diag / multi-hub / blackout inventory |
+| `android/java/.../AtnKeystore.java` | REQ-4.1 | DEC-0016/0017 | AndroidKeystore AES-256 GCM wrap, StrongBox then TEE |
 | `android/java/.../AtnPowerReceiver.java` | REQ-4.3 | DEC-0017 | Re-assert USB on ACTION_POWER_CONNECTED |
 | `android/java/.../AtnBootReceiver.java` | REQ-4.1 | DEC-0015 | Start daemon on BOOT_COMPLETED |
 | `android/java/.../AtnKnoxBuild.java` | REQ-4.1 | DEC-0019 | `isStub()` via ATN_STUB field |
-| `include/atn_sign.h` / `src/sign/atn_sign.c` | REQ-5.1 | DEC-0019 / 0021 | SHA3-256 manifest + ML-DSA-87; ATN-REPORT-1 |
 | `src/sign/atn_sign_cli.c` | REQ-5.1 | DEC-0019 / 0021 | `atnsign` CLI (manifest + report) |
-| `tests/test_sign.c` | REQ-5.1 | gates | sort, sign, verify, tamper; report |
-| `docs/SIGN.md` | REQ-5.1 | DEC-0019 / 0021 | Manifest + report wire format |
-| `include/atn_cfg.h` / `src/cfg/atn_cfg.c` | REQ-4.1 | DEC-0021 | Lab `atn-node.conf` parser |
-| `tests/test_cfg.c` | REQ-4.1 | gates | parse 127.0.0.1:2402, unknown keys fail |
+| `tests/test_sign.c` | REQ-5.1 | gates | sort, sign, verify, tamper; report diag |
 | `src/node/atn_node_cli.c` | REQ-4.1 | DEC-0021 / 0023 | `atnnode` lab responder; demo = conf handshake |
 | `android/java/.../AtnNodeConfig.java` | REQ-4.1 | DEC-0021 | Java mirror of atn_cfg.c |
 | `src/crypto/atn_hmac.c` | REQ-1.1 | RFC 2104 | HMAC-SHA-256 |

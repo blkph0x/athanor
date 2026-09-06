@@ -4,6 +4,55 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0027/0028/0029 + push to origin
+
+- User: track everything; no guessing; prove gates; keep pushing GitHub;
+  draft the three DECs and steam-roll.
+- DEC-0027 diag profile (log_only/wipe_armed/report diag=).
+- DEC-0028 hub2..hub4 list (cap 4 = repl).
+- DEC-0029 outage_class (blackout HOLD vs faraday wipe).
+- Gates: test_cfg / test_dmon / test_sign ALL PASSED (BN-0025).
+- ISS-0022/0023 narrowed closed. T-0700 done. T-0701 wire failover and
+  T-0702 repl-cap still open. SoT 4–6 unchanged.
+
+---
+
+## 2026-09-06 — Diag / multi-hub use-case analysis (no code policy)
+
+- User: full use-case + diagnostics for a heavy test/diag first build;
+  multi-site hubs like IRC; blackout must not brick phones; feature
+  inventory.
+- Added `docs/DIAG_USECASES.md` (UC-01..10, D-01..20, gaps, inventory).
+- Opened ISS-0022 (blackout vs Faraday), ISS-0023 (single peer blocks
+  failover), T-0700/T-0701. No SoT flips. No wipe-timing constants
+  changed — those need DECs before code.
+- Prior: DEC-0026 operator client / Poly1305 note / export-tree (BN-0024).
+
+---
+
+## 2026-09-06 — Keep moving without knox.jar (DEC-0026)
+
+- User: track everything; no guessing; advance what does not need Knox.
+- Verified DEC-0025: `make test` ALL PASSED; completed BN-0023.
+- DEC-0026: `atnhttp serve-once` / `get` + demo conf reload (ISS-0009-b).
+  Poly1305 wall-clock note (ISS-0003 still open for S24/ARM).
+  `make export-tree` (avoids colliding with `export/`). ISS-0021 opened
+  for real NIC-down measurement. Cause/effect roll-up Phase 2–3 → [X]
+  to match SoT. SoT 4.x/5.x/6.x stay `[ ]`.
+- BN-0024: default route up; poly1305 40 ms / 40 ms; export has SoT.
+
+---
+
+## 2026-09-04 — Org failsafe + mesh console (DEC-0025)
+
+- No auto SMS (ISS-0020). Witness node id + WARN; recipients emit H.
+- Grace G=3; HOLD vote cancels wipe; daemon flush on DEAD only.
+- Console roster ATN-MESH-ROSTER + HOLD form (2FA). atn_lock recursive
+  mutex. Still one TCP client at a time (memory-safe default).
+- SoT 4.x/5.3 stay `[ ]`.
+
+---
+
 ## 2026-09-04 — Non-Knox operator path (DEC-0024)
 
 - HTTP keep-alive (max 8; Connection: close still one-shot). ISS-0010

@@ -90,7 +90,7 @@ Cache-Control: no-store\r\n
 | `GET`/`HEAD` `/admin` | 200, login (`ATN-LOGIN-PAGE`) or console (`ATN-CONSOLE-PAGE`) |
 | `POST /admin/challenge` | issue 2FA challenge for `id` (not a mesh mutate) |
 | `POST /admin/login` | verify 2FA, mark session authed |
-| `POST /admin/do` | mutate (`action=wipe`); requires authed + fresh 2FA + CSRF |
+| `POST /admin/do` | mutate (`action=wipe` or `hold`); requires authed + fresh 2FA + CSRF |
 | unknown path | 404 |
 | unknown method | 405 |
 | malformed | 400 |
@@ -121,9 +121,23 @@ REQ-2.2, not this REQ.
 
 ## Process model
 
-Single-threaded accept → handshake → one request → close. Listen
-backlog is 8. Idle recv timeout is 5000 ms. Concurrent connections
-are not multiplexed in this DEC.
+Single-threaded accept → handshake → up to `ATN_HTTP_KA_MAX` (8) HTTP
+requests → close (DEC-0024). Listen backlog is 8. Idle recv timeout is
+5000 ms. Concurrent TCP clients are not multiplexed (DEC-0025: one
+`serve_one` at a time).
+
+## Operator client (DEC-0026 / ISS-0009-b)
+
+Browsers cannot speak DEC-0009 records. Operators use the in-tree CLI:
+
+```
+atnhttp serve-once [port]     # prints peer_ipv4 / peer_port / peer_ek; one client
+# save those three lines as a DEC-0021 conf (peer_ipv4 must be 127.0.0.1)
+atnhttp get <conf> <path>     # handshake + GET; HTTP response on stdout
+```
+
+`atnhttp demo` gates GET / and /admin plus conf write/reload in-process.
+This is not RFC 8446 TLS.
 
 ## Pages
 

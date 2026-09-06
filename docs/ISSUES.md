@@ -75,15 +75,19 @@ Status: `open` | `closed`
 
 - **Status:** open
 - **Opened:** 2026-09-04
+- **Updated:** 2026-09-06 — DEC-0026: `tests/test_crypto` prints
+  `note poly1305 wall N=50000 msg=1024 key_a_ms=… key_b_ms=…` via
+  `clock()` on this builder. Gate is “ops completed”, not a delta
+  threshold. Numbers recorded in BUILD_NOTES. Still **not** measured on
+  enrolled S24 / ARM targets; still not a formal CT proof.
 - **REQ:** REQ-1.1
 - **Unknown:** RFC 8439 §3–§4 warn that naive bigint Poly1305 leaks via
   timing. Our implementation uses fixed 26-bit limbs (no secret-dependent
-  branches in the inner mul). We have not yet timed it on the target CPUs.
+  branches in the inner mul). Target-CPU timing lab still missing.
 - **Must not invent:** a "constant-time" badge in the SoT checkbox until a
-  measurement exists in BUILD_NOTES or a dedicated test.
-- **Unblock by:** after KATs pass, add a note on ISS-0003 in BUILD_NOTES with
-  what we did (or did not) measure. SoT gate "constant-time checks" stays
-  honest.
+  measurement exists on the CPUs we care about.
+- **Unblock remaining:** repeat the probe (or a better harness) on
+  aarch64 / S24 and record BN; do not invent a pass/fail delta.
 
 ## ISS-0018 — TIMA Keystore enable APIs are dead on S24–S26
 
@@ -172,15 +176,14 @@ Status: `open` | `closed`
 
 ## ISS-0009 — Listener is not RFC 8446 TLS; browsers cannot connect
 
-- **Status:** open
+- **Status:** closed (narrowed)
 - **Opened:** 2026-09-04
+- **Closed:** 2026-09-06 — DEC-0026 ships in-tree operator client
+  (`atnhttp serve-once` / `atnhttp get` + conf reload in `demo`).
+  Option (b) from the unblock list. Browsers still cannot connect;
+  that is intentional until a new DEC cites a TLS 1.3 subset (option a).
+  Do not advertise DEC-0009 records as “TLS”.
 - **REQ:** REQ-2.1 follow-on
-- **Unknown:** A browser-compatible TLS 1.3 stack needs certificates and
-  ML-DSA-87 (ISS-0005). DEC-0009 reuses the tunnel handshake on TCP
-  instead of claiming TLS.
-- **Must not invent:** a private cipher suite advertised as “TLS”.
-- **Unblock by:** FIPS 204 ML-DSA-87 + a new DEC that either (a) implements
-  a cited TLS 1.3 subset or (b) ships an in-tree operator client.
 
 ## ISS-0010 — HTTP/1.1 keep-alive and pipelining are not implemented
 
@@ -191,6 +194,51 @@ Status: `open` | `closed`
   two-GET keep-alive. Pipelining as a client feature is still not
   offered.
 - **REQ:** REQ-2.1 follow-on
+
+## ISS-0020 — No automatic PSTN/SMS heartbeat fallback
+
+- **Status:** open (accepted: we do not dial)
+- **Opened:** 2026-09-04
+- **REQ:** REQ-3.3 follow-on
+- **Evidence:** DEC-0025. Carrier SMS/voice APIs are third-party. Witness
+  retrieve is HMAC WARN + immediate H over our tunnel. `witness_id` is
+  a roster node, not an E.164 auto-dial.
+- **Must not invent:** Twilio/Nexmo/modem AT without a new DEC and a
+  present device.
+- **Unblock by:** an in-house modem/AT DEC if hardware exists.
+
+## ISS-0021 — Disconnected-NIC / no-default-route build not measured
+
+- **Status:** open
+- **Opened:** 2026-09-06
+- **REQ:** REQ-6.2
+- **Unknown:** This Windows builder has a default route. Taking the NIC
+  down or deleting `0.0.0.0/0` needs admin and is not safe to invent
+  from the agent session. Recipe URL scan + `make export` are measured
+  (DEC-0024/0026); they are not a disconnected build.
+- **Must not invent:** a SoT 6.2 [X] from a connected `make test`.
+- **Unblock by:** run `make test` and `make export-tree` with the default
+  route removed (or a default-deny netns on POSIX) and file BN.
+
+## ISS-0022 — Blackout vs Faraday wipe policy is ambiguous
+
+- **Status:** closed (narrowed)
+- **Opened:** 2026-09-06
+- **Closed:** 2026-09-06 — DEC-0029: `outage_class` conf
+  (normal/maintenance/blackout/faraday/capture). Blackout/maintenance
+  inject HOLD (no DEAD wipe). Faraday/capture keep wipe path. Automatic
+  RF/power sensing remains out of scope (no cited sensor).
+- **REQ:** REQ-3.3 / 4.4 / 5.3
+- **Residual:** console 2FA to set class; Faraday bag measurement ISS-0019.
+
+## ISS-0023 — Single `peer_ipv4` blocks IRC-like multi-hub failover
+
+- **Status:** closed (narrowed)
+- **Opened:** 2026-09-06
+- **Closed:** 2026-09-06 — DEC-0028: `hub2_*`..`hub4_*` +
+  `atn_cfg_hub_count`/`hub_get`. Wire failover loop on daemon still
+  T-0701. Cap 4 until repl-cap DEC (T-0702).
+- **REQ:** REQ-4.1 / 3.3
 
 ## ISS-0004 — ARM binaries not executed on the current builder
 

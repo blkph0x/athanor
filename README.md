@@ -203,7 +203,7 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | REQ-1.1-PQ | Done — FIPS 203 **ML-KEM-1024** (category 5) + FIPS 202 SHAKE/SHA3 + SHA-512. KAT + implicit reject pass. |
 | REQ-1.2 UDP tunnel | Done — ML-KEM-1024 handshake + AEAD data. IPv4 is the required path (DEC-0022). IPv6/rekey: ISS-0007/0008. |
 | REQ-1.3 2FA | Done — HMAC-SHA-512 challenge-response. `tests/test_2fa` + `atn2fa demo`. |
-| REQ-2.1 HTTP listener | Done — HTTP/1.1 on loopback TCP inside DEC-0007 records. Not RFC 8446 (ISS-0009). |
+| REQ-2.1 HTTP listener | Done — HTTP/1.1 on loopback TCP inside DEC-0007 records. Not RFC 8446; operators use `atnhttp` (ISS-0009 narrowed). |
 | REQ-2.2 admin console | Done — embedded HTML/CSS, POST+CSRF, 2FA on mutate. |
 | REQ-2.3 DNS | Done — RFC 1035 authoritative `atn.test`, no recursion. |
 | REQ-3.2 memory tree | Done — AVL blobs + AEAD snapshot. `tests/test_tree`. |

@@ -83,6 +83,8 @@ EXE :=
 ifeq ($(ATN_TARGET_OS),windows)
   EXE := .exe
   LDFLAGS += -lbcrypt -lws2_32
+else
+  LDFLAGS += -pthread
 endif
 
 # POSIX feature macros: needed with -std=c99 so getrandom/open are declared.
@@ -131,6 +133,7 @@ DNS_SRC  = src/dns/atn_dns.c
 TREE_SRC = src/store/atn_tree.c
 REPL_SRC = src/repl/atn_repl.c
 HB_SRC   = src/hb/atn_hb.c
+SYNC_SRC = src/sync/atn_sync.c
 DMON_SRC = src/dmon/atn_dmon.c
 SIGN_SRC = src/sign/atn_sign.c
 CFG_SRC  = src/cfg/atn_cfg.c
@@ -156,7 +159,8 @@ CLI_SIGN = atnsign$(EXE)
 CLI_NODE = atnnode$(EXE)
 LIB_BIN  = libatn_crypto.a
 
-.PHONY: all test lib info clean ci test-unsigned-char android-so android-java android manifest report
+.PHONY: all test lib info clean ci test-unsigned-char android-so android-java android manifest report export-tree
+
 
 all: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(TEST_CFG) $(TEST_FUZZ) $(TEST_RECIPE) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN) $(CLI_NODE)
 
@@ -182,11 +186,11 @@ $(TEST_2FA): $(SRC) $(AUTH_SRC) tests/test_2fa.c include/atn_2fa.h
 $(CLI_2FA): $(SRC) $(AUTH_SRC) src/auth/atn_2fa_cli.c include/atn_2fa.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(AUTH_SRC) src/auth/atn_2fa_cli.c $(LDFLAGS)
 
-$(TEST_HTTP): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) tests/test_http.c include/atn_http.h
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) tests/test_http.c $(LDFLAGS)
+$(TEST_HTTP): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_http.c include/atn_http.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_http.c $(LDFLAGS)
 
-$(CLI_HTTP): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) src/http/atn_http_cli.c include/atn_http.h
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) src/http/atn_http_cli.c $(LDFLAGS)
+$(CLI_HTTP): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(HB_SRC) $(SYNC_SRC) $(CFG_SRC) src/http/atn_http_cli.c include/atn_http.h include/atn_cfg.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(HB_SRC) $(SYNC_SRC) $(CFG_SRC) src/http/atn_http_cli.c $(LDFLAGS)
 
 $(TEST_DNS): $(SRC) $(TUN_SRC) $(DNS_SRC) tests/test_dns.c include/atn_dns.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(DNS_SRC) tests/test_dns.c $(LDFLAGS)
@@ -200,11 +204,11 @@ $(TEST_TREE): $(SRC) $(TREE_SRC) tests/test_tree.c include/atn_tree.h
 $(TEST_REPL): $(SRC) $(TUN_SRC) $(TREE_SRC) $(REPL_SRC) tests/test_repl.c include/atn_repl.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(TREE_SRC) $(REPL_SRC) tests/test_repl.c $(LDFLAGS)
 
-$(TEST_HB): $(SRC) $(TUN_SRC) $(HB_SRC) tests/test_hb.c include/atn_hb.h
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(HB_SRC) tests/test_hb.c $(LDFLAGS)
+$(TEST_HB): $(SRC) $(TUN_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_hb.c include/atn_hb.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_hb.c $(LDFLAGS)
 
-$(TEST_DMON): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(DMON_SRC) tests/test_dmon.c include/atn_dmon.h
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(DMON_SRC) tests/test_dmon.c $(LDFLAGS)
+$(TEST_DMON): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) tests/test_dmon.c include/atn_dmon.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) tests/test_dmon.c $(LDFLAGS)
 
 $(TEST_MLDSA): $(SRC) tests/test_mldsa.c include/atn_crypto.h tests/kat_mldsa87.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) tests/test_mldsa.c $(LDFLAGS)
@@ -218,8 +222,8 @@ $(CLI_SIGN): $(SRC) $(SIGN_SRC) src/sign/atn_sign_cli.c include/atn_sign.h
 $(TEST_CFG): $(SRC) $(CFG_SRC) tests/test_cfg.c include/atn_cfg.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(CFG_SRC) tests/test_cfg.c $(LDFLAGS)
 
-$(TEST_FUZZ): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(CFG_SRC) tests/test_fuzz.c
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(CFG_SRC) tests/test_fuzz.c $(LDFLAGS)
+$(TEST_FUZZ): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(CFG_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_fuzz.c
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(CFG_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_fuzz.c $(LDFLAGS)
 
 $(CLI_NODE): $(SRC) $(TUN_SRC) $(CFG_SRC) src/node/atn_node_cli.c include/atn_cfg.h include/atn_tun.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(CFG_SRC) src/node/atn_node_cli.c $(LDFLAGS)
@@ -232,6 +236,11 @@ manifest: $(CLI_SIGN) tools/src.list
 
 report: test $(CLI_SIGN)
 	./$(CLI_SIGN) report PASS REPORT
+
+# REQ-6.3 scaffolding / DEC-0026: copy tools/src.list tree; refuse jars.
+# Named export-tree so it does not collide with the export/ directory.
+export-tree:
+	powershell -NoProfile -File tools/export.ps1
 
 test: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(TEST_CFG) $(TEST_FUZZ) $(TEST_RECIPE) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN) $(CLI_NODE)
 ifeq ($(CROSS),1)
@@ -267,9 +276,9 @@ test-unsigned-char:
 
 lib: $(LIB_BIN)
 
-$(LIB_BIN): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(TREE_SRC) $(REPL_SRC) $(HB_SRC) $(DMON_SRC) $(SIGN_SRC) $(CFG_SRC) include/atn_crypto.h include/atn_platform.h include/atn_tun.h include/atn_2fa.h include/atn_http.h include/atn_dns.h include/atn_tree.h include/atn_repl.h include/atn_hb.h include/atn_dmon.h include/atn_sign.h include/atn_cfg.h
-	$(CC) $(CFLAGS) -c $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(TREE_SRC) $(REPL_SRC) $(HB_SRC) $(DMON_SRC) $(SIGN_SRC) $(CFG_SRC)
-	$(AR) rcs $@ atn_platform.o atn_secure.o atn_sha256.o atn_sha512.o atn_hmac.o atn_hkdf.o atn_fips202.o atn_mlkem.o atn_mldsa.o atn_chacha20.o atn_poly1305.o atn_aead.o atn_nonce.o atn_tun.o atn_2fa.o atn_http.o atn_dns.o atn_tree.o atn_repl.o atn_hb.o atn_dmon.o atn_sign.o atn_cfg.o
+$(LIB_BIN): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(TREE_SRC) $(REPL_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(SIGN_SRC) $(CFG_SRC) include/atn_crypto.h include/atn_platform.h include/atn_tun.h include/atn_2fa.h include/atn_http.h include/atn_dns.h include/atn_tree.h include/atn_repl.h include/atn_hb.h include/atn_sync.h include/atn_dmon.h include/atn_sign.h include/atn_cfg.h
+	$(CC) $(CFLAGS) -c $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(TREE_SRC) $(REPL_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(SIGN_SRC) $(CFG_SRC)
+	$(AR) rcs $@ atn_platform.o atn_secure.o atn_sha256.o atn_sha512.o atn_hmac.o atn_hkdf.o atn_fips202.o atn_mlkem.o atn_mldsa.o atn_chacha20.o atn_poly1305.o atn_aead.o atn_nonce.o atn_tun.o atn_2fa.o atn_http.o atn_dns.o atn_tree.o atn_repl.o atn_hb.o atn_sync.o atn_dmon.o atn_sign.o atn_cfg.o
 
 clean:
 	-rm -f $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(TEST_CFG) $(TEST_FUZZ) $(TEST_RECIPE) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN) $(CLI_NODE) $(LIB_BIN) atn_*.o android/libatn.so MANIFEST REPORT
@@ -301,7 +310,7 @@ STUB_JAVA = \
 
 android-so:
 	$(MAKE) CC="$(ANDROID_CC)" AR="$(ANDROID_AR)" lib
-	$(ANDROID_CC) -shared -o android/libatn.so $(JNI_SRC) $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(DMON_SRC) -Iinclude -llog
+	$(ANDROID_CC) -shared -o android/libatn.so $(JNI_SRC) $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) -Iinclude -llog
 
 android-java:
 ifeq ($(REAL_KNOX),)

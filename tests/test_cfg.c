@@ -76,6 +76,47 @@ int main(void)
         remove("atn-cfg.tmp");
     }
 
+    /* DEC-0027 / 0028 / 0029 */
+    {
+        char big[200 + ATN_MLKEM1024_EK_LEN * 4u];
+        size_t bn = 0;
+        uint32_t ip = 0;
+        uint16_t pt = 0;
+        uint8_t ekout[ATN_MLKEM1024_EK_LEN];
+        static const char pfx[] =
+            "peer_ipv4=127.0.0.1\npeer_port=2402\npeer_ek=";
+        static const char mid[] =
+            "\nhub2_ipv4=10.0.0.2\nhub2_port=2403\nhub2_ek=";
+        static const char pol[] =
+            "\ndiag=1\noutage_class=blackout\n";
+        memcpy(big + bn, pfx, sizeof(pfx) - 1u);
+        bn += sizeof(pfx) - 1u;
+        for (i = 0; i < ATN_MLKEM1024_EK_LEN * 2u; i++) {
+            big[bn++] = 'a';
+        }
+        memcpy(big + bn, mid, sizeof(mid) - 1u);
+        bn += sizeof(mid) - 1u;
+        for (i = 0; i < ATN_MLKEM1024_EK_LEN * 2u; i++) {
+            big[bn++] = 'b';
+        }
+        memcpy(big + bn, pol, sizeof(pol) - 1u);
+        bn += sizeof(pol) - 1u;
+        check("hubs parse", atn_cfg_parse(big, bn, &c) == ATN_OK);
+        check("hubs ready", atn_cfg_ready(&c));
+        check("hub count", atn_cfg_hub_count(&c) == 2);
+        check("diag default log", c.diag == 1 &&
+              c.flush_mode == ATN_CFG_FLUSH_LOG_ONLY);
+        check("outage blackout", c.outage_class == ATN_CFG_OUTAGE_BLACKOUT);
+        check("hub0 get",
+              atn_cfg_hub_get(&c, 0, &ip, &pt, ekout) == ATN_OK &&
+              ip == 0x7f000001u && pt == 2402 && ekout[0] == 0xaa);
+        check("hub1 get",
+              atn_cfg_hub_get(&c, 1, &ip, &pt, ekout) == ATN_OK &&
+              ip == 0x0a000002u && pt == 2403 && ekout[0] == 0xbb);
+        check("log_only needs diag",
+              atn_cfg_parse("flush_mode=log_only\n", 19, &c) == ATN_ERR_PARAM);
+    }
+
     if (g_fail == 0) {
         printf("ALL PASSED\n");
         return 0;

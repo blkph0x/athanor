@@ -653,6 +653,7 @@ int atn_http_listen(atn_http_srv *s, uint16_t port,
     }
     memset(s, 0, sizeof(*s));
     s->listen_sock = (intptr_t)ATN_INV;
+    atn_lock_init(&s->lock);
     rc = atn_net_init();
     if (rc != ATN_OK) {
         return rc;
@@ -708,6 +709,18 @@ void atn_http_close(atn_http_srv *s)
     atn_memzero(s->sess, sizeof(s->sess));
     atn_2fa_store_init(&s->twofa);
     s->listen_sock = (intptr_t)ATN_INV;
+    s->mesh = NULL;
+    atn_lock_fini(&s->lock);
+}
+
+void atn_http_attach_mesh(atn_http_srv *s, atn_hb *mesh)
+{
+    if (s == NULL) {
+        return;
+    }
+    atn_lock_acquire(&s->lock);
+    s->mesh = mesh;
+    atn_lock_release(&s->lock);
 }
 
 static int hex_nib(int c)
@@ -929,26 +942,58 @@ static size_t html_chal(char *out, size_t max, const char *csrf,
 }
 
 static size_t html_console(char *out, size_t max, const char *csrf,
-                          const char *chal_hex, int wipe_armed)
+                          const char *chal_hex, const atn_http_srv *s)
 {
-    int n = snprintf(out, max,
-                     "<!DOCTYPE html><html><head><title>Athanor console</title>"
-                     "<style>%s</style></head><body>"
-                     "<h1>Athanor</h1><p>ATN-CONSOLE-PAGE</p>"
-                     "<p>nodes: none (REQ-3.1)</p>"
-                     "<p>heartbeat: none (REQ-3.3)</p>"
-                     "<p>replication: none (REQ-3.1)</p>"
-                     "<p>OTA: none (REQ-5.1)</p>"
-                     "<p>wipe: %s</p>"
-                     "<p>fresh challenge</p><code id=\"chal\">%s</code>"
-                     "<form method=\"POST\" action=\"/admin/do\">"
-                     "<input type=\"hidden\" name=\"csrf\" value=\"%s\">"
-                     "<input type=\"hidden\" name=\"action\" value=\"wipe\">"
-                     "<label>2FA response (128 hex)</label>"
-                     "<input name=\"resp\" size=\"64\" maxlength=\"128\">"
-                     "<button type=\"submit\">arm wipe</button></form>"
-                     "</body></html>",
-                     CSS, wipe_armed ? "armed" : "idle", chal_hex, csrf);
+    char roster[2048];
+    size_t ro = 0;
+    int n;
+    roster[0] = 0;
+    if (s != NULL && s->mesh != NULL && s->mesh->n_peers > 0) {
+        unsigned i;
+        static const char *stn[] = { "LIVE", "UNTRUSTED", "DEAD" };
+        ro += (size_t)snprintf(roster + ro, sizeof(roster) - ro,
+                               "<p>ATN-MESH-ROSTER</p><table><tr>"
+                               "<th>id</th><th>state</th><th>miss</th></tr>");
+        for (i = 0; i < s->mesh->n_peers && ro + 80 < sizeof(roster); i++) {
+            char idh[17];
+            int st = s->mesh->peer[i].state;
+            hex_encode(s->mesh->peer[i].id, 8, idh);
+            if (st < 0 || st > 2) {
+                st = 2;
+            }
+            ro += (size_t)snprintf(roster + ro, sizeof(roster) - ro,
+                                   "<tr><td>%s</td><td>%s</td><td>%u</td></tr>",
+                                   idh, stn[st], s->mesh->peer[i].misses);
+        }
+        ro += (size_t)snprintf(roster + ro, sizeof(roster) - ro,
+                               "</table><p>self=%s grace=%u hold=%u</p>"
+                               "<form method=\"POST\" action=\"/admin/do\">"
+                               "<input type=\"hidden\" name=\"csrf\" value=\"%s\">"
+                               "<input type=\"hidden\" name=\"action\" value=\"hold\">"
+                               "<label>2FA</label><input name=\"resp\" maxlength=\"128\">"
+                               "<button type=\"submit\">HOLD (partition)</button></form>",
+                               (s->mesh->state == 0) ? "LIVE" :
+                               (s->mesh->state == 1) ? "UNTRUSTED" : "DEAD",
+                               s->mesh->grace, s->mesh->hold_votes, csrf);
+    } else {
+        snprintf(roster, sizeof(roster), "<p>nodes: none attached</p>");
+    }
+    n = snprintf(out, max,
+                 "<!DOCTYPE html><html><head><title>Athanor console</title>"
+                 "<style>%s</style></head><body>"
+                 "<h1>Athanor</h1><p>ATN-CONSOLE-PAGE</p>"
+                 "%s"
+                 "<p>wipe: %s</p>"
+                 "<p>fresh challenge</p><code id=\"chal\">%s</code>"
+                 "<form method=\"POST\" action=\"/admin/do\">"
+                 "<input type=\"hidden\" name=\"csrf\" value=\"%s\">"
+                 "<input type=\"hidden\" name=\"action\" value=\"wipe\">"
+                 "<label>2FA response (128 hex)</label>"
+                 "<input name=\"resp\" size=\"64\" maxlength=\"128\">"
+                 "<button type=\"submit\">arm wipe</button></form>"
+                 "</body></html>",
+                 CSS, roster, (s != NULL && s->wipe_armed) ? "armed" : "idle",
+                 chal_hex, csrf);
     if (n < 0 || (size_t)n >= max) {
         return 0;
     }
@@ -1048,7 +1093,7 @@ static int route_and_respond(atn_http_srv *s, atn_sock cs, uint8_t *last,
                     if (se->authed && se->have_id &&
                         issue_chal(s, se, chal_hex) == ATN_OK) {
                         blen = html_console(html, sizeof(html), csrf_hex,
-                                           chal_hex, s->wipe_armed);
+                                           chal_hex, s);
                     } else {
                         blen = html_login(html, sizeof(html), csrf_hex);
                     }
@@ -1111,7 +1156,7 @@ static int route_and_respond(atn_http_srv *s, atn_sock cs, uint8_t *last,
                                 chal_hex[0] = 0;
                             }
                             blen = html_console(html, sizeof(html), csrf_hex,
-                                               chal_hex, s->wipe_armed);
+                                               chal_hex, s);
                             body = (const uint8_t *)html;
                         }
                     }
@@ -1134,7 +1179,6 @@ static int route_and_respond(atn_http_srv *s, atn_sock cs, uint8_t *last,
                     } else if (atn_http_form_get(req + r.body_off, r.body_len,
                                                  "action", action,
                                                  sizeof(action)) != ATN_OK ||
-                               strcmp(action, "wipe") != 0 ||
                                atn_http_form_get(req + r.body_off, r.body_len,
                                                  "resp", resp_hex,
                                                  sizeof(resp_hex)) != ATN_OK ||
@@ -1151,14 +1195,30 @@ static int route_and_respond(atn_http_srv *s, atn_sock cs, uint8_t *last,
                             reason = "Forbidden";
                             body = (const uint8_t *)"<p>403</p>";
                             blen = 10;
-                        } else {
+                        } else if (strcmp(action, "wipe") == 0) {
                             s->wipe_armed = 1;
                             if (issue_chal(s, se, chal_hex) != ATN_OK) {
                                 chal_hex[0] = 0;
                             }
                             blen = html_console(html, sizeof(html), csrf_hex,
-                                               chal_hex, s->wipe_armed);
+                                               chal_hex, s);
                             body = (const uint8_t *)html;
+                        } else if (strcmp(action, "hold") == 0 &&
+                                   s->mesh != NULL) {
+                            rc = atn_hb_vote(s->mesh, s->mesh->last_bucket,
+                                             s->mesh->id, ATN_HB_VOTE_HOLD);
+                            if (issue_chal(s, se, chal_hex) != ATN_OK) {
+                                chal_hex[0] = 0;
+                            }
+                            blen = html_console(html, sizeof(html), csrf_hex,
+                                               chal_hex, s);
+                            body = (const uint8_t *)html;
+                            (void)rc;
+                        } else {
+                            status = 400;
+                            reason = "Bad Request";
+                            body = (const uint8_t *)"<p>400</p>";
+                            blen = 10;
                         }
                     }
                 } else {
