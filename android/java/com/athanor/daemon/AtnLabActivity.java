@@ -313,17 +313,37 @@ public class AtnLabActivity extends Activity {
                     + "/" + AtnLabBoom.FAIL_MAX;
             if (!admin) {
                 line += "\nENABLE DEVICE ADMIN then lock + wrong PIN x5";
-            } else if (st == AtnNative.TUN_ESTABLISHED) {
-                long quiet = 0L;
-                if (AtnLabBoom.lastHubMs() > 0L) {
-                    quiet = (System.currentTimeMillis() - AtnLabBoom.lastHubMs())
-                            / 1000L;
-                }
-                line += "\nMESH UP - hub silence " + quiet + "s / 30s";
-            } else if (st == AtnNative.TUN_HANDSHAKE) {
-                line += "\nwaiting for hub ACK...";
             } else {
-                line += "\ntap Start/reconnect after hub is listening";
+                long watch = AtnLabBoom.watchSeconds(
+                        /* net hint unused in display path */ true, st);
+                try {
+                    android.net.ConnectivityManager cm =
+                            (android.net.ConnectivityManager)
+                                    getSystemService(CONNECTIVITY_SERVICE);
+                    boolean net = false;
+                    if (cm != null) {
+                        android.net.Network n = cm.getActiveNetwork();
+                        if (n != null) {
+                            android.net.NetworkCapabilities caps =
+                                    cm.getNetworkCapabilities(n);
+                            net = caps != null && caps.hasCapability(
+                                    android.net.NetworkCapabilities
+                                            .NET_CAPABILITY_INTERNET);
+                        }
+                    }
+                    watch = AtnLabBoom.watchSeconds(net, st);
+                    line += "\nnet=" + (net ? "UP" : "DOWN/airplane")
+                            + "  unreachable " + watch + "s / 30s";
+                } catch (Throwable t) {
+                    line += "\nunreachable watch " + watch + "s / 30s";
+                }
+                if (st == AtnNative.TUN_ESTABLISHED) {
+                    line += "\nMESH UP";
+                } else if (st == AtnNative.TUN_HANDSHAKE) {
+                    line += "\nHANDSHAKE - BOOM if no hub/net in 30s";
+                } else {
+                    line += "\ntap Start/reconnect after hub is listening";
+                }
             }
         } catch (Throwable t) {
             line = "native not ready: " + t.getMessage()

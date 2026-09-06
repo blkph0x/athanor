@@ -63,8 +63,12 @@ public class AtnDaemonService extends Service {
                     }
                 }
                 int st = AtnNative.tunState();
+                boolean net = networkUp();
                 if (st == AtnNative.TUN_HANDSHAKE) {
-                    AtnNative.tunHsRetry();
+                    /* Still retry while waiting, but DEC-0041 times out at 30s. */
+                    if (net) {
+                        AtnNative.tunHsRetry();
+                    }
                 } else if (st == AtnNative.TUN_ESTABLISHED) {
                     boolean fresh = prevTunState != AtnNative.TUN_ESTABLISHED;
                     AtnLabBoom.noteEstablished(fresh);
@@ -73,7 +77,6 @@ public class AtnDaemonService extends Service {
                         kaTicks = 0;
                         AtnNative.tunKeepalive();
                     }
-                    /* DEC-0039: DATA probe so hub echo proves contact. */
                     probeTicks++;
                     if (probeTicks >= PROBE_TICKS || fresh) {
                         probeTicks = 0;
@@ -86,28 +89,20 @@ public class AtnDaemonService extends Service {
                         AtnLabBoom.noteHubContact();
                         Log.i(TAG, "lab recv " + n + " bytes");
                     }
-                    boolean net = networkUp();
-                    if (AtnLabBoom.maybeSilenceBoom(net)) {
-                        labTun = false;
-                        boomNotified = true;
-                        Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
-                        pushBoomNotif();
-                    }
                 } else if (st == AtnNative.TUN_CLOSED) {
                     labTun = false;
-                    if (AtnLabBoom.sawEstablished()) {
-                        boolean net = networkUp();
-                        if (AtnLabBoom.maybeSilenceBoom(net)) {
-                            boomNotified = true;
-                            Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
-                            pushBoomNotif();
-                        }
-                    }
+                }
+                if (AtnLabBoom.maybeUnreachableBoom(net, st)) {
+                    labTun = false;
+                    boomNotified = true;
+                    Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
+                    pushBoomNotif();
                 }
                 prevTunState = st;
                 maybeUpdateNotif(st);
-            } else if (AtnLabBoom.sawEstablished() && !AtnLabBoom.isDead()) {
-                if (AtnLabBoom.maybeSilenceBoom(networkUp())) {
+            } else if (AtnLabBoom.isSoakArmed() && !AtnLabBoom.isDead()) {
+                int st = AtnNative.tunState();
+                if (AtnLabBoom.maybeUnreachableBoom(networkUp(), st)) {
                     boomNotified = true;
                     Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
                     pushBoomNotif();
@@ -332,6 +327,9 @@ public class AtnDaemonService extends Service {
             c.ek[i] = 0;
         }
         labTun = rc == 0;
+        if (labTun) {
+            AtnLabBoom.armSoak();
+        }
         Log.i(TAG, "lab tun rc=" + rc + " port=" + AtnNative.tunPort());
     }
 
@@ -343,10 +341,10 @@ public class AtnDaemonService extends Service {
             AtnLabBoom.reset();
             boomNotified = false;
             AtnLabBoom.reenrollFresh();
+            AtnLabBoom.armSoak();
             Log.i(TAG, "reconnect: lab BOOM reset");
             int st = AtnNative.tunState();
             if (st == AtnNative.TUN_ESTABLISHED) {
-                /* Soft mark only — do not arm 30s clock until hub echoes. */
                 AtnLabBoom.noteEstablished(false);
                 labTun = true;
                 Log.i(TAG, "reconnect: already ESTABLISHED (silence clock disarmed)");

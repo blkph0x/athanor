@@ -4,6 +4,14 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0038 — DEC-0041 airplane/handshake BOOM (2026-09-06)
+
+- **Fix:** Lab soak arms on tunnel start; `maybeUnreachableBoom` covers
+  airplane/no-net and HANDSHAKE timeout at 30s (not only post-ESTABLISHED).
+- **SoT:** unchanged.
+
+---
+
 ## BN-0037 — DEC-0040 lock-screen watch (2026-09-06)
 
 - **Change:** Lab APK prompts Device Admin; stub `onPasswordFailed` →

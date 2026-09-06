@@ -1104,3 +1104,21 @@ A decision is recorded **before** code that depends on it is written.
     all OEMs; lab recipe uses wrong **PIN/password** at the lock screen.
 - **Consequences:** Lab can prove REQ-4.2-class K=5 without knoxsdk.jar.
   SoT REQ-4.2 still `[ ]` until enrolled Knox + password policy (T-0400).
+
+---
+
+## DEC-0041 — Lab BOOM on airplane / handshake with no ESTABLISHED
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** User: airplane + no connection still stuck on HANDSHAKE;
+  30s BOOM did not fire. DEC-0039 only armed after ESTABLISHED + hub
+  contact, so a phone that never leaves HANDSHAKE never BOOMed.
+- **Decision (lab only):** while soak is armed (`start` / reconnect):
+  1. **No network / airplane ≥30s** → BOOM `airplane/no net >30s`
+  2. **Not ESTABLISHED (HANDSHAKE/CLOSED attempt) ≥30s** → BOOM
+     `no hub / handshake >30s`
+  3. Prior ESTABLISHED then hub silence ≥30s → unchanged
+  UI shows `net=DOWN/airplane` and unreachable countdown. Keys kept
+  under `log_only`.
+- **Consequences:** Faraday/airplane soak works without a prior mesh.

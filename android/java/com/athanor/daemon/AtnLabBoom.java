@@ -1,7 +1,7 @@
 package com.athanor.daemon;
 
 /**
- * Lab-only BOOM state (DEC-0039). Not a production Faraday brick.
+ * Lab-only BOOM state (DEC-0039/0041). Not a production Faraday brick.
  * With diag log_only, keys are not wiped — UI says dead for soak.
  */
 public final class AtnLabBoom {
@@ -20,6 +20,9 @@ public final class AtnLabBoom {
     private static volatile String reason = "";
     private static volatile long lastHubMs;
     private static volatile boolean sawEstablished;
+    private static volatile boolean soakArmed;
+    private static volatile long noNetSinceMs;
+    private static volatile long noHubSinceMs;
     private static volatile int pinFails;
     private static volatile int deviceUnlockFails;
     private static volatile boolean enrolled;
@@ -31,12 +34,28 @@ public final class AtnLabBoom {
         reason = "";
         lastHubMs = 0L;
         sawEstablished = false;
+        soakArmed = false;
+        noNetSinceMs = 0L;
+        noHubSinceMs = 0L;
         pinFails = 0;
         deviceUnlockFails = 0;
     }
 
+    /** Call when lab mesh attempt starts (tunnel bind/HS or reconnect). */
+    public static synchronized void armSoak() {
+        soakArmed = true;
+        long now = System.currentTimeMillis();
+        if (noHubSinceMs <= 0L) {
+            noHubSinceMs = now;
+        }
+    }
+
     public static boolean isDead() {
         return dead;
+    }
+
+    public static boolean isSoakArmed() {
+        return soakArmed;
     }
 
     public static String reason() {
@@ -63,36 +82,85 @@ public final class AtnLabBoom {
         return sawEstablished;
     }
 
+    /** Seconds into the active unreachable / no-hub watch (for UI). */
+    public static synchronized long watchSeconds(boolean netUp, int tunState) {
+        if (dead || !soakArmed) {
+            return 0L;
+        }
+        long now = System.currentTimeMillis();
+        long best = 0L;
+        if (!netUp && noNetSinceMs > 0L) {
+            best = Math.max(best, (now - noNetSinceMs) / 1000L);
+        }
+        if (noHubSinceMs > 0L && tunState != AtnNative.TUN_ESTABLISHED) {
+            best = Math.max(best, (now - noHubSinceMs) / 1000L);
+        }
+        if (sawEstablished && lastHubMs > 0L) {
+            best = Math.max(best, (now - lastHubMs) / 1000L);
+        }
+        return best;
+    }
+
     public static synchronized void noteHubContact() {
         lastHubMs = System.currentTimeMillis();
         sawEstablished = true;
+        noHubSinceMs = 0L;
     }
 
-    /**
-     * Tunnel shows ESTABLISHED. Only starts the silence clock on a fresh
-     * CLOSED/HANDSHAKE → ESTABLISHED transition (caller passes true).
-     * Soft mark (fromReconnect) arms mesh-up UI without starting the timer
-     * until a real hub DATA echo (DEC-0039).
-     */
     public static synchronized void noteEstablished(boolean startSilenceClock) {
         sawEstablished = true;
         if (startSilenceClock && lastHubMs <= 0L) {
             lastHubMs = System.currentTimeMillis();
         }
+        noHubSinceMs = 0L;
     }
 
+    /**
+     * DEC-0041: airplane/no-net, handshake timeout, or post-ESTABLISHED
+     * hub silence — any ≥30s while soak is armed → BOOM.
+     */
+    public static synchronized boolean maybeUnreachableBoom(boolean netUp,
+                                                           int tunState) {
+        if (dead || !soakArmed) {
+            return false;
+        }
+        long now = System.currentTimeMillis();
+
+        if (!netUp) {
+            if (noNetSinceMs <= 0L) {
+                noNetSinceMs = now;
+            }
+        } else {
+            noNetSinceMs = 0L;
+        }
+
+        if (tunState != AtnNative.TUN_ESTABLISHED) {
+            if (noHubSinceMs <= 0L) {
+                noHubSinceMs = now;
+            }
+        } else {
+            noHubSinceMs = 0L;
+        }
+
+        if (noNetSinceMs > 0L && (now - noNetSinceMs) >= SILENCE_MS) {
+            return trigger("airplane/no net >30s (lab)");
+        }
+        if (noHubSinceMs > 0L && (now - noHubSinceMs) >= SILENCE_MS) {
+            return trigger("no hub / handshake >30s (lab)");
+        }
+        if (sawEstablished && lastHubMs > 0L
+                && (now - lastHubMs) >= SILENCE_MS) {
+            String why = netUp
+                    ? "hub silence >30s (lab)"
+                    : "no net/airplane + hub silence >30s (lab)";
+            return trigger(why);
+        }
+        return false;
+    }
+
+    /** @deprecated use {@link #maybeUnreachableBoom} */
     public static synchronized boolean maybeSilenceBoom(boolean netUp) {
-        if (dead || !sawEstablished || lastHubMs <= 0L) {
-            return false;
-        }
-        long quiet = System.currentTimeMillis() - lastHubMs;
-        if (quiet < SILENCE_MS) {
-            return false;
-        }
-        String why = netUp
-                ? "hub silence >30s (lab)"
-                : "no net/airplane + hub silence >30s (lab)";
-        return trigger(why);
+        return maybeUnreachableBoom(netUp, AtnNative.TUN_CLOSED);
     }
 
     public static synchronized int noteWrongCode() {
@@ -125,21 +193,18 @@ public final class AtnLabBoom {
             key[i] = 0;
         }
         if (rc == 0 || rc == 7) {
-            /* 7 = ATN_ERR_STATE already enrolled */
             enrolled = true;
             return true;
         }
         return false;
     }
 
-    /** Lab reconnect: drop locked slot so another x5 soak works. */
     public static synchronized void reenrollFresh() {
         AtnNative.dmon2faRevoke(LAB_ID);
         enrolled = false;
         ensureEnrolled();
     }
 
-    /** Force re-enroll after native flush wiped the 2FA store. */
     public static synchronized void clearEnrolled() {
         enrolled = false;
     }

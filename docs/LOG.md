@@ -4,6 +4,14 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0041 airplane/handshake 30s BOOM
+
+- User: plane mode + no connection stayed on HANDSHAKE (no BOOM).
+- Fix: arm soak on tunnel start; BOOM on no-net ≥30s or no ESTABLISHED
+  ≥30s, not only after prior hub contact.
+
+---
+
 ## 2026-09-06 — DEC-0040 lab BOOM from real lock-screen fails
 
 - User: must test from locked phone; detect 5 failed **device** unlocks
