@@ -4,6 +4,16 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0032 — DEC-0037 lab online / release NIC-down (2026-09-06)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0
+- **Network:** default route **up** (intentional lab posture).
+- **Policy:** testing builds do not air-gap this host; ISS-0021 is
+  release-only. No Admin elevation required for ordinary gates.
+- **SoT:** unchanged. T-0804 done.
+
+---
+
 ## BN-0031 — DEC-0036 form percent-decode (2026-09-06)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0

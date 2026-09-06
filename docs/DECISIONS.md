@@ -992,3 +992,31 @@ A decision is recorded **before** code that depends on it is written.
     encoded name, invalid `%` literal, missing key).
 - **Consequences:** ISS-0011 closes. `docs/HTTP.md` drops the reject-%
   rule.
+
+---
+
+## DEC-0037 — Lab builds stay online; NIC-down is a release gate
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** User: testing builds must not air-gap this development
+  host (git push, Actions, Partner jar path). REQ-6.2 / ISS-0021
+  “default route down” is a **release** proof, not a daily lab
+  requirement. Removing `0.0.0.0/0` on the Windows builder is
+  counter-productive to development and needs Admin elevation the
+  agent session does not hold.
+- **Decision:**
+  - **Day-to-day / testing builds:** keep the default route. Continuous
+    isolation evidence is `tests/test_recipe` (no product fetch URLs) +
+    `make export-tree` (DEC-0024/0026). Document route-up in BN.
+  - **Release / SoT REQ-6.2 [X]:** one-shot measurement on a **dedicated
+    release host** or a deliberately elevated window — never as the
+    standing posture of the development machine. File BN when done.
+  - **REQ-5.1 air-gap compiler:** separate Phase 5 host; not this lab.
+  - Agents must **not** delete the default route or disable NICs on the
+    development builder unless the operator explicitly opens a release
+    measurement session and elevates.
+  - T-0601 moves to release backlog (not “Now”).
+- **Consequences:** ISS-0021 stays open until release measure; lab work
+  continues online. No Admin elevation required for ordinary Athanor
+  coding/gates.

@@ -1,6 +1,6 @@
-# Isolation scan (REQ-6.2 scaffolding / DEC-0024 / DEC-0026)
+# Isolation scan (REQ-6.2 scaffolding / DEC-0024 / 0026 / 0037)
 
-Measured on this builder. Not a disconnected-NIC runtime proof.
+Measured on this builder. Lab builds stay **online** (DEC-0037).
 
 ## Product fetch URLs
 
@@ -31,13 +31,18 @@ into `export/athanor-src/` and refuses `*.jar`. That list includes
 
 ## Network state during measured builds
 
-Record the default-route presence in the matching BUILD_NOTES entry.
-A build with the route **up** that still performs zero product fetches
-is evidence for the recipe scan; it is **not** the REQ-6.2
-disconnected-build gate.
+**Lab / testing (DEC-0037):** default route **up**. Continuous isolation
+evidence is the recipe URL scan + export-tree. Record route-up in BN.
+Do **not** air-gap the development host as standing practice.
 
-## Not yet measured
+**Release (ISS-0021 / T-0601):** one-shot `make test` + `make export-tree`
+with no default route on a **dedicated release host** (or an explicit
+elevated release session). That is the only path to SoT REQ-6.2 `[X]`.
+Never claim it from a connected lab `make test`.
 
-- Build with the NIC down / default route removed (REQ-6.2)
+## Not yet measured (release / device)
+
+- Build with the NIC down / default route removed (REQ-6.2 release gate)
 - Runtime of server + console with default-deny netns
 - Faraday / enrolled device (REQ-5.3)
+- Air-gap compiler host (REQ-5.1)

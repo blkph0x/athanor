@@ -40,7 +40,7 @@ Essential Eight is a **floor for org IT**, not our ceiling:
 | Enrolled Knox endpoint hardening | T-0400 / ISS-0016 |
 | PQ rekey on long-lived tunnels | Done (DEC-0035) |
 | Console-set `outage_class` after 2FA | Done (DEC-0034) |
-| Disconnected build proof | T-0601 / ISS-0021 |
+| Disconnected build proof | Release only (T-0601 / ISS-0021 / DEC-0037) |
 | Air-gap sign host | REQ-5.1 |
 
 Update this table in the same commit when a control lands.

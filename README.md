@@ -209,7 +209,7 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | CI | `.github/workflows/ci.yml` → same `make test` | Badge above |
 | Stub Knox compile | `make android-java` (no jar → STUB) | Green; not a device build |
 | Real Knox | `vendor/knox/knoxsdk.jar` drop-in | **Blocked** Partner / T-0400 |
-| Export | `make export-tree` | Scaffolding OK; NIC-down = ISS-0021 |
+| Export | `make export-tree` | Scaffolding OK; NIC-down = **release** (ISS-0021 / DEC-0037) |
 | Diag soak | `diag=1` + `flush_mode=log_only` (DEC-0027) | Ready for lab |
 | Hub failover | `tests/test_hub_failover` (DEC-0031 / D-08) | Green |
 | Multi-hub roster | cap **16** hubs/repl (DEC-0032) | Green |
@@ -256,7 +256,7 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | REQ-3.3 heartbeat | Done — WARN/grace/HOLD; hub failover D-08 (DEC-0031). |
 | REQ-4.x Knox device | Native dmon + stubs OK. **Device SoT `[ ]`** until T-0400. |
 | ML-DSA-87 / REQ-5.1 pen | Done KATs + `atnsign`. Air-gap host open. |
-| REQ-6.x isolation/export | Partial — URL scan + export-tree; NIC-down open. |
+| REQ-6.x isolation/export | Partial — lab: URL scan + export-tree online (DEC-0037); NIC-down = release only. |
 
 Desk trackers (always current with the tip): [`docs/TASKS.md`](docs/TASKS.md), [`docs/LOG.md`](docs/LOG.md), [`docs/BUILD_NOTES.md`](docs/BUILD_NOTES.md), [`docs/DIAG_USECASES.md`](docs/DIAG_USECASES.md).
 

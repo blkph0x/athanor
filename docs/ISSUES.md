@@ -213,16 +213,18 @@ Status: `open` | `closed`
 
 ## ISS-0021 — Disconnected-NIC / no-default-route build not measured
 
-- **Status:** open
+- **Status:** open (release gate only — DEC-0037)
 - **Opened:** 2026-09-06
 - **REQ:** REQ-6.2
-- **Unknown:** This Windows builder has a default route. Taking the NIC
-  down or deleting `0.0.0.0/0` needs admin and is not safe to invent
-  from the agent session. Recipe URL scan + `make export` are measured
-  (DEC-0024/0026); they are not a disconnected build.
-- **Must not invent:** a SoT 6.2 [X] from a connected `make test`.
-- **Unblock by:** run `make test` and `make export-tree` with the default
-  route removed (or a default-deny netns on POSIX) and file BN.
+- **Unknown:** Lab/development builders stay online (DEC-0037). Taking
+  the NIC down or deleting `0.0.0.0/0` is a **release** measurement, not
+  a daily testing requirement. Recipe URL scan + `make export-tree` are
+  the continuous isolation gates (DEC-0024/0026).
+- **Must not invent:** a SoT 6.2 `[X]` from a connected `make test`; must
+  not air-gap the development host as standing practice.
+- **Unblock by:** on a dedicated release host (or an explicit elevated
+  release session), run `make test` + `make export-tree` with no default
+  route and file BN. Do not treat T-0601 as lab “Now” work.
 
 ## ISS-0022 — Blackout vs Faraday wipe policy is ambiguous
 

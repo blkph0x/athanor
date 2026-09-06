@@ -4,6 +4,16 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0037: lab online; NIC-down is release-only
+
+- User: do not air-gap the development/testing host; that is counter
+  to daily work (git, CI, Partner jar). REQ-6.2 disconnected measure
+  stays a **release** gate (ISS-0021 / T-0601 backlog).
+- Continuous lab isolation: `test_recipe` + `export-tree` only.
+- Agents must not delete the default route on this builder. SoT unchanged.
+
+---
+
 ## 2026-09-06 — DEC-0036: form percent-decode (T-0803 / ISS-0011)
 
 - WHATWG URL Standard §5.1 / §1.3 in `atn_http_form_get` (`+`→SP, `%HH`).
