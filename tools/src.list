@@ -112,6 +112,7 @@ tools/ci_local.ps1
 tools/ci_local.sh
 tools/android-apk.ps1
 tools/enroll-console.ps1
+tools/enroll-console.sh
 tools/export.ps1
 tools/src.list
 docs/CRYPTO.md

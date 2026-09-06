@@ -1,17 +1,21 @@
 /*
  * Lab enroll console launcher (DEC-0042).
  *   atnenroll demo          — validate phone label + write sample receipt
- *   atnenroll serve [port]  — loopback UI via tools/enroll-console.ps1 (Windows)
+ *   atnenroll serve [port]  — loopback UI (tools/enroll-console.ps1|.sh)
  *
  * Plain HTTP on 127.0.0.1 only. Not mesh atnhttp (ISS-0009).
  * phone_number is a roster label only (no SMS — ISS-0020).
  */
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <sys/stat.h>
+#include <sys/types.h>
 #endif
 
 static int phone_label_ok(const char *p)
@@ -42,6 +46,27 @@ static int phone_label_ok(const char *p)
     return digits >= 6u;
 }
 
+static int ensure_dir(const char *path)
+{
+#ifdef _WIN32
+    if (CreateDirectoryA(path, NULL) != 0) {
+        return 0;
+    }
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        return 0;
+    }
+    return -1;
+#else
+    if (mkdir(path, 0755) == 0) {
+        return 0;
+    }
+    if (errno == EEXIST) {
+        return 0;
+    }
+    return -1;
+#endif
+}
+
 static int cmd_demo(void)
 {
     const char *good = "+61400000000";
@@ -56,15 +81,13 @@ static int cmd_demo(void)
         return 1;
     }
     /* Sample receipt under lab/ (gitignored enrollments dir may not exist). */
-#ifdef _WIN32
-    (void)CreateDirectoryA("lab", NULL);
-    (void)CreateDirectoryA("lab\\enrollments", NULL);
-    (void)CreateDirectoryA("lab\\enrollments\\demo", NULL);
-    f = fopen("lab\\enrollments\\demo\\enrollment.txt", "wb");
-#else
-    (void)system("mkdir -p lab/enrollments/demo");
+    if (ensure_dir("lab") != 0 ||
+        ensure_dir("lab/enrollments") != 0 ||
+        ensure_dir("lab/enrollments/demo") != 0) {
+        fprintf(stderr, "demo: cannot create lab/enrollments/demo\n");
+        return 1;
+    }
     f = fopen("lab/enrollments/demo/enrollment.txt", "wb");
-#endif
     if (f == NULL) {
         fprintf(stderr, "demo: cannot write receipt\n");
         return 1;
@@ -78,27 +101,32 @@ static int cmd_demo(void)
 
 static int cmd_serve(const char *port)
 {
-#ifdef _WIN32
     char cmd[512];
     int n;
+    int rc;
+    const char *p = port != NULL ? port : "8799";
+
+#ifdef _WIN32
     n = snprintf(cmd, sizeof(cmd),
                  "powershell -NoProfile -ExecutionPolicy Bypass -File "
                  "tools\\enroll-console.ps1 -Port %s",
-                 port != NULL ? port : "8799");
+                 p);
+#else
+    n = snprintf(cmd, sizeof(cmd),
+                 "sh tools/enroll-console.sh %s", p);
+#endif
     if (n <= 0 || (size_t)n >= sizeof(cmd)) {
         return 1;
     }
-    printf("atnenroll: starting loopback enroll UI on 127.0.0.1:%s\n",
-           port != NULL ? port : "8799");
+    printf("atnenroll: starting loopback enroll UI on 127.0.0.1:%s\n", p);
     printf("Open loopback port %s in a browser (Ctrl+C in that window to stop)\n",
-           port != NULL ? port : "8799");
-    return system(cmd);
-#else
-    (void)port;
-    fprintf(stderr,
-            "atnenroll serve: Windows lab console only for now (DEC-0042)\n");
-    return 1;
-#endif
+           p);
+    rc = system(cmd);
+    if (rc != 0) {
+        fprintf(stderr, "atnenroll serve: console exited rc=%d\n", rc);
+        return 1;
+    }
+    return 0;
 }
 
 int main(int argc, char **argv)

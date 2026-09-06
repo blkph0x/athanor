@@ -20,7 +20,10 @@ make android-apk
 Open **127.0.0.1:8799** in a browser (loopback only). Keep the page open — USB
 device status refreshes; **Connect & Enroll** stays available for each phone.
 
-Or: `powershell -NoProfile -File tools\enroll-console.ps1 -Port 8799`
+| Host | Launch |
+|---|---|
+| Windows | `.\atnenroll.exe serve 8799` or `tools\enroll-console.ps1` |
+| Linux / macOS | `./atnenroll serve 8799` or `sh tools/enroll-console.sh 8799` (needs `python3`) |
 
 ## Form fields
 

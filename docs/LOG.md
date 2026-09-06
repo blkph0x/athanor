@@ -4,6 +4,13 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — Fix Linux CI: portable atnenroll + POSIX enroll UI
+
+- CI linux-x86_64/aarch64 failed: `-Werror=unused-result` on `system(mkdir)`.
+- Portable `mkdir`/`CreateDirectory`; `tools/enroll-console.sh` for POSIX serve.
+
+---
+
 ## 2026-09-06 — DEC-0043 unreachable timer off while ESTABLISHED
 
 - User: first enroll with MESH UP still showed unreachable timer running.
