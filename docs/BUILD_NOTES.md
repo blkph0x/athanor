@@ -4,7 +4,14 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
-## BN-0041 — DEC-0043 unreachable = hub liveness (2026-09-06)
+## BN-0042 — Lab tunRecv liveness + airplane soak (2026-09-06)
+
+- **Bug:** ESTABLISHED `tunPump` fed all DATA to hb_ingest; LAB echoes
+  never reached `noteHubContact` → false hub-silence BOOM while hub
+  was echoing.
+- **Fix:** Drain ESTABLISHED via `tunRecv` + `dmonHbIngest`; autostart
+  cold-start without RECONNECT race.
+- **Proof:** ONLINE_PASS + 12s soak; airplane → BOOM (~23–30s).
 
 - **Bug:** (a) `noteEstablished` silence clock under MESH UP; (b)
   freeze-on-ESTABLISHED hid airplane (UDP state stays ESTABLISHED).

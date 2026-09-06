@@ -56,20 +56,23 @@ public class AtnDaemonService extends Service {
                 return;
             }
             if (labTun) {
+                int st;
                 int i;
-                for (i = 0; i < 8; i++) {
-                    if (AtnNative.tunPump(0) != 0) {
-                        break;
-                    }
-                }
-                int st = AtnNative.tunState();
+                st = AtnNative.tunState();
                 boolean net = networkUp();
                 if (st == AtnNative.TUN_HANDSHAKE) {
-                    /* Still retry while waiting, but DEC-0041 times out at 30s. */
-                    if (net) {
+                    for (i = 0; i < 8; i++) {
+                        if (AtnNative.tunPump(0) != 0) {
+                            break;
+                        }
+                    }
+                    st = AtnNative.tunState();
+                    /* Still retry while waiting; DEC-0041 times out after join. */
+                    if (st == AtnNative.TUN_HANDSHAKE && net) {
                         AtnNative.tunHsRetry();
                     }
-                } else if (st == AtnNative.TUN_ESTABLISHED) {
+                }
+                if (st == AtnNative.TUN_ESTABLISHED) {
                     boolean fresh = prevTunState != AtnNative.TUN_ESTABLISHED;
                     AtnLabBoom.noteEstablished(fresh);
                     kaTicks++;
@@ -83,10 +86,25 @@ public class AtnDaemonService extends Service {
                         byte[] probe = new byte[] { 'L', 'A', 'B' };
                         AtnNative.tunSend(probe);
                     }
-                    byte[] back = new byte[64];
-                    int n = AtnNative.tunRecv(back, 0);
-                    if (n > 0) {
+                    /*
+                     * Drain via tunRecv — atn_dmon_tun_pump on ESTABLISHED
+                     * feeds hb_ingest and drops LAB echoes, so liveness
+                     * never saw hub contact (false silence BOOM).
+                     */
+                    for (i = 0; i < 8; i++) {
+                        byte[] back = new byte[2048];
+                        int n = AtnNative.tunRecv(back, 0);
+                        if (n <= 0) {
+                            break;
+                        }
                         AtnLabBoom.noteHubContact();
+                        if (n < back.length) {
+                            byte[] msg = new byte[n];
+                            System.arraycopy(back, 0, msg, 0, n);
+                            AtnNative.dmonHbIngest(msg);
+                        } else {
+                            AtnNative.dmonHbIngest(back);
+                        }
                         Log.i(TAG, "lab recv " + n + " bytes");
                     }
                 } else if (st == AtnNative.TUN_CLOSED) {

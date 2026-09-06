@@ -148,7 +148,8 @@ public class AtnLabActivity extends Activity {
             appendLog("Device Admin ON - lock phone and fail PIN x5");
         }
         if (getIntent() != null && getIntent().getBooleanExtra("autostart", false)) {
-            startDaemon(true);
+            /* Cold start: do not ACTION_RECONNECT (resets boom + races HS). */
+            startDaemon(false);
         }
         if (getIntent() != null && getIntent().getBooleanExtra("request_admin", false)) {
             if (!AtnDeviceAdminReceiver.isAdminActive(this)) {

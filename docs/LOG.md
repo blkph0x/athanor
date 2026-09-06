@@ -4,6 +4,14 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — Lab soak: heartbeat liveness + airplane BOOM proven
+
+- Hub+APK reinstall; online: `lab recv` keeps timer OFF.
+- Airplane → BOOM ~30s. Root cause: ESTABLISHED `tunPump` ate echoes.
+- Drain via `tunRecv` + `dmonHbIngest`; autostart no longer RECONNECT-races.
+
+---
+
 ## 2026-09-06 — DEC-0043 corrected: boom on airplane/hub silence
 
 - Freeze-on-ESTABLISHED was wrong: airplane keeps UDP ESTABLISHED.
