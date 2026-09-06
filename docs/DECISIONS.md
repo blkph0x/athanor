@@ -1123,3 +1123,32 @@ A decision is recorded **before** code that depends on it is written.
     silence/wipe policy; stub lab is join-gated.
   - Lock-screen K=5 (DEC-0040) unchanged (independent of mesh join).
 - **Consequences:** Airplane soak = join mesh first, then kill net/hub.
+
+---
+
+## DEC-0042 — Lab enroll console (loopback plain HTTP, USB adb)
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** User: signed enroll without air-gap yet (air-gap = release
+  beta); local-only web UI to set policy, link a phone number, and a
+  persistent **Connect & Enroll** that USB-installs the stub APK and
+  applies lab policy. Browsers cannot speak DEC-0009 mesh HTTP
+  (ISS-0009). DEC-0025 / ISS-0020 forbid auto SMS. T-0400 Knox jar
+  still blocked for real DO/USB charge-only.
+- **Decision:**
+  - **`atnenroll serve [port]`** binds **127.0.0.1 only** plain
+    HTTP/1.1 (default **8787**) — lab operator UI, **not** the mesh
+    tunnel console (`atnhttp`). No CDN, no bind-any.
+  - Form: policy (`diag`, `flush_mode`, `outage_class`), hub
+    `peer_ipv4`/`peer_port`/`peer_ek`, **phone_number** as a **local
+    roster label only** (E.164-ish charset; never dialed/SMS).
+  - **Connect & Enroll:** write `lab/enrollments/<id>/`, push
+    `atn-node.conf` via `adb`, `adb install -r` stub APK, start
+    `AtnLabActivity` with `autostart` + `request_admin`, write an
+    enrollment receipt; optionally ML-DSA-sign the receipt on this
+    host (`atnsign`) — **not** air-gapped (release beta later).
+  - Stub policy = Device Admin watch-login (DEC-0040). Real Knox USB /
+    password / DO waits on T-0400.
+- **Consequences:** Browser enroll UX on the builder; mesh admin stays
+  on `atnhttp`. Air-gap sign host remains Phase 5 / release.

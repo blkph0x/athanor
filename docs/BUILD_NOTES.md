@@ -4,6 +4,21 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0040 — DEC-0042 lab enroll console (2026-09-06)
+
+- **UI:** `atnenroll serve [port]` → PowerShell `HttpListener` on
+  **127.0.0.1 only** (default 8787). Form: phone roster label, hub
+  `peer_*`, policy; button **Connect & Enroll** (page stays live; `/status`
+  polls USB).
+- **Action:** write `lab/enrollments/<id>/`, `adb install -r` stub APK,
+  push `atn-node.conf`, start Activity with `autostart` + `request_admin`.
+  Optional local ML-DSA receipt via `atnsign` + `lab/enroll-keys/` (not
+  air-gapped).
+- **Not yet:** air-gap sign host; Knox DO / USB charge-only (T-0400).
+- **Docs:** `docs/ENROLL.md`, LAB §3b.
+
+---
+
 ## BN-0039 — DEC-0041 narrowed: join-gated unreachable BOOM (2026-09-06)
 
 - **Policy:** airplane/hub-silence BOOM only after `sawEstablished`.

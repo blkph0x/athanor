@@ -150,6 +150,12 @@ public class AtnLabActivity extends Activity {
         if (getIntent() != null && getIntent().getBooleanExtra("autostart", false)) {
             startDaemon(true);
         }
+        if (getIntent() != null && getIntent().getBooleanExtra("request_admin", false)) {
+            if (!AtnDeviceAdminReceiver.isAdminActive(this)) {
+                appendLog("enroll requested Device Admin prompt");
+                requestDeviceAdmin();
+            }
+        }
     }
 
     @Override

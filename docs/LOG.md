@@ -4,6 +4,16 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0042 lab enroll console (USB Connect & Enroll)
+
+- User: signed enroll without air-gap yet; local-only web UI for policy +
+  phone-number roster label + persistent **Connect & Enroll** over USB debug.
+- Shipped: `atnenroll serve` → `tools/enroll-console.ps1` on 127.0.0.1:8787;
+  adb install/push/start with `request_admin`; optional local `atnsign`
+  receipt; docs/ENROLL.md. Air-gap = release beta. Knox DO still T-0400.
+
+---
+
 ## 2026-09-06 — Narrow DEC-0041: no pre-join unreachable BOOM
 
 - User: do not BOOM if not yet joined unless fully enrolled.

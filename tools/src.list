@@ -16,6 +16,7 @@ android/java/com/athanor/daemon/AtnKnoxBuild.java
 android/java/com/athanor/daemon/AtnKnoxBuildFlags.java
 android/java/com/athanor/daemon/AtnKnoxPolicy.java
 android/java/com/athanor/daemon/AtnLabActivity.java
+android/java/com/athanor/daemon/AtnLabBoom.java
 android/java/com/athanor/daemon/AtnNative.java
 android/java/com/athanor/daemon/AtnNodeConfig.java
 android/java/com/athanor/daemon/AtnPowerReceiver.java
@@ -75,6 +76,7 @@ src/crypto/atn_sha512.c
 src/dmon/atn_dmon.c
 src/dns/atn_dns.c
 src/dns/atn_dns_cli.c
+src/enroll/atn_enroll_cli.c
 src/hb/atn_hb.c
 src/http/atn_http.c
 src/http/atn_http_cli.c
@@ -109,8 +111,10 @@ tools/build_crypto.bat
 tools/ci_local.ps1
 tools/ci_local.sh
 tools/android-apk.ps1
+tools/enroll-console.ps1
 tools/export.ps1
 tools/src.list
 docs/CRYPTO.md
+docs/ENROLL.md
 docs/ESSENTIAL8.md
 vendor/knox/README.md

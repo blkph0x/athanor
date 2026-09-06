@@ -63,6 +63,24 @@ adb logcat -s atn-daemon:I atn-lab:I atn-knox:W
 
 Hub prints `ESTABLISHED`, then `recv 4` when you tap ping.
 
+## 3b. Lab enroll console (DEC-0042)
+
+Preferred operator path: local loopback UI — policy + phone roster label +
+**Connect & Enroll** (USB install + conf + Device Admin prompt).
+
+See [`ENROLL.md`](ENROLL.md). Short form:
+
+```bat
+make atnenroll.exe atnsign.exe android-apk
+.\atnenroll.exe serve 8787
+```
+
+Open 127.0.0.1:8787 in a browser - keep the page open; plug phone (USB debugging);
+fill hub `peer_*` + phone number label; click **Connect & Enroll**.
+
+Receipts: `lab/enrollments/` (gitignored). Local ML-DSA sign via `atnsign`
+(not air-gapped — release beta later). Knox DO still T-0400.
+
 ## 4. Lab situations (stub phone + one hub)
 
 | Case | Expect | Skip / note |

@@ -212,6 +212,7 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | Export | `make export-tree` | Scaffolding OK; NIC-down = **release** (ISS-0021 / DEC-0037) |
 | Diag soak | `diag=1` + `flush_mode=log_only` (DEC-0027) | Ready for lab |
 | Phone↔hub lab | S24 stub APK + `atnnode listen` ([`docs/LAB.md`](docs/LAB.md)) | **Proven** ESTABLISHED + BOOM soaks |
+| Lab USB enroll UI | `atnenroll serve` loopback ([`docs/ENROLL.md`](docs/ENROLL.md)) | **Ready** DEC-0042 (air-gap later) |
 | Hub failover | `tests/test_hub_failover` (DEC-0031 / D-08) | Green |
 | Multi-hub roster | cap **16** hubs/repl (DEC-0032) | Green |
 | PQ tunnel rekey | `test_tun` REKEY_INIT/ACK (DEC-0035) | Green |
@@ -240,6 +241,7 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | Lab hub binary | **Yes** | `atnnode listen\|connect\|demo`; connect walks hubs (DEC-0031) |
 | Enrolled Knox S24–S26 | **No** | Waiting `knoxsdk.jar` + Device Owner (**T-0400**) |
 | Stub lab APK ↔ hub (USB adb) | **Yes** | DEC-0038–0041; join→silence/airplane BOOM; lock-screen K=5 |
+| Lab enroll console (USB) | **Yes** | DEC-0042 `atnenroll serve`; local sign OK; air-gap later |
 | Air-gap sign host / Faraday bag | **No** | REQ-5.x / 5.3 open (release) |
 
 ### Requirement board

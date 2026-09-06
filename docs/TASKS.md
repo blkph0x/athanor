@@ -81,3 +81,4 @@ Diag-first flash when jar lands (DEC-0027).
 | T-0807 | done | REQ-4.1/5.3 | DEC-0039 lab BOOM: 30s hub silence + wrong code x5 (BN-0036) |
 | T-0808 | done | REQ-4.2 | DEC-0040 lab Device Admin watch-login K=5 BOOM (BN-0037) |
 | T-0809 | done | REQ-4.1/5.3 | DEC-0041 unreachable BOOM after join (narrowed BN-0039) |
+| T-0810 | done | REQ-4.1 | DEC-0042 lab enroll console (`atnenroll serve` + USB) |
