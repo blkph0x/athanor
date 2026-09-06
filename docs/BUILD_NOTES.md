@@ -4,6 +4,16 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0041 — DEC-0043 unreachable timer off while ESTABLISHED (2026-09-06)
+
+- **Bug:** `noteEstablished(true)` started silence clock at join; UI
+  showed `unreachable Ns / 30s` under MESH UP.
+- **Fix:** While ESTABLISHED, clear clocks + `maybeUnreachableBoom` no-op;
+  watchSeconds returns 0. Post-join loss of ESTABLISHED arms 30s watch.
+- **SoT:** lab policy only; REQ-5.3 Faraday still release.
+
+---
+
 ## BN-0040 — DEC-0042 lab enroll console (2026-09-06)
 
 - **UI:** `atnenroll serve [port]` → PowerShell `HttpListener` on

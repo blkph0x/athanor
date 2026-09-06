@@ -82,9 +82,12 @@ public final class AtnLabBoom {
         return sawEstablished;
     }
 
-    /** Seconds into unreachable watch (only after join). */
+    /** Seconds into unreachable watch. Zero while ESTABLISHED. */
     public static synchronized long watchSeconds(boolean netUp, int tunState) {
         if (dead || !soakArmed || !sawEstablished) {
+            return 0L;
+        }
+        if (tunState == AtnNative.TUN_ESTABLISHED) {
             return 0L;
         }
         long now = System.currentTimeMillis();
@@ -92,8 +95,8 @@ public final class AtnLabBoom {
         if (!netUp && noNetSinceMs > 0L) {
             best = Math.max(best, (now - noNetSinceMs) / 1000L);
         }
-        if (lastHubMs > 0L) {
-            best = Math.max(best, (now - lastHubMs) / 1000L);
+        if (noHubSinceMs > 0L) {
+            best = Math.max(best, (now - noHubSinceMs) / 1000L);
         }
         return best;
     }
@@ -102,27 +105,45 @@ public final class AtnLabBoom {
         lastHubMs = System.currentTimeMillis();
         sawEstablished = true;
         noHubSinceMs = 0L;
-    }
-
-    public static synchronized void noteEstablished(boolean startSilenceClock) {
-        sawEstablished = true;
-        if (startSilenceClock && lastHubMs <= 0L) {
-            lastHubMs = System.currentTimeMillis();
-        }
-        noHubSinceMs = 0L;
+        noNetSinceMs = 0L;
     }
 
     /**
-     * DEC-0041 narrowed: unreachable BOOM only after the phone has
-     * joined (sawEstablished). Airplane/handshake before join does not
-     * BOOM. Fully enrolled production path is separate (Knox / !stub).
-     * Lab stub: Device Admin + prior ESTABLISHED = soak-enrolled watch.
+     * Mesh is up. Unreachable timer must not run while ESTABLISHED —
+     * silence/airplane watch starts only after the tunnel leaves ESTABLISHED.
+     */
+    public static synchronized void noteEstablished(boolean ignored) {
+        sawEstablished = true;
+        lastHubMs = System.currentTimeMillis();
+        noHubSinceMs = 0L;
+        noNetSinceMs = 0L;
+    }
+
+    /**
+     * DEC-0041 narrowed + operator: unreachable BOOM only after join
+     * and only while not ESTABLISHED (lost mesh / airplane after drop).
+     * While ESTABLISHED the timer is frozen — never arms, never BOOMs.
      */
     public static synchronized boolean maybeUnreachableBoom(boolean netUp,
                                                            int tunState) {
         if (dead || !soakArmed) {
             return false;
         }
+
+        if (tunState == AtnNative.TUN_ESTABLISHED) {
+            sawEstablished = true;
+            noHubSinceMs = 0L;
+            noNetSinceMs = 0L;
+            return false;
+        }
+
+        /* Not joined yet → no connection BOOM. Lock-screen K=5 independent. */
+        if (!sawEstablished) {
+            noHubSinceMs = 0L;
+            noNetSinceMs = 0L;
+            return false;
+        }
+
         long now = System.currentTimeMillis();
 
         if (!netUp) {
@@ -133,28 +154,15 @@ public final class AtnLabBoom {
             noNetSinceMs = 0L;
         }
 
-        if (tunState != AtnNative.TUN_ESTABLISHED) {
-            if (noHubSinceMs <= 0L) {
-                noHubSinceMs = now;
-            }
-        } else {
-            noHubSinceMs = 0L;
-        }
-
-        /* Not joined yet → no connection BOOM (user: only after join /
-         * full enroll). Lock-screen K=5 is independent. */
-        if (!sawEstablished) {
-            return false;
+        if (noHubSinceMs <= 0L) {
+            noHubSinceMs = now;
         }
 
         if (noNetSinceMs > 0L && (now - noNetSinceMs) >= SILENCE_MS) {
-            return trigger("airplane/no net >30s (lab)");
+            return trigger("airplane/no net >30s after join (lab)");
         }
-        if (lastHubMs > 0L && (now - lastHubMs) >= SILENCE_MS) {
-            String why = netUp
-                    ? "hub silence >30s (lab)"
-                    : "no net/airplane + hub silence >30s (lab)";
-            return trigger(why);
+        if (noHubSinceMs > 0L && (now - noHubSinceMs) >= SILENCE_MS) {
+            return trigger("hub/mesh lost >30s after join (lab)");
         }
         return false;
     }

@@ -88,7 +88,7 @@ Receipts: `lab/enrollments/` (gitignored). Local ML-DSA sign via `atnsign`
 | Happy path HS | UI ESTABLISHED + hub ESTABLISHED | |
 | Lab ping | hub `recv 4` | |
 | Start while up | log `already ESTABLISHED` | |
-| Hub kill / airplane / no Wi‑Fi >30s | **BOOM only after mesh joined** (DEC-0041 narrowed) | join first; pre-join HANDSHAKE does not BOOM |
+| Hub kill / airplane / no Wi‑Fi >30s | **BOOM only after mesh joined and ESTABLISHED is lost** (DEC-0041/0043) | timer OFF while MESH UP |
 | **Locked phone: wrong PIN/password ×5** | **BOOM** via Device Admin `watch-login` (DEC-0040) | Activate admin in app first; use PIN not fingerprint-only |
 | Optional in-app 2FA code ×5 | **BOOM** (app soak) | not a substitute for lock screen |
 | Start/reconnect | clears lab BOOM for another cycle | |

@@ -338,15 +338,26 @@ public class AtnLabActivity extends Activity {
                         }
                     }
                     watch = AtnLabBoom.watchSeconds(net, st);
-                    line += "\nnet=" + (net ? "UP" : "DOWN/airplane")
-                            + "  unreachable " + watch + "s / 30s";
+                    line += "\nnet=" + (net ? "UP" : "DOWN/airplane");
+                    if (st == AtnNative.TUN_ESTABLISHED) {
+                        line += "\nunreachable timer OFF (MESH UP)";
+                    } else if (AtnLabBoom.sawEstablished()) {
+                        line += "\nunreachable " + watch
+                                + "s / 30s (after join)";
+                    } else {
+                        line += "\nunreachable armed after first ESTABLISHED";
+                    }
                 } catch (Throwable t) {
-                    line += "\nunreachable watch " + watch + "s / 30s";
+                    if (st == AtnNative.TUN_ESTABLISHED) {
+                        line += "\nunreachable timer OFF (MESH UP)";
+                    } else {
+                        line += "\nunreachable watch " + watch + "s / 30s";
+                    }
                 }
                 if (st == AtnNative.TUN_ESTABLISHED) {
                     line += "\nMESH UP";
                 } else if (st == AtnNative.TUN_HANDSHAKE) {
-                    line += "\nHANDSHAKE - BOOM if no hub/net in 30s";
+                    line += "\nHANDSHAKE - waiting hub (no BOOM until joined)";
                 } else {
                     line += "\ntap Start/reconnect after hub is listening";
                 }

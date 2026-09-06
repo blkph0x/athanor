@@ -4,6 +4,14 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0043 unreachable timer off while ESTABLISHED
+
+- User: first enroll with MESH UP still showed unreachable timer running.
+- Lab: freeze unreachable watch/BOOM while `TUN_ESTABLISHED`; arm only
+  after leaving ESTABLISHED (post-join). UI: "unreachable timer OFF".
+
+---
+
 ## 2026-09-06 — DEC-0042 lab enroll console (USB Connect & Enroll)
 
 - User: signed enroll without air-gap yet; local-only web UI for policy +

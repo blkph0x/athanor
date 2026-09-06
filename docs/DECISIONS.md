@@ -1126,6 +1126,23 @@ A decision is recorded **before** code that depends on it is written.
 
 ---
 
+## DEC-0043 — Unreachable timer off while ESTABLISHED
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** User: on first enroll with ESTABLISHED the unreachable
+  timer was already running — incorrect and dangerous if it can BOOM a
+  healthy mesh.
+- **Decision (lab):** While `tunState == ESTABLISHED`, the unreachable
+  watch is **frozen** (UI shows OFF; `maybeUnreachableBoom` returns
+  false). Clocks start only after the tunnel **leaves** ESTABLISHED
+  (and only if `sawEstablished`). Pre-join HANDSHAKE still does not BOOM
+  (DEC-0041). Lock-screen K=5 unchanged.
+- **Consequences:** Hub-kill soak = drop mesh / leave ESTABLISHED, then
+  30s; not a ticking clock under MESH UP.
+
+---
+
 ## DEC-0042 — Lab enroll console (loopback plain HTTP, USB adb)
 
 - **Date:** 2026-09-06
