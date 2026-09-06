@@ -4,11 +4,15 @@ Local-only operator UI to set hub policy, attach a **phone number roster
 label**, and **Connect & Enroll** a USB-debuggable phone (install stub APK +
 push `atn-node.conf` + prompt Device Admin).
 
+**Preferred start:** [`../DEPLOY`](../DEPLOY) / `DEPLOY.ps1` (Windows) /
+`DEPLOY.sh` (Linux/macOS) — asks hosts/IPs, builds, starts hub + this UI,
+pre-fills `lab/deploy-state.json`.
+
 This is **not** mesh `atnhttp` (browsers cannot speak DEC-0009 tunnel HTTP —
 ISS-0009). Air-gapped signing is **release beta**. Real Knox Device Owner /
 USB charge-only waits on **T-0400** (`knoxsdk.jar`).
 
-## Start
+## Start (manual)
 
 ```bat
 set PATH=%GCC_BIN%;%PATH%

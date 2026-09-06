@@ -1,0 +1,17 @@
+#!/bin/sh
+# Cross-OS entry for Athanor lab deploy.
+#   Windows:  DEPLOY.ps1  (or: powershell -File .\DEPLOY.ps1)
+#   POSIX:    DEPLOY.sh
+# This launcher picks the right one when run as ./DEPLOY from Git Bash/WSL/macOS/Linux.
+set -eu
+ROOT=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
+cd "$ROOT"
+
+case "$(uname -s 2>/dev/null || echo unknown)" in
+  MINGW*|MSYS*|CYGWIN*)
+    exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$ROOT/DEPLOY.ps1" "$@"
+    ;;
+  *)
+    exec sh "$ROOT/DEPLOY.sh" "$@"
+    ;;
+esac

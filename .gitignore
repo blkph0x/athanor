@@ -58,6 +58,7 @@ lab/phone-bad.conf
 lab/hub-listen.log
 lab/hub-listen.err
 lab/edge/www/edge-state.json
+lab/deploy-state.json
 lab/enrollments/
 lab/enroll-keys/
 *.idsig

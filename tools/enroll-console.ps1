@@ -59,11 +59,32 @@ function Status-Json {
     return ($obj | ConvertTo-Json -Compress)
 }
 
+function Load-DeployDefaults {
+    $path = Join-Path $Root "lab\deploy-state.json"
+    $d = @{
+        peer_ipv4   = ""
+        peer_port   = "47000"
+        peer_ek     = ""
+        peer_domain = ""
+    }
+    if (-not (Test-Path $path)) { return $d }
+    try {
+        $j = Get-Content $path -Raw | ConvertFrom-Json
+        if ($j.phone_peer_ipv4) { $d.peer_ipv4 = [string]$j.phone_peer_ipv4 }
+        elseif ($j.hub_lan_ipv4) { $d.peer_ipv4 = [string]$j.hub_lan_ipv4 }
+        if ($j.peer_port) { $d.peer_port = [string]$j.peer_port }
+        if ($j.peer_ek) { $d.peer_ek = [string]$j.peer_ek }
+        if ($j.domain) { $d.peer_domain = [string]$j.domain }
+    } catch { }
+    return $d
+}
+
 function Page-Html([string]$flash, [string]$detail) {
     $dev = Find-AdbDevice
     $devLine = if ($dev) { "USB device: $dev (ready)" } else { "USB device: none (plug in with USB debugging)" }
     $apk = Test-Path "android\athanor-lab.apk"
     $apkLine = if ($apk) { "APK: android/athanor-lab.apk OK" } else { "APK: missing - run make android-apk" }
+    $defs = Load-DeployDefaults
     $flashHtml = ""
     if ($flash) {
         $cls = "flash"
@@ -74,7 +95,11 @@ function Page-Html([string]$flash, [string]$detail) {
     if ($detail) {
         $detailHtml = "<pre class='meta'><code>" + (Html-Encode $detail) + "</code></pre>"
     }
-    $html = @'
+    $peerDomain = Html-Encode $defs.peer_domain
+    $peerIpv4 = Html-Encode $defs.peer_ipv4
+    $peerPort = Html-Encode $defs.peer_port
+    $peerEk = Html-Encode $defs.peer_ek
+    $html = @"
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -99,7 +124,8 @@ code{font-family:Consolas,monospace;font-size:0.85rem}
 <h1>Athanor lab enroll</h1>
 <p class="sub">Loopback only (DEC-0042). Phone number is a local label - never SMS.
 Air-gap signing is release-beta later. Knox DO waits on knoxsdk.jar.
-This page stays up; Connect and Enroll re-runs whenever you plug a phone.</p>
+This page stays up; Connect and Enroll re-runs whenever you plug a phone.
+Hub fields pre-fill from <code>lab/deploy-state.json</code> after <code>DEPLOY.ps1</code>.</p>
 <div class="meta" id="status">
 <span class="live" id="devLine">__DEVLINE__</span><br/>
 <span id="apkLine">__APKLINE__</span><br/>
@@ -111,13 +137,13 @@ __DETAIL__
 <label>Phone number (roster label)</label>
 <input name="phone_number" required placeholder="+61..." pattern="\+?[0-9][0-9 \-]{5,30}[0-9]"/>
 <label>Hub domain (optional; resolves to peer_ipv4)</label>
-<input name="peer_domain" value="" placeholder="mesh.example.org"/>
+<input name="peer_domain" value="$peerDomain" placeholder="mesh.example.org"/>
 <label>Hub peer_ipv4 (dotted; leave blank to use domain)</label>
-<input name="peer_ipv4" value="" placeholder="hub or public IPv4"/>
+<input name="peer_ipv4" value="$peerIpv4" placeholder="hub or public IPv4"/>
 <label>Hub peer_port</label>
-<input name="peer_port" value="47000" required/>
+<input name="peer_port" value="$peerPort" required/>
 <label>Hub peer_ek (hex from atnnode listen)</label>
-<textarea name="peer_ek" rows="4" required placeholder="paste peer_ek hex"></textarea>
+<textarea name="peer_ek" rows="4" required placeholder="paste peer_ek hex">$peerEk</textarea>
 <label>diag</label>
 <select name="diag"><option value="1" selected>1 (lab soak)</option><option value="0">0</option></select>
 <label>flush_mode</label>
@@ -161,7 +187,7 @@ Receipts land under <code>lab/enrollments/</code> (gitignored).</p>
 </script>
 </body>
 </html>
-'@
+"@
     $bind = ("http" + "://" + "127.0.0.1:$Port/")
     $html = $html.Replace('__DEVLINE__', (Html-Encode $devLine))
     $html = $html.Replace('__APKLINE__', (Html-Encode $apkLine))

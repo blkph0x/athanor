@@ -73,8 +73,32 @@ def status_json():
     }
 
 
+def load_deploy_defaults():
+    d = {"peer_ipv4": "", "peer_port": "47000", "peer_ek": "", "peer_domain": ""}
+    path = ROOT / "lab" / "deploy-state.json"
+    if not path.is_file():
+        return d
+    try:
+        j = json.loads(path.read_text(encoding="utf-8"))
+        d["peer_ipv4"] = str(j.get("phone_peer_ipv4") or j.get("hub_lan_ipv4") or "")
+        if j.get("peer_port"):
+            d["peer_port"] = str(j["peer_port"])
+        if j.get("peer_ek"):
+            d["peer_ek"] = str(j["peer_ek"])
+        if j.get("domain"):
+            d["peer_domain"] = str(j["domain"])
+    except (OSError, json.JSONDecodeError, TypeError):
+        pass
+    return d
+
+
 def page(flash: str, detail: str) -> str:
     st = status_json()
+    defs = load_deploy_defaults()
+    peer_domain = html_escape(defs["peer_domain"])
+    peer_ipv4 = html_escape(defs["peer_ipv4"])
+    peer_port = html_escape(defs["peer_port"])
+    peer_ek = html_escape(defs["peer_ek"])
     dev_line = (
         f"USB device: {st['device']} (ready)"
         if st["device_ok"]
@@ -113,7 +137,7 @@ code{{font-family:Consolas,monospace;font-size:0.85rem}}
 <body>
 <h1>Athanor lab enroll</h1>
 <p class="sub">Loopback only (DEC-0042). Phone number is a local label - never SMS.
-POSIX companion to enroll-console.ps1.</p>
+Hub fields pre-fill from <code>lab/deploy-state.json</code> after <code>./DEPLOY.sh</code>.</p>
 <div class="meta" id="status">
 <span id="devLine">{html_escape(dev_line)}</span><br/>
 <span id="apkLine">{html_escape(apk_line)}</span><br/>
@@ -125,13 +149,13 @@ Bind: 127.0.0.1:{PORT}/
 <label>Phone number (roster label)</label>
 <input name="phone_number" required placeholder="+61..." pattern="\\+?[0-9][0-9 \\-]{{5,30}}[0-9]"/>
 <label>Hub domain (optional; resolves to peer_ipv4)</label>
-<input name="peer_domain" value="" placeholder="mesh.example.org"/>
+<input name="peer_domain" value="{peer_domain}" placeholder="mesh.example.org"/>
 <label>Hub peer_ipv4 (dotted; leave blank to use domain)</label>
-<input name="peer_ipv4" value="" placeholder="hub or public IPv4"/>
+<input name="peer_ipv4" value="{peer_ipv4}" placeholder="hub or public IPv4"/>
 <label>Hub peer_port</label>
-<input name="peer_port" value="47000" required/>
+<input name="peer_port" value="{peer_port}" required/>
 <label>Hub peer_ek (hex from atnnode listen)</label>
-<textarea name="peer_ek" rows="4" required placeholder="paste peer_ek hex"></textarea>
+<textarea name="peer_ek" rows="4" required placeholder="paste peer_ek hex">{peer_ek}</textarea>
 <label>diag</label>
 <select name="diag"><option value="1" selected>1 (lab soak)</option><option value="0">0</option></select>
 <label>flush_mode</label>

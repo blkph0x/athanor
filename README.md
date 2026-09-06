@@ -11,6 +11,10 @@ Rule of the foundry: **zero external libraries, zero third-party runtimes, zero 
 
 **Build (Windows, Linux, ARM, Android NDK):** see [`docs/BUILD.md`](docs/BUILD.md). Short version: `make test` on the target, or `make CC=aarch64-linux-gnu-gcc` to cross-compile.
 
+**Lab deploy (hub + enroll UI + first USB phone):** [`DEPLOY`](DEPLOY) /
+[`DEPLOY.ps1`](DEPLOY.ps1) (Windows) / [`DEPLOY.sh`](DEPLOY.sh) (Linux/macOS) —
+asks for hosts/IPs, builds, starts hub, opens admin site.
+
 **Crypto floor (no downgrade):** ML-KEM-1024 + ML-DSA-87 + ChaCha20-Poly1305 (256-bit) — [`docs/CRYPTO.md`](docs/CRYPTO.md), DEC-0033.  
 **Essential Eight map:** [`docs/ESSENTIAL8.md`](docs/ESSENTIAL8.md) (org IT baseline → Athanor analogues; we aim **above** that floor on the wire).
 

@@ -24,8 +24,12 @@ In-tree trackers are canonical so work continues when GitHub is unreachable
 | [DIAG_USECASES.md](DIAG_USECASES.md) | Diag build, multi-hub/IRC model, blackout failsafe, feature inventory. |
 | [LAB.md](LAB.md) | Phone + hub soak (stub APK, no Knox jar). |
 | [ENROLL.md](ENROLL.md) | Lab USB enroll console (`atnenroll serve`, DEC-0042). |
+| [EDGE.md](EDGE.md) | Public/cellular edge path (org fills IPs in panel). |
 | [CRYPTO.md](CRYPTO.md) | **Crypto floor** — category-5 PQ + AEAD; no downgrade (DEC-0033). |
 | [ESSENTIAL8.md](ESSENTIAL8.md) | ASD Essential Eight → Athanor map (honest gaps). |
+
+**Full lab deploy (start → first phone):** [`../DEPLOY`](../DEPLOY) —
+`DEPLOY.ps1` on Windows, `DEPLOY.sh` on Linux/macOS (`make all` + APK + hub + enroll UI).
 
 Root [`../README.md`](../README.md) **Status** section holds the live pipeline +
 testing-phase board; update it in the same commit as tip changes.

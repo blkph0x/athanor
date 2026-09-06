@@ -299,10 +299,34 @@ clean:
 #   vendor/knox/knoxsdk.jar missing  →  compile android/stubs + daemon (STUB BUILD)
 #   vendor/knox/knoxsdk.jar present →  -classpath that jar, daemon only (REAL)
 # Drop-in path is ONLY vendor/knox/knoxsdk.jar (not app/libs/). No Gradle product recipe.
-ANDROID_NDK ?= $(LOCALAPPDATA)/Android/Sdk/ndk/27.3.13750724
-ANDROID_CC  ?= $(ANDROID_NDK)/toolchains/llvm/prebuilt/windows-x86_64/bin/aarch64-linux-android21-clang.cmd
-ANDROID_AR  ?= $(ANDROID_NDK)/toolchains/llvm/prebuilt/windows-x86_64/bin/llvm-ar.exe
-ANDROID_JAR ?= $(LOCALAPPDATA)/Android/Sdk/platforms/android-31/android.jar
+# Host paths: Windows vs POSIX (Linux/macOS). Override ANDROID_SDK_ROOT / ANDROID_NDK.
+ifeq ($(OS),Windows_NT)
+  ANDROID_SDK_ROOT ?= $(LOCALAPPDATA)/Android/Sdk
+  ANDROID_HOST_TAG ?= windows-x86_64
+  ANDROID_CC_BIN = aarch64-linux-android21-clang.cmd
+  ANDROID_AR_BIN = llvm-ar.exe
+  ANDROID_APK_TOOL = powershell -NoProfile -ExecutionPolicy Bypass -File tools/android-apk.ps1
+else
+  ANDROID_SDK_ROOT ?= $(HOME)/Android/Sdk
+  UNAME_S := $(shell uname -s 2>/dev/null)
+  UNAME_M := $(shell uname -m 2>/dev/null)
+  ifeq ($(UNAME_S),Darwin)
+    ifeq ($(UNAME_M),arm64)
+      ANDROID_HOST_TAG ?= darwin-aarch64
+    else
+      ANDROID_HOST_TAG ?= darwin-x86_64
+    endif
+  else
+    ANDROID_HOST_TAG ?= linux-x86_64
+  endif
+  ANDROID_CC_BIN = aarch64-linux-android21-clang
+  ANDROID_AR_BIN = llvm-ar
+  ANDROID_APK_TOOL = sh tools/android-apk.sh
+endif
+ANDROID_NDK ?= $(ANDROID_SDK_ROOT)/ndk/27.3.13750724
+ANDROID_CC  ?= $(ANDROID_NDK)/toolchains/llvm/prebuilt/$(ANDROID_HOST_TAG)/bin/$(ANDROID_CC_BIN)
+ANDROID_AR  ?= $(ANDROID_NDK)/toolchains/llvm/prebuilt/$(ANDROID_HOST_TAG)/bin/$(ANDROID_AR_BIN)
+ANDROID_JAR ?= $(ANDROID_SDK_ROOT)/platforms/android-31/android.jar
 REAL_KNOX   := $(wildcard vendor/knox/knoxsdk.jar)
 
 JNI_SRC = android/jni/atn_jni.c
@@ -331,18 +355,29 @@ android-so:
 android-java:
 ifeq ($(REAL_KNOX),)
 	@echo "STUB BUILD: no vendor/knox/knoxsdk.jar - compiling android/stubs (DEC-0030/0038 lab APK OK)"
-	powershell -NoProfile -Command "Set-Content -Path 'android/java/com/athanor/daemon/AtnKnoxBuildFlags.java' -Encoding ASCII -Value 'package com.athanor.daemon;','public final class AtnKnoxBuildFlags {','    public static final boolean STUB_BUILD = true;','    private AtnKnoxBuildFlags() {}','}'"
+	@printf '%s\n' \
+		'package com.athanor.daemon;' \
+		'public final class AtnKnoxBuildFlags {' \
+		'    public static final boolean STUB_BUILD = true;' \
+		'    private AtnKnoxBuildFlags() {}' \
+		'}' > android/java/com/athanor/daemon/AtnKnoxBuildFlags.java
 	javac -source 8 -target 8 -bootclasspath "$(ANDROID_JAR)" -d android/out \
 		$(STUB_JAVA) $(DAEMON_JAVA)
 else
 	@echo "REAL knoxsdk.jar: $(REAL_KNOX)"
-	powershell -NoProfile -Command "Set-Content -Path 'android/java/com/athanor/daemon/AtnKnoxBuildFlags.java' -Encoding ASCII -Value 'package com.athanor.daemon;','public final class AtnKnoxBuildFlags {','    public static final boolean STUB_BUILD = false;','    private AtnKnoxBuildFlags() {}','}'"
+	@printf '%s\n' \
+		'package com.athanor.daemon;' \
+		'public final class AtnKnoxBuildFlags {' \
+		'    public static final boolean STUB_BUILD = false;' \
+		'    private AtnKnoxBuildFlags() {}' \
+		'}' > android/java/com/athanor/daemon/AtnKnoxBuildFlags.java
 	javac -source 8 -target 8 -bootclasspath "$(ANDROID_JAR)" -classpath "$(REAL_KNOX)" -d android/out \
 		$(DAEMON_JAVA)
 endif
 
 # Lab APK (DEC-0038): aapt2/d8/apksigner — no Gradle. USB-installable stub OK.
+# Windows: tools/android-apk.ps1   POSIX: tools/android-apk.sh
 android-apk: android-so android-java
-	powershell -NoProfile -ExecutionPolicy Bypass -File tools/android-apk.ps1
+	$(ANDROID_APK_TOOL)
 
 android: android-so android-java
