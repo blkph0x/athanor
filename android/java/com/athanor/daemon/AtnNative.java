@@ -22,6 +22,9 @@ public final class AtnNative {
     public static native int dmon2faEnroll(byte[] id, byte[] keyOut);
     public static native int dmon2faChallenge(byte[] id, byte[] chalOut);
     public static native int dmon2faVerify(byte[] id, byte[] chal, byte[] resp);
+    /* DEC-0027/0038: apply diag/flush/outage before lab tunnel. */
+    public static native int dmonSetPolicy(int diag, int flushMode,
+                                          int wipeArmed, int outageClass);
     /* DEC-0020/0022: DEC-0007 IPv4 tunnel. tunRecv returns n>=0 or -ATN_ERR_*. */
     public static final int TUN_CLOSED = 0;
     public static final int TUN_HANDSHAKE = 1;

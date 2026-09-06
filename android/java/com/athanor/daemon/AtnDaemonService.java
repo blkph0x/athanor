@@ -90,14 +90,19 @@ public class AtnDaemonService extends Service {
         Log.i(TAG, "knoxStub=" + stub);
         boolean ks = AtnKeystore.ensureKey();
         Log.i(TAG, "keystore=" + ks);
-        ComponentName admin = new ComponentName(this, AtnDeviceAdminReceiver.class);
-        boolean usb = AtnKnoxPolicy.applyUsbChargeOnly(this);
-        boolean pw = AtnKnoxPolicy.applyPasswordPolicy(this, admin);
-        Log.i(TAG, "usb=" + usb + " password=" + pw + " (false on stub)");
+        /* DEC-0038: lab stub skips USB charge-only + Knox password (release). */
+        if (stub) {
+            Log.i(TAG, "lab stub: skip USB/password Knox policy");
+        } else {
+            ComponentName admin = new ComponentName(this, AtnDeviceAdminReceiver.class);
+            boolean usb = AtnKnoxPolicy.applyUsbChargeOnly(this);
+            boolean pw = AtnKnoxPolicy.applyPasswordPolicy(this, admin);
+            Log.i(TAG, "usb=" + usb + " password=" + pw);
+        }
         if (ks && loadNative()) {
             startLabTunnel();
         }
-        tickHandler.postDelayed(ticker, BUCKET_MS);
+        tickHandler.postDelayed(ticker, TICK_MS);
     }
 
     private boolean loadNative() {
@@ -188,6 +193,10 @@ public class AtnDaemonService extends Service {
             Log.e(TAG, "atn-node.conf not ready");
             return;
         }
+        int pol = AtnNative.dmonSetPolicy(c.diag, c.flushMode, c.wipeArmed,
+                c.outageClass);
+        Log.i(TAG, "lab policy rc=" + pol + " diag=" + c.diag
+                + " flush=" + c.flushMode);
         int rc = AtnNative.tunInitiator(c.ek);
         if (rc == 0) {
             rc = AtnNative.tunBind(0);

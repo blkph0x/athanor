@@ -21,6 +21,11 @@ public class AtnPowerReceiver extends BroadcastReceiver {
         if (!Intent.ACTION_POWER_CONNECTED.equals(intent.getAction())) {
             return;
         }
+        /* DEC-0038: never assert USB charge-only on stub lab (keeps adb). */
+        if (AtnKnoxBuild.isStub()) {
+            Log.i(TAG, "power connected: lab stub skips USB policy");
+            return;
+        }
         boolean usb = AtnKnoxPolicy.applyUsbChargeOnly(context);
         Log.i(TAG, "power connected usb=" + usb);
     }

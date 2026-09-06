@@ -4,6 +4,16 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0033 — DEC-0038 stub lab APK path (2026-09-06)
+
+- **Host:** Windows x86_64; Android SDK build-tools 34.0.0; NDK r27d.
+- **Policy:** USB-installable stub APK for phone↔`atnnode` hub soak;
+  USB charge-only skipped on stub; no Gradle.
+- **Commands:** `make android-apk` → `android/athanor-lab.apk`.
+- **SoT:** 4.x still `[ ]`. T-0805 done; T-0401b open for live soak.
+
+---
+
 ## BN-0032 — DEC-0037 lab online / release NIC-down (2026-09-06)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0

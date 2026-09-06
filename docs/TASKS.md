@@ -11,13 +11,14 @@ Status: `open` | `in_progress` | `blocked` | `done`
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
+| T-0401b | open | REQ-4.1 | Lab: USB install stub APK + single-hub soak (DEC-0038 / docs/LAB.md) |
 | T-0400 | blocked | REQ-4.1 | Drop `vendor/knox/knoxsdk.jar` (Partner / PTR) then device-enroll |
 
 ---
 
 ## Backlog (do not start early)
 
-Phase 4 device enroll waits on T-0400. Phase 5 air-gap **release** host
+Phase 4 Device Owner waits on T-0400. Phase 5 air-gap **release** host
 (REQ-5.1) unmeasured. ISS-0003 aarch64/S24 Poly1305. ISS-0007 IPv6.
 Diag-first flash when jar lands (DEC-0027).
 **T-0601 / ISS-0021:** release-only NIC-down measure (DEC-0037) — not lab.
@@ -75,3 +76,4 @@ Diag-first flash when jar lands (DEC-0027).
 | T-0802 | done | REQ-2.2/3.3 | DEC-0034: console 2FA sets `outage_class` |
 | T-0803 | done | REQ-2.2 | DEC-0036: WHATWG form percent-decode (ISS-0011) |
 | T-0804 | done | REQ-6.2 | DEC-0037: lab online; NIC-down = release gate only |
+| T-0805 | done | REQ-4.1 | DEC-0038: stub lab APK + skip USB policy; docs/LAB.md |

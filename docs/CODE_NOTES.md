@@ -40,13 +40,16 @@ same commit.
 | `include/atn_hb.h` / `src/hb/atn_hb.c` | REQ-3.3 | DEC-0014 / 0025 | HMAC hb; WARN/vote/grace; 16 peers |
 | `include/atn_sync.h` / `src/sync/atn_sync.c` | — | DEC-0025 | Recursive mutex (CS / pthread) |
 | `tests/test_hb.c` | REQ-3.3 | gates | 3-node live, forge, silence wipe, one UDP hop, 3-pair mesh + lossy AC |
-| `android/` | REQ-4.1 | DEC-0015 | Daemon Java + JNI. Stubs until knoxsdk.jar. |
-| `android/jni/atn_jni.c` | REQ-4.1 | DEC-0015 | JNI to libatn.so |
-| `docs/KNOX.md` | REQ-4.x | DEC-0015/0019/0030 | Stub→jar path, toolchain, cited APIs |
+| `android/` | REQ-4.1 | DEC-0015/0038 | Daemon + lab APK. Stubs until knoxsdk.jar. |
+| `android/jni/atn_jni.c` | REQ-4.1 | DEC-0015/0038 | JNI to libatn.so; dmonSetPolicy |
+| `docs/KNOX.md` | REQ-4.x | DEC-0015/0019/0030/0038 | Stub→jar path, lab APK, toolchain |
+| `docs/LAB.md` | REQ-4.1 | DEC-0038 | Phone↔hub USB lab recipe |
+| `tools/android-apk.ps1` | REQ-4.1 | DEC-0038 | aapt2/d8/apksigner pack (no Gradle) |
 | `vendor/knox/README.md` | REQ-4.1 | DEC-0015/0030 | Drop-in path for knoxsdk.jar |
 | `android/stubs/**` | REQ-4.1 | DEC-0019/0030 | Same packages as Samsung; ATN_STUB |
 | `android/java/.../AtnKnoxBuild.java` | REQ-4.1 | DEC-0019/0030 | `isStub()` via ATN_STUB field |
 | `android/java/.../AtnKnoxPolicy.java` | REQ-4.2/4.3 | DEC-0015/0017/0030 | USB + password; stub throws |
+| `android/java/.../AtnLabActivity.java` | REQ-4.1 | DEC-0038 | Lab launcher Activity |
 | `include/atn_dmon.h` / `src/dmon/atn_dmon.c` | REQ-4.1/4.4 | DEC-0016/0017/0020/0021/0027/0029/0031 | Session; LOG_ONLY; blackout HOLD; hub failover |
 | `tools/src.list` | REQ-5.1 | DEC-0020 | Frozen path list for `atnsign manifest` |
 | `tools/export.ps1` | REQ-6.3 | DEC-0024 / 0026 | Copy src.list to export/; refuse jars; `make export-tree` |
@@ -62,7 +65,7 @@ same commit.
 | `docs/SIGN.md` | REQ-5.1 | DEC-0019/0021/0027 | Manifest + report wire format |
 | `docs/DIAG_USECASES.md` | — | planning | Diag / multi-hub / blackout inventory |
 | `android/java/.../AtnKeystore.java` | REQ-4.1 | DEC-0016/0017 | AndroidKeystore AES-256 GCM wrap, StrongBox then TEE |
-| `android/java/.../AtnPowerReceiver.java` | REQ-4.3 | DEC-0017 | Re-assert USB on ACTION_POWER_CONNECTED |
+| `android/java/.../AtnPowerReceiver.java` | REQ-4.3 | DEC-0017/0038 | USB on power; skipped on stub |
 | `android/java/.../AtnBootReceiver.java` | REQ-4.1 | DEC-0015 | Start daemon on BOOT_COMPLETED |
 | `src/sign/atn_sign_cli.c` | REQ-5.1 | DEC-0019 / 0021 | `atnsign` CLI (manifest + report) |
 | `tests/test_sign.c` | REQ-5.1 | gates | sort, sign, verify, tamper; report diag |

@@ -1,13 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- REQ-4.1 daemon. INTERNET is DEC-0007 UDP to a configured lab node, not a CDN. -->
+<!-- REQ-4.1 daemon. INTERNET is DEC-0007 UDP to a configured lab node, not a CDN.
+     DEC-0038: lab stub APK may be USB-installed for connectivity; debuggable. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.athanor.daemon">
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="31" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="com.samsung.android.knox.permission.KNOX_RESTRICTION_MGMT" />
-    <application android:label="Athanor" android:allowBackup="false">
+    <application
+        android:label="Athanor Lab"
+        android:allowBackup="false"
+        android:debuggable="true">
+        <activity
+            android:name=".AtnLabActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <service
             android:name=".AtnDaemonService"
             android:exported="false"

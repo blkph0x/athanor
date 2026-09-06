@@ -196,6 +196,37 @@ Java_com_athanor_daemon_AtnNative_dmonHbState(JNIEnv *env, jclass cls)
 }
 
 JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_dmonSetPolicy(JNIEnv *env, jclass cls,
+                                                jint diag, jint flushMode,
+                                                jint wipeArmed, jint outageClass)
+{
+    (void)env;
+    (void)cls;
+    dmon_once();
+    if (flushMode != ATN_CFG_FLUSH_ZEROIZE &&
+        flushMode != ATN_CFG_FLUSH_LOG_ONLY) {
+        return ATN_ERR_PARAM;
+    }
+    if (flushMode == ATN_CFG_FLUSH_LOG_ONLY && diag == 0) {
+        return ATN_ERR_PARAM;
+    }
+    if (diag != 0 && diag != 1) {
+        return ATN_ERR_PARAM;
+    }
+    if (wipeArmed != 0 && wipeArmed != 1) {
+        return ATN_ERR_PARAM;
+    }
+    if (outageClass < 0 || outageClass > (jint)ATN_CFG_OUTAGE_CAPTURE) {
+        return ATN_ERR_PARAM;
+    }
+    g_dmon.diag = (uint8_t)diag;
+    g_dmon.flush_mode = (uint8_t)flushMode;
+    g_dmon.wipe_armed = (uint8_t)wipeArmed;
+    g_dmon.outage_class = (uint8_t)outageClass;
+    return ATN_OK;
+}
+
+JNIEXPORT jint JNICALL
 Java_com_athanor_daemon_AtnNative_dmon2faEnroll(JNIEnv *env, jclass cls,
                                                 jbyteArray id, jbyteArray keyOut)
 {

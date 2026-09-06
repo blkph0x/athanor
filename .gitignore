@@ -51,3 +51,7 @@ export/
 secrets/
 keys/
 *.env
+android/debug.keystore
+android/apk-work/
+lab/phone-atn-node.conf
+*.idsig

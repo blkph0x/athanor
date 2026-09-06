@@ -818,9 +818,10 @@ A decision is recorded **before** code that depends on it is written.
   - **Test vs production signal:** `AtnKnoxBuild.isStub()` / log
     `knoxStub=` (stub field present). Not a Gradle `USE_REAL_KNOX`
     BuildConfig (we have no Gradle product recipe).
-  - **Lab first:** stub/`diag=1` builds are compile+PC gates only.
-    Do not flash stub policy as “enrolled Knox.” Real device SoT 4.x
-    still needs the jar + Device/Profile Owner (T-0400 / ISS-0016).
+  - **Lab first:** stub/`diag=1` builds are for PC gates **and** USB lab
+    APK connectivity (DEC-0038). Do not claim stub policy as “enrolled
+    Knox.” Real device SoT 4.x still needs the jar + Device/Profile
+    Owner (T-0400 / ISS-0016).
   - Document the flow in `docs/KNOX.md` and `vendor/knox/README.md`.
 - **Consequences:** Developers write final-shaped Knox call sites now;
   jar drop is a path swap. Foreign paste leftovers stay out of tree.
@@ -1020,3 +1021,32 @@ A decision is recorded **before** code that depends on it is written.
 - **Consequences:** ISS-0021 stays open until release measure; lab work
   continues online. No Admin elevation required for ordinary Athanor
   coding/gates.
+
+---
+
+## DEC-0038 — Stub lab APK for phone↔hub connectivity (no Knox yet)
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** User: start phone + site testing with one hub and
+  makeshift/mock policy; USB plug-in for adb; USB charge-only is a
+  **release** requirement; keep stubs until `knoxsdk.jar` drop-in.
+  DEC-0030 already owns stubs+Makefile (rejects Gradle/Node). DEC-0027
+  owns diag/`log_only`. Prior wording that stub builds are “compile+PC
+  only” blocked the lab path the user needs.
+- **Decision:**
+  - **Allowed now:** USB-install a **stub** APK (`make android-apk`) for
+    LAN connectivity soak: phone initiator ↔ `atnnode listen` hub.
+    Mesh crypto is real (ML-KEM-1024 + AEAD). Conf: `diag=1` +
+    `flush_mode=log_only`.
+  - **Skipped on stub:** USB charge-only, Knox password/biometric policy
+    (must keep adb). `AtnKnoxBuild.isStub()` gates this; PowerReceiver
+    also skips USB on stub.
+  - **Packaging:** aapt2 + d8 + apksigner via Makefile/`tools/android-apk.ps1`
+    — **no** Gradle, AndroidX, npm, or `USE_REAL_KNOX` flag (DEC-0030).
+  - **Claims forbidden:** do not mark SoT REQ-4.x `[X]`; do not call the
+    stub build “enrolled Knox.” Log `knoxStub=true`.
+  - **Later:** jar at `vendor/knox/knoxsdk.jar` → same APK recipe with
+    REAL classpath → Device/Profile Owner + USB/password release gates.
+- **Consequences:** `docs/LAB.md` is the operator recipe. T-0400 remains
+  the Partner jar gate for release Knox.

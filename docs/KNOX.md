@@ -9,10 +9,11 @@ We already compile a **testing** Android Java tree **without**
 
 | Stage | What you have | What you run | Flash phone? |
 |---|---|---|---|
-| Lab / CI (now) | No jar | `make android-java` → **STUB BUILD** | No |
-| Diag soak (PC) | `diag=1` conf (DEC-0027) | `make test` + `atnnode` | No |
-| Partner jar lands | `vendor/knox/knoxsdk.jar` | `make android-java` → **REAL** | Still only after enroll |
-| Enrolled S24–S26 | jar + Device/Profile Owner | device gates REQ-4.x | Yes (SoT still open until gates) |
+| Lab / CI compile | No jar | `make android-java` → **STUB BUILD** | Optional |
+| Lab connectivity (DEC-0038) | No jar + APK | `make android-apk` → USB `adb install` | **Yes (stub)** |
+| Diag soak (PC hub) | `diag=1` conf (DEC-0027) | `atnnode listen` + phone | Yes (stub) |
+| Partner jar lands | `vendor/knox/knoxsdk.jar` | `make android-apk` → **REAL** | Still only after enroll for SoT |
+| Enrolled S24–S26 | jar + Device/Profile Owner | device gates REQ-4.x | Yes (release) |
 
 ### Exact paths (this repo — not “app/libs”)
 
@@ -72,9 +73,10 @@ LAN DNS on this host (`mydevice.lan` / `10.1.1.1`) may not resolve
 
 Until step 4, `make android-java` prints `STUB BUILD` and compiles
 `android/stubs` (`ATN_STUB=true`). Policy APIs throw
-`UnsupportedOperationException`. **Do not flash a stub build** as an
-enrolled Knox device. Daemon must log stub state so we cannot pretend
-USB/password policy stuck.
+`UnsupportedOperationException`. **Lab stub APK (DEC-0038)** may be
+USB-installed for mesh connectivity; USB/password Knox policy is
+**skipped** on stub so adb survives. Do **not** claim enrolled Knox or
+flip SoT 4.x until the real jar + Device/Profile Owner gates.
 
 ## Makefile contract
 

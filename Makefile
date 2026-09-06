@@ -160,7 +160,7 @@ CLI_SIGN = atnsign$(EXE)
 CLI_NODE = atnnode$(EXE)
 LIB_BIN  = libatn_crypto.a
 
-.PHONY: all test lib info clean ci test-unsigned-char android-so android-java android manifest report export-tree
+.PHONY: all test lib info clean ci test-unsigned-char android-so android-java android android-apk manifest report export-tree
 
 
 all: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(TEST_CFG) $(TEST_FUZZ) $(TEST_RECIPE) $(TEST_HUB) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN) $(CLI_NODE)
@@ -310,7 +310,8 @@ DAEMON_JAVA = \
 	android/java/com/athanor/daemon/AtnBootReceiver.java \
 	android/java/com/athanor/daemon/AtnPowerReceiver.java \
 	android/java/com/athanor/daemon/AtnNodeConfig.java \
-	android/java/com/athanor/daemon/AtnDaemonService.java
+	android/java/com/athanor/daemon/AtnDaemonService.java \
+	android/java/com/athanor/daemon/AtnLabActivity.java
 STUB_JAVA = \
 	android/stubs/com/samsung/android/knox/EnterpriseDeviceManager.java \
 	android/stubs/com/samsung/android/knox/restriction/RestrictionPolicy.java \
@@ -322,7 +323,7 @@ android-so:
 
 android-java:
 ifeq ($(REAL_KNOX),)
-	@echo "STUB BUILD: no vendor/knox/knoxsdk.jar - compiling android/stubs (DEC-0030; not a device build)"
+	@echo "STUB BUILD: no vendor/knox/knoxsdk.jar - compiling android/stubs (DEC-0030/0038 lab APK OK)"
 	javac -source 8 -target 8 -bootclasspath "$(ANDROID_JAR)" -d android/out \
 		$(STUB_JAVA) $(DAEMON_JAVA)
 else
@@ -330,5 +331,9 @@ else
 	javac -source 8 -target 8 -bootclasspath "$(ANDROID_JAR)" -classpath "$(REAL_KNOX)" -d android/out \
 		$(DAEMON_JAVA)
 endif
+
+# Lab APK (DEC-0038): aapt2/d8/apksigner — no Gradle. USB-installable stub OK.
+android-apk: android-so android-java
+	powershell -NoProfile -ExecutionPolicy Bypass -File tools/android-apk.ps1
 
 android: android-so android-java

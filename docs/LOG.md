@@ -4,6 +4,15 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0038: stub lab APK for phone↔hub (no Knox yet)
+
+- User: single hub + mock/no Knox; USB adb; USB charge-only is release-only.
+- Keep Makefile stubs (reject Gradle/Node). `make android-apk` packs
+  aapt2/d8/apksigner APK; Activity starts daemon; stub skips USB/password.
+- `docs/LAB.md` recipe. SoT 4.x still `[ ]` until T-0400.
+
+---
+
 ## 2026-09-06 — DEC-0037: lab online; NIC-down is release-only
 
 - User: do not air-gap the development/testing host; that is counter
