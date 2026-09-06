@@ -238,7 +238,7 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | Outage class (blackout ≠ Faraday) | **Yes** | DEC-0029; console 2FA set (DEC-0034) |
 | Lab hub binary | **Yes** | `atnnode listen\|connect\|demo`; connect walks hubs (DEC-0031) |
 | Enrolled Knox S24–S26 | **No** | Waiting jar + Device Owner for SoT |
-| Stub lab APK ↔ hub (USB adb) | **Yes** | DEC-0038/0039; live UI + 30s/code BOOM (BN-0036) |
+| Stub lab APK ↔ hub (USB adb) | **Yes** | DEC-0038–0040; silence + lock-screen K=5 BOOM |
 | Air-gap sign host / Faraday bag | **No** | REQ-5.x / 5.3 open |
 
 ### Requirement board

@@ -4,6 +4,15 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0040 lab BOOM from real lock-screen fails
+
+- User: must test from locked phone; detect 5 failed **device** unlocks
+  (not only in-app codes). Wired `onPasswordFailed` + Device Admin
+  prompt; stub skips USB/12-char policy. Lab BOOM at K=5, keys kept.
+- Recipe in `docs/LAB.md`. SoT 4.2 still `[ ]` (no Knox enroll).
+
+---
+
 ## 2026-09-06 — DEC-0039 lab BOOM (30s silence + code x5)
 
 - User: Faraday/airplane/no-Wi‑Fi proxy; >30s no hub => 

@@ -71,9 +71,21 @@ Hub prints `ESTABLISHED`, then `recv 4` when you tap ping.
 | Lab ping | hub `recv 4` | |
 | Start while up | log `already ESTABLISHED` | |
 | Hub kill / airplane / no Wi‑Fi >30s | **BOOM phone is dead now** (DEC-0039) | lab only; keys kept |
-| Wrong unlock code x5 | **BOOM** (2FA LOCKOUT) | lab only |
+| **Locked phone: wrong PIN/password ×5** | **BOOM** via Device Admin `watch-login` (DEC-0040) | Activate admin in app first; use PIN not fingerprint-only |
+| Optional in-app 2FA code ×5 | **BOOM** (app soak) | not a substitute for lock screen |
 | Start/reconnect | clears lab BOOM for another cycle | |
 | USB charge-only / real Faraday bag / Knox | | release / T-0400 / ISS-0019 |
+
+### Lock-screen K=5 recipe (DEC-0040)
+
+1. Open Athanor Lab → **Enable lock-screen watch (Device Admin)** → Activate.
+2. Confirm status shows `deviceAdmin=ON`.
+3. Press power to lock the phone.
+4. Wake lock screen; enter the **wrong PIN/password** five times
+   (biometric-only fails may not count on all OEMs).
+5. Notification / next unlock of the app: **BOOM phone is dead now**
+   (`device unlock fail x5`). Keys kept with `log_only`.
+6. **Start / reconnect** resets lab BOOM for another cycle.
 
 ## 5. What stub does / does not
 

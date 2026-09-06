@@ -1076,3 +1076,31 @@ A decision is recorded **before** code that depends on it is written.
   - **Reset:** Start/reconnect clears lab BOOM for another soak cycle.
 - **Consequences:** Closes the lab side of ISS-0024 for 30s silence.
   Real Faraday bag timing remains ISS-0019 / release.
+
+---
+
+## DEC-0040 — Lab BOOM from real lock-screen unlock fails (K=5)
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** User: BOOM must be tested from a **locked phone** using
+  the **actual** unlock PIN/password fails (not only the in-app EditText).
+  DEC-0017 already cites AOSP `DeviceAdminReceiver.onPasswordFailed` +
+  `getCurrentFailedPasswordAttempts` + K=5. `device_admin.xml` already
+  has `watch-login`. Stub builds skipped activating that path.
+- **Decision:**
+  - **Lab (stub):** prompt operator to **Activate device admin** (AOSP
+    `ACTION_ADD_DEVICE_ADMIN`). Do **not** apply USB charge-only or
+    12-char Knox/DPM password quality (keep adb / existing PIN).
+  - On `onPasswordFailed`, read `getCurrentFailedPasswordAttempts()`;
+    at **≥5** → lab BOOM `BOOM phone is dead now` (reason:
+    `device unlock fail xN`), notification update; with `log_only` do
+    **not** delete Keystore wrap (DEC-0027).
+  - In-app “Submit code” remains an optional 2FA soak control; lock
+    screen is the required device test.
+  - **Production (!stub):** DEC-0017 unchanged (flush + delete wrap +
+    `lockNow`).
+  - Biometric-only fails may not increment DPM password-fail count on
+    all OEMs; lab recipe uses wrong **PIN/password** at the lock screen.
+- **Consequences:** Lab can prove REQ-4.2-class K=5 without knoxsdk.jar.
+  SoT REQ-4.2 still `[ ]` until enrolled Knox + password policy (T-0400).

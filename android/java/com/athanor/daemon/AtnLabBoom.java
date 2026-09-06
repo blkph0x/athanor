@@ -21,6 +21,7 @@ public final class AtnLabBoom {
     private static volatile long lastHubMs;
     private static volatile boolean sawEstablished;
     private static volatile int pinFails;
+    private static volatile int deviceUnlockFails;
     private static volatile boolean enrolled;
 
     private AtnLabBoom() {}
@@ -31,6 +32,7 @@ public final class AtnLabBoom {
         lastHubMs = 0L;
         sawEstablished = false;
         pinFails = 0;
+        deviceUnlockFails = 0;
     }
 
     public static boolean isDead() {
@@ -43,6 +45,14 @@ public final class AtnLabBoom {
 
     public static int pinFails() {
         return pinFails;
+    }
+
+    public static int deviceUnlockFails() {
+        return deviceUnlockFails;
+    }
+
+    public static synchronized void noteDeviceUnlockFail(int n) {
+        deviceUnlockFails = n;
     }
 
     public static long lastHubMs() {

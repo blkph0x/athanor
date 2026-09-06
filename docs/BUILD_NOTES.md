@@ -4,6 +4,15 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0037 — DEC-0040 lock-screen watch (2026-09-06)
+
+- **Change:** Lab APK prompts Device Admin; stub `onPasswordFailed` →
+  BOOM at fail count ≥5 without wrap delete.
+- **Operator proof:** Activate admin → lock → wrong PIN ×5 → BOOM notif.
+- **SoT:** REQ-4.2 still `[ ]`. Biometric-only may not increment count.
+
+---
+
 ## BN-0036 — DEC-0039 lab BOOM on S24 (2026-09-06)
 
 - **Device:** SM-S901E; stub APK; `diag=1` / `flush_mode=log_only`.

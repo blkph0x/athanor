@@ -1,6 +1,7 @@
 package com.athanor.daemon;
 
 import android.app.Activity;
+import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -19,12 +20,13 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 /**
- * Lab launcher (DEC-0038/0039). Live status + BOOM soak controls.
+ * Lab launcher (DEC-0038/0039/0040). Live status + BOOM soak controls.
  * Not a production UI.
  */
 public class AtnLabActivity extends Activity {
     private static final String TAG = "atn-lab";
     private static final long UI_MS = 500L;
+    private static final int REQ_ADMIN = 41;
 
     private TextView status;
     private TextView boomBanner;
@@ -77,10 +79,21 @@ public class AtnLabActivity extends Activity {
         root.addView(status);
 
         TextView note = new TextView(this);
-        note.setText("LAB only (DEC-0039): hub silence >30s or wrong code x5"
-                + " => BOOM (log_only keeps keys).\n"
-                + "Airplane / no Wi-Fi is a silence proxy, not Faraday SoT.");
+        note.setText("LAB (DEC-0040): enable Device Admin, lock the phone,"
+                + " enter wrong PIN/password 5 times => BOOM.\n"
+                + "Use real lock screen (not fingerprint-only). "
+                + "Hub silence >30s also BOOMs. Keys kept (log_only).");
         root.addView(note);
+
+        Button adminBtn = new Button(this);
+        adminBtn.setText("Enable lock-screen watch (Device Admin)");
+        adminBtn.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View v) {
+                requestDeviceAdmin();
+            }
+        });
+        root.addView(adminBtn);
 
         Button start = new Button(this);
         start.setText("Start / reconnect mesh");
@@ -104,12 +117,12 @@ public class AtnLabActivity extends Activity {
         root.addView(ping);
 
         codeBox = new EditText(this);
-        codeBox.setHint("lab unlock code (wrong x5 = BOOM)");
+        codeBox.setHint("optional app 2FA soak (not lock screen)");
         codeBox.setSingleLine(true);
         root.addView(codeBox);
 
         Button submit = new Button(this);
-        submit.setText("Submit code");
+        submit.setText("Submit app code (optional)");
         submit.setOnClickListener(new android.view.View.OnClickListener() {
             @Override
             public void onClick(android.view.View v) {
@@ -129,8 +142,24 @@ public class AtnLabActivity extends Activity {
 
         setContentView(root);
         appendLog("knoxStub=" + stub);
+        if (!AtnDeviceAdminReceiver.isAdminActive(this)) {
+            appendLog("Device Admin OFF - tap Enable lock-screen watch");
+        } else {
+            appendLog("Device Admin ON - lock phone and fail PIN x5");
+        }
         if (getIntent() != null && getIntent().getBooleanExtra("autostart", false)) {
             startDaemon(true);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_ADMIN) {
+            boolean on = AtnDeviceAdminReceiver.isAdminActive(this);
+            appendLog(on ? "Device Admin activated"
+                    : "Device Admin NOT activated (user declined)");
+            paintStatus();
         }
     }
 
@@ -139,6 +168,10 @@ public class AtnLabActivity extends Activity {
         super.onResume();
         IntentFilter f = new IntentFilter(AtnDaemonService.ACTION_LAB_BOOM);
         registerReceiver(boomRx, f);
+        int n = AtnDeviceAdminReceiver.failedUnlockAttempts(this);
+        if (n >= 0) {
+            AtnLabBoom.noteDeviceUnlockFail(n);
+        }
         ui.removeCallbacks(refresh);
         ui.post(refresh);
     }
@@ -152,6 +185,22 @@ public class AtnLabActivity extends Activity {
             /* not registered */
         }
         super.onPause();
+    }
+
+    private void requestDeviceAdmin() {
+        if (AtnDeviceAdminReceiver.isAdminActive(this)) {
+            appendLog("Device Admin already active");
+            return;
+        }
+        Intent intent = new Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN);
+        intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN,
+                AtnDeviceAdminReceiver.component(this));
+        intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                "Athanor LAB watches lock-screen unlock fails. "
+                        + "After 5 wrong PIN/password attempts the lab "
+                        + "shows BOOM (keys kept on diag/log_only).");
+        startActivityForResult(intent, REQ_ADMIN);
+        appendLog("system Device Admin prompt opened");
     }
 
     private void startDaemon(boolean reconnect) {
@@ -208,17 +257,17 @@ public class AtnLabActivity extends Activity {
                 appendLog("challenge rc=" + crc);
                 return;
             }
-            /* Any typed lab code is treated as wrong HMAC material (soak). */
             byte[] resp = new byte[64];
             byte[] raw = typed.getBytes("UTF-8");
             int n = raw.length < 64 ? raw.length : 64;
             System.arraycopy(raw, 0, resp, 0, n);
             int vrc = AtnNative.dmon2faVerify(AtnLabBoom.LAB_ID, chal, resp);
             int fails = AtnLabBoom.noteWrongCode();
-            appendLog("code fail #" + fails + "/" + AtnLabBoom.FAIL_MAX
+            appendLog("app-code fail #" + fails + "/" + AtnLabBoom.FAIL_MAX
                     + " verifyRc=" + vrc);
             if (vrc == AtnNative.ERR_LOCKOUT || fails >= AtnLabBoom.FAIL_MAX) {
-                AtnLabBoom.trigger("wrong code x" + AtnLabBoom.FAIL_MAX + " (lab)");
+                AtnLabBoom.trigger("wrong app code x" + AtnLabBoom.FAIL_MAX
+                        + " (lab)");
                 appendLog("BOOM phone is dead now");
                 Intent svc = new Intent(this, AtnDaemonService.class);
                 svc.setAction(AtnDaemonService.ACTION_LAB_BOOM);
@@ -244,6 +293,11 @@ public class AtnLabActivity extends Activity {
             return;
         }
         boomBanner.setVisibility(android.view.View.GONE);
+        boolean admin = AtnDeviceAdminReceiver.isAdminActive(this);
+        int unlockFails = AtnDeviceAdminReceiver.failedUnlockAttempts(this);
+        if (unlockFails < 0) {
+            unlockFails = AtnLabBoom.deviceUnlockFails();
+        }
         String line;
         try {
             int st = AtnNative.tunState();
@@ -252,9 +306,14 @@ public class AtnLabActivity extends Activity {
                     + "  localUDP=" + port
                     + "\nknoxStub=" + AtnKnoxBuild.isStub()
                     + "  platform=" + AtnNative.platformId()
-                    + "\ncodeFails=" + AtnLabBoom.pinFails()
+                    + "\ndeviceAdmin=" + (admin ? "ON" : "OFF")
+                    + "  unlockFails=" + unlockFails + "/"
+                    + AtnKnoxPolicy.PASSWORD_FAIL_FLUSH
+                    + "\nappCodeFails=" + AtnLabBoom.pinFails()
                     + "/" + AtnLabBoom.FAIL_MAX;
-            if (st == AtnNative.TUN_ESTABLISHED) {
+            if (!admin) {
+                line += "\nENABLE DEVICE ADMIN then lock + wrong PIN x5";
+            } else if (st == AtnNative.TUN_ESTABLISHED) {
                 long quiet = 0L;
                 if (AtnLabBoom.lastHubMs() > 0L) {
                     quiet = (System.currentTimeMillis() - AtnLabBoom.lastHubMs())
@@ -267,7 +326,8 @@ public class AtnLabActivity extends Activity {
                 line += "\ntap Start/reconnect after hub is listening";
             }
         } catch (Throwable t) {
-            line = "native not ready: " + t.getMessage();
+            line = "native not ready: " + t.getMessage()
+                    + "\ndeviceAdmin=" + (admin ? "ON" : "OFF");
         }
         status.setText(line);
     }
