@@ -4,10 +4,21 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0039 — DEC-0041 narrowed: join-gated unreachable BOOM (2026-09-06)
+
+- **Policy:** airplane/hub-silence BOOM only after `sawEstablished`.
+  Pre-join HANDSHAKE does not BOOM. Lock-screen K=5 unchanged.
+- **Retest:** hub `listen 47000` + S24 → UI ESTABLISHED / MESH UP;
+  post-join airplane BOOM confirmed by operator.
+- **Waiting:** T-0400 `knoxsdk.jar`. SoT 4.x / 5.3 still `[ ]`.
+
+---
+
 ## BN-0038 — DEC-0041 airplane/handshake BOOM (2026-09-06)
 
-- **Fix:** Lab soak arms on tunnel start; `maybeUnreachableBoom` covers
-  airplane/no-net and HANDSHAKE timeout at 30s (not only post-ESTABLISHED).
+- **Fix:** Lab soak arms on tunnel start; unreachable timer added.
+- **Superseded in part by BN-0039:** pre-join handshake BOOM removed
+  per operator (join first, then silence/airplane).
 - **SoT:** unchanged.
 
 ---

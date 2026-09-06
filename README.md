@@ -207,10 +207,11 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 |---|---|---|
 | Local gate | `make test` (Windows MinGW gcc 11.3.0 on builder) | Green on tip |
 | CI | `.github/workflows/ci.yml` → same `make test` | Badge above |
-| Stub Knox compile | `make android-java` (no jar → STUB) | Green; not a device build |
+| Stub Knox compile | `make android-java` / `make android-apk` | Green stub lab APK |
 | Real Knox | `vendor/knox/knoxsdk.jar` drop-in | **Blocked** Partner / T-0400 |
 | Export | `make export-tree` | Scaffolding OK; NIC-down = **release** (ISS-0021 / DEC-0037) |
 | Diag soak | `diag=1` + `flush_mode=log_only` (DEC-0027) | Ready for lab |
+| Phone↔hub lab | S24 stub APK + `atnnode listen` ([`docs/LAB.md`](docs/LAB.md)) | **Proven** ESTABLISHED + BOOM soaks |
 | Hub failover | `tests/test_hub_failover` (DEC-0031 / D-08) | Green |
 | Multi-hub roster | cap **16** hubs/repl (DEC-0032) | Green |
 | PQ tunnel rekey | `test_tun` REKEY_INIT/ACK (DEC-0035) | Green |
@@ -237,9 +238,9 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | Diag / no-brick wipe path | **Yes** | DEC-0027; use before any device flash |
 | Outage class (blackout ≠ Faraday) | **Yes** | DEC-0029; console 2FA set (DEC-0034) |
 | Lab hub binary | **Yes** | `atnnode listen\|connect\|demo`; connect walks hubs (DEC-0031) |
-| Enrolled Knox S24–S26 | **No** | Waiting jar + Device Owner for SoT |
-| Stub lab APK ↔ hub (USB adb) | **Yes** | DEC-0038–0040; silence + lock-screen K=5 BOOM |
-| Air-gap sign host / Faraday bag | **No** | REQ-5.x / 5.3 open |
+| Enrolled Knox S24–S26 | **No** | Waiting `knoxsdk.jar` + Device Owner (**T-0400**) |
+| Stub lab APK ↔ hub (USB adb) | **Yes** | DEC-0038–0041; join→silence/airplane BOOM; lock-screen K=5 |
+| Air-gap sign host / Faraday bag | **No** | REQ-5.x / 5.3 open (release) |
 
 ### Requirement board
 
@@ -255,7 +256,7 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | REQ-3.2 memory tree | Done — AVL + AEAD snapshot. |
 | REQ-3.1 replication | Done — factor 2, vector clocks; roster cap **16** (DEC-0032). |
 | REQ-3.3 heartbeat | Done — WARN/grace/HOLD; hub failover D-08 (DEC-0031). |
-| REQ-4.x Knox device | Native dmon + stubs OK. **Device SoT `[ ]`** until T-0400. |
+| REQ-4.x Knox device | Stub lab soak **proven** (mesh + BOOM). **SoT `[ ]`** until T-0400 jar + enroll. |
 | ML-DSA-87 / REQ-5.1 pen | Done KATs + `atnsign`. Air-gap host open. |
 | REQ-6.x isolation/export | Partial — lab: URL scan + export-tree online (DEC-0037); NIC-down = release only. |
 

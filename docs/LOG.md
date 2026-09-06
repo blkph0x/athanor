@@ -8,7 +8,8 @@ Newest at the top.
 
 - User: do not BOOM if not yet joined unless fully enrolled.
 - Lab: airplane/hub-silence BOOM only after `sawEstablished`.
-- Hub restarted for retest; S24 ESTABLISHED.
+- Hub restarted for retest; S24 ESTABLISHED; post-join airplane OK.
+- README/BN-0039 refreshed; tip waiting on T-0400 Knox jar.
 
 ---
 
