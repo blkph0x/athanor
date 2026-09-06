@@ -69,7 +69,8 @@ We accept:
 - `Content-Length`, if present, must be `0` for GET/HEAD. POST requires
   Content-Length in `1..1024` (or `0` only if we reject the empty mutate).
   POST also requires `Content-Type: application/x-www-form-urlencoded`.
-  `%` and `+` in the body are rejected (ISS-0011).
+  Body field parse: WHATWG URL Standard §5.1 (`+` → space, `%HH`
+  percent-decode; DEC-0036).
 - Strict CRLF. Bare LF is rejected.
 
 We emit:

@@ -147,6 +147,38 @@ int main(void)
           memmem_absent(admin, an, (const uint8_t *)"npmjs", 5) &&
           memmem_absent(admin, an, (const uint8_t *)"unpkg", 5));
 
+    /* DEC-0036 / WHATWG §5.1 form_get */
+    {
+        char fv[64];
+        static const uint8_t b1[] = "a=hello+world&b=x";
+        static const uint8_t b2[] = "a=1%2B1&b=ok";
+        static const uint8_t b3[] = "a=hi%20there";
+        static const uint8_t b4[] = "%61ction=wipe";
+        static const uint8_t b5[] = "a=100%&b=z";
+        static const uint8_t b6[] = "a=1&&b=two";
+        check("form + space",
+              atn_http_form_get(b1, sizeof(b1) - 1u, "a", fv, sizeof(fv)) == ATN_OK &&
+              strcmp(fv, "hello world") == 0);
+        check("form %2B plus",
+              atn_http_form_get(b2, sizeof(b2) - 1u, "a", fv, sizeof(fv)) == ATN_OK &&
+              strcmp(fv, "1+1") == 0);
+        check("form %20 space",
+              atn_http_form_get(b3, sizeof(b3) - 1u, "a", fv, sizeof(fv)) == ATN_OK &&
+              strcmp(fv, "hi there") == 0);
+        check("form encoded name",
+              atn_http_form_get(b4, sizeof(b4) - 1u, "action", fv, sizeof(fv)) == ATN_OK &&
+              strcmp(fv, "wipe") == 0);
+        check("form invalid % literal",
+              atn_http_form_get(b5, sizeof(b5) - 1u, "a", fv, sizeof(fv)) == ATN_OK &&
+              strcmp(fv, "100%") == 0);
+        check("form skip empty",
+              atn_http_form_get(b6, sizeof(b6) - 1u, "b", fv, sizeof(fv)) == ATN_OK &&
+              strcmp(fv, "two") == 0);
+        check("form missing",
+              atn_http_form_get(b1, sizeof(b1) - 1u, "missing", fv, sizeof(fv)) ==
+              ATN_ERR_STATE);
+    }
+
     check("parse GET /",
           atn_http_parse_request(good, sizeof(good) - 1u, &req) == ATN_OK &&
           req.method == ATN_HTTP_M_GET && strcmp(req.path, "/") == 0);

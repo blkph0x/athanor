@@ -4,6 +4,16 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0036: form percent-decode (T-0803 / ISS-0011)
+
+- WHATWG URL Standard §5.1 / §1.3 in `atn_http_form_get` (`+`→SP, `%HH`).
+- ASCII-only product restriction (NUL / non-ASCII rejected).
+- Gate: `test_http` form_get cases. ISS-0011 closed.
+- T-0601 still open: default-route remove needs elevated Admin
+  (Access denied in non-elevated agent shell). SoT unchanged.
+
+---
+
 ## 2026-09-06 — DEC-0035: PQ tunnel rekey (T-0801 / ISS-0008)
 
 - Wire types 6/7 (REKEY_INIT / REKEY_ACK); initiator-only; stage until ACK;

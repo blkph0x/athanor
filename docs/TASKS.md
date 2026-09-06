@@ -19,8 +19,9 @@ Status: `open` | `in_progress` | `blocked` | `done`
 ## Backlog (do not start early)
 
 Phase 4 device enroll waits on T-0400. Phase 5 air-gap host unmeasured.
-ISS-0003 aarch64/S24 Poly1305. ISS-0011 %-decode. ISS-0007 IPv6.
+ISS-0003 aarch64/S24 Poly1305. ISS-0007 IPv6.
 Diag-first flash when jar lands (DEC-0027).
+T-0601 needs an **elevated** Admin shell (Access denied without it).
 
 ---
 
@@ -73,3 +74,4 @@ Diag-first flash when jar lands (DEC-0027).
 | T-0800 | done | — | DEC-0033 crypto floor + Essential Eight map + recipe gate |
 | T-0801 | done | REQ-1.2 | DEC-0035: PQ rekey REKEY_INIT/ACK + `test_tun` gate (ISS-0008) |
 | T-0802 | done | REQ-2.2/3.3 | DEC-0034: console 2FA sets `outage_class` |
+| T-0803 | done | REQ-2.2 | DEC-0036: WHATWG form percent-decode (ISS-0011) |

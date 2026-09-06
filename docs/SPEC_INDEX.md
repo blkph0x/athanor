@@ -22,6 +22,7 @@ If a constant is not in this list, it does not go in the tree.
 | RFC 9112 | HTTP/1.1 | Request line, header block, CRLF, Host required | REQ-2.1 |
 | RFC 9110 | HTTP semantics | Method case-sensitivity, Host, 4xx status | REQ-2.1 |
 | docs/TUNNEL.md | DEC-0007 / 0035 | UDP tunnel wire + HS/rekey; TCP framing of same 16-byte header | REQ-1.2 / 2.1 |
+| WHATWG URL Standard | url.spec.whatwg.org §§1.3, 5.1 | `application/x-www-form-urlencoded` parse + percent-decode | REQ-2.2 / DEC-0036 |
 | RFC 1035 | DNS | Header, names, CLASS IN, A/NS/SOA/TXT, UDP 512, TCP length prefix | REQ-2.3 |
 | RFC 2606 / 6761 | `.test` | Scaffold zone `atn.test` | REQ-2.3 |
 

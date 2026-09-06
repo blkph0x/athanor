@@ -249,7 +249,7 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | REQ-1.2 UDP tunnel | Done — ML-KEM-1024 handshake + AEAD + PQ rekey (DEC-0035). IPv4 required (DEC-0022). |
 | REQ-1.3 2FA | Done — HMAC-SHA-512. `tests/test_2fa` + `atn2fa demo`. |
 | REQ-2.1 HTTP listener | Done — HTTP/1.1 loopback + DEC-0007 records. Operator: `atnhttp`. |
-| REQ-2.2 admin console | Done — embedded HTML/CSS, POST+CSRF, 2FA on mutate. |
+| REQ-2.2 admin console | Done — embedded HTML/CSS, POST+CSRF, 2FA on mutate; WHATWG form decode (DEC-0036). |
 | REQ-2.3 DNS | Done — RFC 1035 authoritative `atn.test`, no recursion. |
 | REQ-3.2 memory tree | Done — AVL + AEAD snapshot. |
 | REQ-3.1 replication | Done — factor 2, vector clocks; roster cap **16** (DEC-0032). |

@@ -23,11 +23,11 @@ same commit.
 | `src/auth/atn_2fa_cli.c` | REQ-1.3 | DEC-0008 | `atn2fa` standalone binary |
 | `tests/test_tun.c` | REQ-1.2 | gates | Loopback handshake, echo, rekey, replay, bad MAC |
 | `tests/test_2fa.c` | REQ-1.3 | gates | Enroll, wrong key, replay, lockout |
-| `docs/HTTP.md` | REQ-2.1 | DEC-0009 / 0024 / 0026 | Listener + operator client. Not TLS 1.3. |
+| `docs/HTTP.md` | REQ-2.1 | DEC-0009 / 0024 / 0026 / 0036 | Listener + operator client. Form decode. |
 | `docs/ISOLATION.md` | REQ-6.2 | DEC-0024 / 0026 | Measured URL scan + export notes; not NIC-down |
-| `include/atn_http.h` / `src/http/atn_http.c` | REQ-2.1 | DEC-0009 / 0034 | Loopback TCP + DEC-0007 records + HTTP/1.1. Outage 2FA. |
+| `include/atn_http.h` / `src/http/atn_http.c` | REQ-2.1/2.2 | DEC-0009 / 0034 / 0036 | Loopback TCP + form WHATWG decode + outage 2FA. |
 | `src/http/atn_http_cli.c` | REQ-2.1 | DEC-0009 / 0026 | `atnhttp` demo / serve-once / get (operator client) |
-| `tests/test_http.c` | REQ-2.1/2.2 | gates | Parse, GET exact `/`, unauth close, login/2FA/wipe mutate |
+| `tests/test_http.c` | REQ-2.1/2.2 | gates | Parse, form_get, GET exact `/`, unauth close, login/2FA/wipe mutate |
 | `docs/DNS.md` | REQ-2.3 | DEC-0011 | RFC 1035 subset. Recursion off. |
 | `include/atn_dns.h` / `src/dns/atn_dns.c` | REQ-2.3 | RFC 1035 | Authoritative zone `atn.test`. Reuses `atn_net_init`. |
 | `src/dns/atn_dns_cli.c` | REQ-2.3 | DEC-0011 | `atndns` binary |

@@ -4,6 +4,16 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0031 — DEC-0036 form percent-decode (2026-09-06)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0
+- **`make test`:** ALL PASSED including `test_http` form_get gates.
+- **Network:** default route still up (T-0601 / ISS-0021 not measured;
+  `Remove-NetRoute` Access denied without elevation).
+- **SoT:** unchanged. T-0803 done; ISS-0011 closed.
+
+---
+
 ## BN-0030 — DEC-0035 PQ tunnel rekey (2026-09-06)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0

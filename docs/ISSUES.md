@@ -167,8 +167,10 @@ Status: `open` | `closed`
 
 ## ISS-0011 — `application/x-www-form-urlencoded` percent-decoding not implemented
 
-- **Status:** open
+- **Status:** closed
 - **Opened:** 2026-09-04
+- **Closed:** 2026-09-06 — DEC-0036; WHATWG URL Standard §5.1 / §1.3 in
+  `atn_http_form_get`; `tests/test_http` form_get gates.
 - **REQ:** REQ-2.2
 - **Unknown:** DEC-0010 rejects `%` and `+` so we do not ship a guessed
   decoder. Field values are hex or tokens (`wipe`).

@@ -219,7 +219,7 @@ A decision is recorded **before** code that depends on it is written.
   - Phase 3–5 console panels render honest empty/waiting copy (no fake
     node data).
 - **Consequences:** `docs/HTTP.md` gains the POST/session section.
-  Percent-encoded bodies are ISS-0011. Browser cookie jars are unused
+  Percent-decoding closed by DEC-0036. Browser cookie jars are unused
   until ISS-0009; our client sends `Cookie` explicitly.
 
 ---
@@ -968,3 +968,27 @@ A decision is recorded **before** code that depends on it is written.
   - Gate: `tests/test_tun` ESTABLISH → echo → rekey → echo.
 - **Consequences:** ISS-0008 closes. Long-lived tunnels stay on category-5
   KEM without tearing down the UDP socket / peer pin.
+
+---
+
+## DEC-0036 — Form percent-decode (WHATWG urlencoded)
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** DEC-0010 rejected `%`/`+` until a cited decoder exists
+  (ISS-0011). WHATWG URL Standard §5.1 defines
+  `application/x-www-form-urlencoded` parsing; §1.3 defines
+  percent-decode (invalid `%` remains literal). Console field values
+  remain hex tokens / short ASCII labels after decode.
+- **Decision:**
+  - `atn_http_form_get` parses per WHATWG §5.1: split on `&`, first `=`
+    separates name/value, empty segments skipped, `+` → SP, then
+    percent-decode (§1.3).
+  - Product restriction: decoded name and value must be US-ASCII with no
+    NUL (console is ASCII; non-ASCII / NUL → `ATN_ERR_PARAM`). Full
+    Encoding-Standard UTF-8 replacement is not required while fields
+    stay ASCII.
+  - Gate: `tests/test_http` direct `form_get` cases (`+`, `%2B`, `%20`,
+    encoded name, invalid `%` literal, missing key).
+- **Consequences:** ISS-0011 closes. `docs/HTTP.md` drops the reject-%
+  rule.

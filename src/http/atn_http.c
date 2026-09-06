@@ -825,6 +825,43 @@ static const char CSS[] =
     "h1{color:#c9a227}input,button{font:inherit;margin:.25em 0;padding:.3em}"
     "label{display:block;margin-top:.8em}code{color:#c9a227}";
 
+static int form_decode_bytes(const uint8_t *in, size_t n,
+                             uint8_t *out, size_t max, size_t *out_n)
+{
+    size_t i = 0, o = 0;
+    /* WHATWG URL Standard §5.1: '+' → SP, then §1.3 percent-decode. */
+    while (i < n) {
+        uint8_t b = in[i];
+        if (b == (uint8_t)'+') {
+            if (o >= max) {
+                return ATN_ERR_LEN;
+            }
+            out[o++] = (uint8_t)' ';
+            i++;
+            continue;
+        }
+        if (b == (uint8_t)'%' && i + 2u < n) {
+            int a = hex_nib((int)in[i + 1u]);
+            int c = hex_nib((int)in[i + 2u]);
+            if (a >= 0 && c >= 0) {
+                if (o >= max) {
+                    return ATN_ERR_LEN;
+                }
+                out[o++] = (uint8_t)((a << 4) | c);
+                i += 3u;
+                continue;
+            }
+        }
+        if (o >= max) {
+            return ATN_ERR_LEN;
+        }
+        out[o++] = b;
+        i++;
+    }
+    *out_n = o;
+    return ATN_OK;
+}
+
 int atn_http_form_get(const uint8_t *body, size_t n, const char *key,
                       char *out, size_t max)
 {
@@ -835,37 +872,76 @@ int atn_http_form_get(const uint8_t *body, size_t n, const char *key,
     klen = strlen(key);
     out[0] = 0;
     i = 0;
-    while (i < n) {
-        size_t start = i, eq, end, vl;
-        while (i < n && body[i] != '=' && body[i] != '&') {
-            if (body[i] == '%' || body[i] == '+') {
-                return ATN_ERR_PARAM;
-            }
+    while (i <= n) {
+        size_t start, eq, end, name_n = 0, val_n = 0;
+        uint8_t name_dec[1024], val_dec[1024];
+        int rc, have_eq;
+        if (i == n) {
+            break;
+        }
+        /* WHATWG §5.1: split on '&'; empty sequences skipped. */
+        start = i;
+        while (i < n && body[i] != (uint8_t)'&') {
             i++;
         }
-        if (i >= n || body[i] != '=') {
-            return ATN_ERR_PARAM;
-        }
-        eq = i;
-        i++;
         end = i;
-        while (end < n && body[end] != '&') {
-            if (body[end] == '%' || body[end] == '+') {
-                return ATN_ERR_PARAM;
+        if (start == end) {
+            if (i < n && body[i] == (uint8_t)'&') {
+                i++;
             }
-            end++;
+            continue;
         }
-        vl = end - (eq + 1u);
-        if (eq - start == klen && memcmp(body + start, key, klen) == 0) {
-            if (vl >= max) {
+        have_eq = 0;
+        eq = start;
+        while (eq < end) {
+            if (body[eq] == (uint8_t)'=') {
+                have_eq = 1;
+                break;
+            }
+            eq++;
+        }
+        if (have_eq) {
+            rc = form_decode_bytes(body + start, eq - start,
+                                   name_dec, sizeof(name_dec), &name_n);
+            if (rc != ATN_OK) {
+                return rc;
+            }
+            rc = form_decode_bytes(body + eq + 1u, end - (eq + 1u),
+                                   val_dec, sizeof(val_dec), &val_n);
+            if (rc != ATN_OK) {
+                return rc;
+            }
+        } else {
+            rc = form_decode_bytes(body + start, end - start,
+                                   name_dec, sizeof(name_dec), &name_n);
+            if (rc != ATN_OK) {
+                return rc;
+            }
+            val_n = 0;
+        }
+        /* DEC-0036: console fields are US-ASCII; reject NUL / non-ASCII. */
+        {
+            size_t j;
+            for (j = 0; j < name_n; j++) {
+                if (name_dec[j] == 0 || name_dec[j] > 0x7fu) {
+                    return ATN_ERR_PARAM;
+                }
+            }
+            for (j = 0; j < val_n; j++) {
+                if (val_dec[j] == 0 || val_dec[j] > 0x7fu) {
+                    return ATN_ERR_PARAM;
+                }
+            }
+        }
+        if (name_n == klen && memcmp(name_dec, key, klen) == 0) {
+            if (val_n >= max) {
                 return ATN_ERR_LEN;
             }
-            memcpy(out, body + eq + 1u, vl);
-            out[vl] = 0;
+            memcpy(out, val_dec, val_n);
+            out[val_n] = 0;
             return ATN_OK;
         }
-        i = end;
-        if (i < n && body[i] == '&') {
+        if (i < n && body[i] == (uint8_t)'&') {
             i++;
         }
     }

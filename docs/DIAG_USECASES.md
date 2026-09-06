@@ -256,7 +256,7 @@ Ordered for **diag-first**, still no Knox required until noted.
 - N-hour fuzz + leak (REQ-6.1)
 - Disconnected NIC proof (REQ-6.2 / ISS-0021)
 - Clean-room export hash match (REQ-6.3)
-- Form percent-decoding (ISS-0011)
+- Form percent-decoding (DEC-0036 / ISS-0011 closed)
 - DNS pcap proof (ISS-0012)
 - Poly1305 timing on ARM/S24 (ISS-0003)
 
