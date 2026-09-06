@@ -4,6 +4,16 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0035 — Lab UI + phone situation matrix (2026-09-06)
+
+- **Device:** SM-S901E; stub APK reinstall; UI shows `state=ESTABLISHED`.
+- **Hub:** `atnnode listen 47000` @ YOUR_HUB_LAN_IPV4; ping → `recv 4`.
+- **Matrix:** happy/ping/reconnect-up/restore PASS; hub-kill dead-peer
+  detect open; wrong-ek phone stays non-ESTABLISHED.
+- **SoT:** 4.x still `[ ]`. No Knox.
+
+---
+
 ## BN-0034 — S24 lab soak ESTABLISHED (2026-09-06)
 
 - **Device:** SM-S901E Android 16; stub APK; `knoxStub=true`.

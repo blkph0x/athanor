@@ -19,6 +19,7 @@ import android.util.Log;
 public class AtnDaemonService extends Service {
     private static final String TAG = "atn-daemon";
     private static final String CH = "atn-mesh";
+    public static final String ACTION_RECONNECT = "com.athanor.daemon.RECONNECT";
     /* DEC-0017: hb bucket 60s. DEC-0022: 1s pump, 15s KA so IPv4 NAT lives. */
     private static final long BUCKET_MS = 60L * 1000L;
     private static final long TICK_MS = 1000L;
@@ -26,8 +27,10 @@ public class AtnDaemonService extends Service {
 
     private final Handler tickHandler = new Handler(Looper.getMainLooper());
     private boolean labTun;
+    private boolean nativeReady;
     private long lastHbBucket = -1L;
     private int kaTicks;
+    private int lastNotifState = -1;
     private final Runnable ticker = new Runnable() {
         @Override
         public void run() {
@@ -48,9 +51,16 @@ public class AtnDaemonService extends Service {
                         kaTicks = 0;
                         AtnNative.tunKeepalive();
                     }
+                    /* Lab echo: if hub sends DATA, drain one frame (optional). */
+                    byte[] back = new byte[64];
+                    int n = AtnNative.tunRecv(back, 0);
+                    if (n > 0) {
+                        Log.i(TAG, "lab recv " + n + " bytes");
+                    }
                 } else if (st == AtnNative.TUN_CLOSED) {
                     labTun = false;
                 }
+                maybeUpdateNotif(st);
             }
             if (bucket != lastHbBucket) {
                 lastHbBucket = bucket;
@@ -63,6 +73,7 @@ public class AtnDaemonService extends Service {
                 labTun = false;
                 AtnKeystore.deleteWrap(AtnDaemonService.this);
                 Log.w(TAG, "hb UNTRUSTED/DEAD: wrap deleted");
+                maybeUpdateNotif(AtnNative.TUN_CLOSED);
             }
             tickHandler.postDelayed(this, TICK_MS);
         }
@@ -78,12 +89,7 @@ public class AtnDaemonService extends Service {
             if (nm != null) {
                 nm.createNotificationChannel(c);
             }
-            Notification n = new Notification.Builder(this, CH)
-                    .setContentTitle("Athanor")
-                    .setContentText("mesh member")
-                    .setSmallIcon(android.R.drawable.ic_lock_lock)
-                    .build();
-            startForeground(1, n);
+            startForeground(1, buildNotif("starting..."));
         }
         Log.i(TAG, "platform=" + AtnNative.platformId());
         boolean stub = AtnKnoxBuild.isStub();
@@ -99,10 +105,38 @@ public class AtnDaemonService extends Service {
             boolean pw = AtnKnoxPolicy.applyPasswordPolicy(this, admin);
             Log.i(TAG, "usb=" + usb + " password=" + pw);
         }
-        if (ks && loadNative()) {
+        nativeReady = ks && loadNative();
+        if (nativeReady) {
             startLabTunnel();
         }
         tickHandler.postDelayed(ticker, TICK_MS);
+    }
+
+    private Notification buildNotif(String body) {
+        return new Notification.Builder(this, CH)
+                .setContentTitle("Athanor lab")
+                .setContentText(body)
+                .setSmallIcon(android.R.drawable.ic_lock_lock)
+                .build();
+    }
+
+    private void maybeUpdateNotif(int st) {
+        if (st == lastNotifState || Build.VERSION.SDK_INT < 26) {
+            return;
+        }
+        lastNotifState = st;
+        String body;
+        if (st == AtnNative.TUN_ESTABLISHED) {
+            body = "ESTABLISHED - mesh up";
+        } else if (st == AtnNative.TUN_HANDSHAKE) {
+            body = "HANDSHAKE - waiting hub";
+        } else {
+            body = "CLOSED - tap Start/reconnect";
+        }
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (nm != null) {
+            nm.notify(1, buildNotif(body));
+        }
     }
 
     private boolean loadNative() {
@@ -216,6 +250,21 @@ public class AtnDaemonService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        String act = intent != null ? intent.getAction() : null;
+        if (ACTION_RECONNECT.equals(act) && nativeReady) {
+            int st = AtnNative.tunState();
+            if (st == AtnNative.TUN_ESTABLISHED) {
+                Log.i(TAG, "reconnect: already ESTABLISHED");
+                maybeUpdateNotif(st);
+            } else if (st == AtnNative.TUN_HANDSHAKE) {
+                Log.i(TAG, "reconnect: HS retry");
+                AtnNative.tunHsRetry();
+                labTun = true;
+            } else {
+                Log.i(TAG, "reconnect: startLabTunnel");
+                startLabTunnel();
+            }
+        }
         return START_STICKY;
     }
 

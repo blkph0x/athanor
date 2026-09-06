@@ -246,6 +246,20 @@ Status: `open` | `closed`
   `tests/test_hub_failover.c` (D-08). Cap 4 until T-0702.
 - **REQ:** REQ-4.1 / 3.3
 
+## ISS-0024 — Phone stays ESTABLISHED after hub process kill
+
+- **Status:** open
+- **Opened:** 2026-09-06
+- **REQ:** REQ-4.1 / 1.2 lab soak
+- **Evidence:** BN-0035 M4 — after `atnnode` kill, S24 UI still
+  `state=ESTABLISHED` for at least several seconds (KA/send errors not
+  mapped to CLOSED).
+- **Must not invent:** a wipe on hub death without a DEC (diag soak
+  must keep keys).
+- **Unblock by:** DEC + gate for dead-peer detect (failed KA / silence)
+  that moves tunnel to CLOSED and enables Start/reconnect without
+  implying Faraday wipe.
+
 ## ISS-0004 — ARM binaries not executed on the current builder
 
 - **Status:** closed

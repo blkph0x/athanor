@@ -4,6 +4,18 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — Lab UI live status + situation matrix (BN-0035)
+
+- Phone showed dead "Start mesh daemon" (no on-screen state). Reworked
+  `AtnLabActivity`: live `state=` / MESH UP, Start/reconnect, lab ping.
+- `AtnDaemonService.ACTION_RECONNECT` + notification text by tunnel state.
+- `atnnode listen` fflush on `recv` so redirected hub logs show pings.
+- S24 matrix: M1 ESTABLISHED PASS; M2 ping hub `recv 4` PASS; M3
+  reconnect-while-up PASS; M4 hub-kill still ESTABLISHED (gap); M5 wrong
+  ek phone CLOSED; M6 restore PASS. Skip D-09/D-10/Knox (release/T-0400).
+
+---
+
 ## 2026-09-06 — Lab soak: S24 stub APK ↔ atnnode ESTABLISHED
 
 - Device: SM-S901E (Android 16), Wi‑Fi YOUR_PHONE_LAN_IPV4; hub YOUR_HUB_LAN_IPV4:47000.

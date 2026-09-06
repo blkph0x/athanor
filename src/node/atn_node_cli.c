@@ -147,6 +147,7 @@ static int cmd_listen(uint16_t port)
         rc = atn_tun_recv_data(&t, pt, &n, sizeof(pt), 1000);
         if (rc == ATN_OK && n > 0) {
             printf("recv %u\n", (unsigned)n);
+            fflush(stdout);
             (void)atn_tun_send(&t, pt, n);
             atn_memzero(pt, n);
         } else if (rc == ATN_ERR_STATE) {
@@ -158,6 +159,7 @@ static int cmd_listen(uint16_t port)
         }
         if (t.state == ATN_TUN_CLOSED) {
             printf("CLOSED\n");
+            fflush(stdout);
             atn_tun_wipe(&t);
             return 0;
         }

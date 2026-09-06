@@ -12,7 +12,7 @@ Build stays Makefile + `android/stubs` + optional `vendor/knox/knoxsdk.jar`.
 PC hub:  atnnode listen <port>     (INADDR_ANY, prints peer_ek)
 Phone:   stub APK → AtnLabActivity → AtnDaemonService
          filesDir/atn-node.conf → ML-KEM HS → ESTABLISHED
-USB:     adb install + logcat only (mesh runs over Wi‑Fi / LAN)
+USB:     adb install + logcat only (mesh runs over Wi-Fi / LAN)
 ```
 
 ## 1. Hub (PC on LAN)
@@ -23,10 +23,11 @@ make atnnode.exe
 .\atnnode.exe listen 47000
 ```
 
-Copy the printed `peer_port` / `peer_ek`. Set `peer_ipv4` to this PC’s
+Copy the printed `peer_port` / `peer_ek`. Set `peer_ipv4` to this PC's
 LAN address (e.g. `YOUR_HUB_LAN_IPV4`), **not** 127.0.0.1 (phone is another host).
 
-Leave the process running.
+Leave the process running. After **ESTABLISHED**, the hub only echoes;
+restart `listen` (new `peer_ek`) before a fresh phone soak.
 
 ## 2. Phone conf
 
@@ -47,19 +48,33 @@ flush_mode=log_only
 ```bat
 make android-apk
 adb install -r android\athanor-lab.apk
-adb shell run-as com.athanor.daemon sh -c "cat > files/atn-node.conf" < lab\phone-atn-node.conf
-adb shell am start -n com.athanor.daemon/.AtnLabActivity
+adb push lab\phone-atn-node.conf /data/local/tmp/atn-node.conf
+adb shell run-as com.athanor.daemon mkdir files
+adb shell "run-as com.athanor.daemon sh -c \"cat > files/atn-node.conf\"" < lab\phone-atn-node.conf
+adb shell am start -n com.athanor.daemon/.AtnLabActivity --ez autostart true
 ```
 
-Tap **Start mesh daemon**. Watch:
+On screen you should see live `state=ESTABLISHED` and **MESH UP**.
+Buttons: **Start / reconnect mesh**, **Send lab ping**.
 
 ```bat
 adb logcat -s atn-daemon:I atn-lab:I atn-knox:W
 ```
 
-Hub should print `ESTABLISHED`. Phone log: `lab tun rc=0` then pumps.
+Hub prints `ESTABLISHED`, then `recv 4` when you tap ping.
 
-## 4. What stub does / does not
+## 4. Lab situations (stub phone + one hub)
+
+| Case | Expect | Skip / note |
+|---|---|---|
+| Happy path HS | UI ESTABLISHED + hub ESTABLISHED | |
+| Lab ping | hub `recv 4` | |
+| Start while up | log `already ESTABLISHED` | |
+| Hub kill | UI may stay ESTABLISHED until dead-peer detect | open gap |
+| Wrong `peer_ek` | phone not ESTABLISHED | D-02 class |
+| USB charge-only / Faraday / real Knox | | release / T-0400 |
+
+## 5. What stub does / does not
 
 | Does | Does not |
 |---|---|
@@ -68,7 +83,7 @@ Hub should print `ESTABLISHED`. Phone log: `lab tun rc=0` then pumps.
 | Diag `log_only` flush | SoT REQ-4.x `[X]` |
 | `knoxStub=true` in logcat | Pretend enrolled Knox |
 
-## 5. Later: drop-in Knox
+## 6. Later: drop-in Knox
 
 1. `vendor/knox/knoxsdk.jar`
 2. `make android-apk` → REAL classpath
