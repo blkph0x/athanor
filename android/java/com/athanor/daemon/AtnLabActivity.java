@@ -320,13 +320,11 @@ public class AtnLabActivity extends Activity {
             if (!admin) {
                 line += "\nENABLE DEVICE ADMIN then lock + wrong PIN x5";
             } else {
-                long watch = AtnLabBoom.watchSeconds(
-                        /* net hint unused in display path */ true, st);
+                boolean net = false;
                 try {
                     android.net.ConnectivityManager cm =
                             (android.net.ConnectivityManager)
                                     getSystemService(CONNECTIVITY_SERVICE);
-                    boolean net = false;
                     if (cm != null) {
                         android.net.Network n = cm.getActiveNetwork();
                         if (n != null) {
@@ -337,25 +335,24 @@ public class AtnLabActivity extends Activity {
                                             .NET_CAPABILITY_INTERNET);
                         }
                     }
-                    watch = AtnLabBoom.watchSeconds(net, st);
-                    line += "\nnet=" + (net ? "UP" : "DOWN/airplane");
-                    if (st == AtnNative.TUN_ESTABLISHED) {
-                        line += "\nunreachable timer OFF (MESH UP)";
-                    } else if (AtnLabBoom.sawEstablished()) {
-                        line += "\nunreachable " + watch
-                                + "s / 30s (after join)";
-                    } else {
-                        line += "\nunreachable armed after first ESTABLISHED";
-                    }
-                } catch (Throwable t) {
-                    if (st == AtnNative.TUN_ESTABLISHED) {
-                        line += "\nunreachable timer OFF (MESH UP)";
-                    } else {
-                        line += "\nunreachable watch " + watch + "s / 30s";
-                    }
+                } catch (Throwable ignored) {
+                    /* net stays false */
                 }
-                if (st == AtnNative.TUN_ESTABLISHED) {
+                long watch = AtnLabBoom.watchSeconds(net, st);
+                line += "\nnet=" + (net ? "UP" : "DOWN/airplane");
+                if (!AtnLabBoom.sawEstablished()) {
+                    line += "\nunreachable armed after first ESTABLISHED";
+                } else if (AtnLabBoom.meshLive(net)) {
+                    line += "\nunreachable timer OFF (hub live)";
+                } else {
+                    line += "\nunreachable " + watch
+                            + "s / 30s (silence/airplane)";
+                }
+                if (st == AtnNative.TUN_ESTABLISHED
+                        && AtnLabBoom.meshLive(net)) {
                     line += "\nMESH UP";
+                } else if (st == AtnNative.TUN_ESTABLISHED) {
+                    line += "\nESTABLISHED (stale — waiting hub/net)";
                 } else if (st == AtnNative.TUN_HANDSHAKE) {
                     line += "\nHANDSHAKE - waiting hub (no BOOM until joined)";
                 } else {

@@ -1126,20 +1126,24 @@ A decision is recorded **before** code that depends on it is written.
 
 ---
 
-## DEC-0043 — Unreachable timer off while ESTABLISHED
+## DEC-0043 — Unreachable timer: liveness, not UDP state alone
 
 - **Date:** 2026-09-06
-- **Status:** accepted
-- **Evidence:** User: on first enroll with ESTABLISHED the unreachable
-  timer was already running — incorrect and dangerous if it can BOOM a
-  healthy mesh.
-- **Decision (lab):** While `tunState == ESTABLISHED`, the unreachable
-  watch is **frozen** (UI shows OFF; `maybeUnreachableBoom` returns
-  false). Clocks start only after the tunnel **leaves** ESTABLISHED
-  (and only if `sawEstablished`). Pre-join HANDSHAKE still does not BOOM
-  (DEC-0041). Lock-screen K=5 unchanged.
-- **Consequences:** Hub-kill soak = drop mesh / leave ESTABLISHED, then
-  30s; not a ticking clock under MESH UP.
+- **Status:** accepted (corrected same day)
+- **Evidence:** (1) First enroll showed unreachable timer under healthy
+  MESH UP — dangerous if it can BOOM a live mesh. (2) Freezing the
+  watch on `tunState==ESTABLISHED` then hid airplane/hub-kill: UDP
+  stays ESTABLISHED with no packets (ISS-0024 class).
+- **Decision (lab):** After join, unreachable BOOM uses **hub liveness**
+  (`lastHubMs` from echo/recv) and **network down** clocks — not
+  “ESTABLISHED ⇒ timer forever OFF”. UI: timer OFF only while
+  `meshLive` (net up + hub contact within 30s); airplane / hub silence
+  ticks even if state still says ESTABLISHED. Fresh ESTABLISHED /
+  restart only **re-arms** the liveness clock (does not disable BOOM).
+  Pre-join still no unreachable BOOM (DEC-0041). Lock-screen K=5
+  unchanged.
+- **Consequences:** Airplane soak after join → counter → BOOM ~30s.
+  Healthy mesh with hub echoes → timer OFF / MESH UP.
 
 ---
 

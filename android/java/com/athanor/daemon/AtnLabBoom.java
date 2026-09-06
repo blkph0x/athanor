@@ -1,8 +1,11 @@
 package com.athanor.daemon;
 
 /**
- * Lab-only BOOM state (DEC-0039/0041). Not a production Faraday brick.
+ * Lab-only BOOM state (DEC-0039/0041/0043). Not a production Faraday brick.
  * With diag log_only, keys are not wiped — UI says dead for soak.
+ *
+ * Unreachable watch is liveness-based (hub contact / network), not merely
+ * tunState==ESTABLISHED — UDP state can stay ESTABLISHED in airplane mode.
  */
 public final class AtnLabBoom {
     public static final long SILENCE_MS = 30L * 1000L;
@@ -82,12 +85,27 @@ public final class AtnLabBoom {
         return sawEstablished;
     }
 
-    /** Seconds into unreachable watch. Zero while ESTABLISHED. */
+    /**
+     * True when post-join mesh has recent hub echo and network is up.
+     * ESTABLISHED alone is not enough (airplane keeps UDP state).
+     */
+    public static synchronized boolean meshLive(boolean netUp) {
+        if (dead || !sawEstablished || !netUp || lastHubMs <= 0L) {
+            return false;
+        }
+        long age = System.currentTimeMillis() - lastHubMs;
+        return age >= 0L && age < SILENCE_MS;
+    }
+
+    /**
+     * Seconds into unreachable watch after join. Zero before join, while
+     * dead, or while meshLive (recent hub contact + net up).
+     */
     public static synchronized long watchSeconds(boolean netUp, int tunState) {
         if (dead || !soakArmed || !sawEstablished) {
             return 0L;
         }
-        if (tunState == AtnNative.TUN_ESTABLISHED) {
+        if (meshLive(netUp)) {
             return 0L;
         }
         long now = System.currentTimeMillis();
@@ -95,7 +113,9 @@ public final class AtnLabBoom {
         if (!netUp && noNetSinceMs > 0L) {
             best = Math.max(best, (now - noNetSinceMs) / 1000L);
         }
-        if (noHubSinceMs > 0L) {
+        if (lastHubMs > 0L) {
+            best = Math.max(best, (now - lastHubMs) / 1000L);
+        } else if (noHubSinceMs > 0L) {
             best = Math.max(best, (now - noHubSinceMs) / 1000L);
         }
         return best;
@@ -109,41 +129,30 @@ public final class AtnLabBoom {
     }
 
     /**
-     * Mesh is up. Unreachable timer must not run while ESTABLISHED —
-     * silence/airplane watch starts only after the tunnel leaves ESTABLISHED.
+     * @param startSilenceClock true on transition into ESTABLISHED — arms
+     *        hub-liveness clock so silence/airplane can BOOM even if UDP
+     *        state stays ESTABLISHED. Does not freeze the watch forever.
      */
-    public static synchronized void noteEstablished(boolean ignored) {
+    public static synchronized void noteEstablished(boolean startSilenceClock) {
         sawEstablished = true;
-        lastHubMs = System.currentTimeMillis();
+        if (startSilenceClock && lastHubMs <= 0L) {
+            lastHubMs = System.currentTimeMillis();
+        }
         noHubSinceMs = 0L;
-        noNetSinceMs = 0L;
     }
 
     /**
-     * DEC-0041 narrowed + operator: unreachable BOOM only after join
-     * and only while not ESTABLISHED (lost mesh / airplane after drop).
-     * While ESTABLISHED the timer is frozen — never arms, never BOOMs.
+     * DEC-0041: no unreachable BOOM until first join.
+     * DEC-0043 (corrected): do not freeze on tunState==ESTABLISHED —
+     * BOOM on airplane / hub silence after join using lastHubMs + net.
+     * Re-join / fresh ESTABLISHED only restarts the liveness clock; it
+     * does not disable silence detection.
      */
     public static synchronized boolean maybeUnreachableBoom(boolean netUp,
                                                            int tunState) {
         if (dead || !soakArmed) {
             return false;
         }
-
-        if (tunState == AtnNative.TUN_ESTABLISHED) {
-            sawEstablished = true;
-            noHubSinceMs = 0L;
-            noNetSinceMs = 0L;
-            return false;
-        }
-
-        /* Not joined yet → no connection BOOM. Lock-screen K=5 independent. */
-        if (!sawEstablished) {
-            noHubSinceMs = 0L;
-            noNetSinceMs = 0L;
-            return false;
-        }
-
         long now = System.currentTimeMillis();
 
         if (!netUp) {
@@ -154,15 +163,27 @@ public final class AtnLabBoom {
             noNetSinceMs = 0L;
         }
 
-        if (noHubSinceMs <= 0L) {
-            noHubSinceMs = now;
+        if (tunState != AtnNative.TUN_ESTABLISHED) {
+            if (noHubSinceMs <= 0L) {
+                noHubSinceMs = now;
+            }
+        } else {
+            noHubSinceMs = 0L;
+        }
+
+        /* Not joined yet → no connection BOOM. Lock-screen K=5 independent. */
+        if (!sawEstablished) {
+            return false;
         }
 
         if (noNetSinceMs > 0L && (now - noNetSinceMs) >= SILENCE_MS) {
             return trigger("airplane/no net >30s after join (lab)");
         }
-        if (noHubSinceMs > 0L && (now - noHubSinceMs) >= SILENCE_MS) {
-            return trigger("hub/mesh lost >30s after join (lab)");
+        if (lastHubMs > 0L && (now - lastHubMs) >= SILENCE_MS) {
+            String why = netUp
+                    ? "hub silence >30s after join (lab)"
+                    : "no net/airplane + hub silence >30s after join (lab)";
+            return trigger(why);
         }
         return false;
     }

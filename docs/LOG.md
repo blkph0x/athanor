@@ -4,6 +4,13 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0043 corrected: boom on airplane/hub silence
+
+- Freeze-on-ESTABLISHED was wrong: airplane keeps UDP ESTABLISHED.
+- Restore lastHubMs + no-net clocks; MESH UP only when hub live.
+
+---
+
 ## 2026-09-06 — Fix Linux CI: portable atnenroll + POSIX enroll UI
 
 - CI linux-x86_64/aarch64 failed: `-Werror=unused-result` on `system(mkdir)`.

@@ -4,12 +4,11 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
-## BN-0041 — DEC-0043 unreachable timer off while ESTABLISHED (2026-09-06)
+## BN-0041 — DEC-0043 unreachable = hub liveness (2026-09-06)
 
-- **Bug:** `noteEstablished(true)` started silence clock at join; UI
-  showed `unreachable Ns / 30s` under MESH UP.
-- **Fix:** While ESTABLISHED, clear clocks + `maybeUnreachableBoom` no-op;
-  watchSeconds returns 0. Post-join loss of ESTABLISHED arms 30s watch.
+- **Bug:** (a) `noteEstablished` silence clock under MESH UP; (b)
+  freeze-on-ESTABLISHED hid airplane (UDP state stays ESTABLISHED).
+- **Fix:** Silence on `lastHubMs` + no-net; UI OFF only when `meshLive`.
 - **SoT:** lab policy only; REQ-5.3 Faraday still release.
 
 ---

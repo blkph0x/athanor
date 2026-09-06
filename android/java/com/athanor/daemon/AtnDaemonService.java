@@ -344,11 +344,12 @@ public class AtnDaemonService extends Service {
             AtnLabBoom.armSoak();
             Log.i(TAG, "reconnect: lab BOOM reset");
             int st = AtnNative.tunState();
-            if (st == AtnNative.TUN_ESTABLISHED) {
-                AtnLabBoom.noteEstablished(false);
-                labTun = true;
-                Log.i(TAG, "reconnect: already ESTABLISHED (silence clock disarmed)");
-                maybeUpdateNotif(st);
+                if (st == AtnNative.TUN_ESTABLISHED) {
+                    /* After reset, arm liveness so silence/airplane can tick. */
+                    AtnLabBoom.noteEstablished(true);
+                    labTun = true;
+                    Log.i(TAG, "reconnect: already ESTABLISHED (liveness armed)");
+                    maybeUpdateNotif(st);
             } else if (st == AtnNative.TUN_HANDSHAKE) {
                 Log.i(TAG, "reconnect: HS retry");
                 AtnNative.tunHsRetry();
