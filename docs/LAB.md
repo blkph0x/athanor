@@ -70,9 +70,10 @@ Hub prints `ESTABLISHED`, then `recv 4` when you tap ping.
 | Happy path HS | UI ESTABLISHED + hub ESTABLISHED | |
 | Lab ping | hub `recv 4` | |
 | Start while up | log `already ESTABLISHED` | |
-| Hub kill | UI may stay ESTABLISHED until dead-peer detect | open gap |
-| Wrong `peer_ek` | phone not ESTABLISHED | D-02 class |
-| USB charge-only / Faraday / real Knox | | release / T-0400 |
+| Hub kill / airplane / no Wi‑Fi >30s | **BOOM phone is dead now** (DEC-0039) | lab only; keys kept |
+| Wrong unlock code x5 | **BOOM** (2FA LOCKOUT) | lab only |
+| Start/reconnect | clears lab BOOM for another cycle | |
+| USB charge-only / real Faraday bag / Knox | | release / T-0400 / ISS-0019 |
 
 ## 5. What stub does / does not
 

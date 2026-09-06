@@ -1050,3 +1050,29 @@ A decision is recorded **before** code that depends on it is written.
     REAL classpath → Device/Profile Owner + USB/password release gates.
 - **Consequences:** `docs/LAB.md` is the operator recipe. T-0400 remains
   the Partner jar gate for release Knox.
+
+---
+
+## DEC-0039 — Lab BOOM soak (30s hub silence + 2FA x5)
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** User: lab must detect Faraday/airplane/no-Wi‑Fi style loss
+  and, for **testing only**, if hub contact is missing >30s show
+  `BOOM phone is dead now`; same message after >5 wrong unlock codes.
+  Production Faraday (REQ-5.3) and DEC-0014/0017 bucket math stay
+  unchanged. ISS-0024 (dead peer) needs a lab-visible gate.
+- **Decision:**
+  - **Lab only** (stub APK / `diag=1` + `flush_mode=log_only` soak):
+    - After tunnel was ESTABLISHED, if no hub DATA echo/contact for
+      **30 seconds**, UI + notification show
+      `BOOM phone is dead now` (reason: hub silence / RF proxy).
+    - Lab unlock EditText: each wrong code is a real `dmon2faVerify`
+      fail; at `ATN_2FA_FAIL_MAX` (5) → same BOOM (reason: lockout).
+    - Airplane / no Wi‑Fi is detected as a hint; the **timer** is hub
+      silence, not a sensor claim.
+  - **Not a brick:** with `log_only` and wipe not armed, keys stay
+    (DEC-0027). No SoT REQ-5.3 `[X]`. No production bucket change.
+  - **Reset:** Start/reconnect clears lab BOOM for another soak cycle.
+- **Consequences:** Closes the lab side of ISS-0024 for 30s silence.
+  Real Faraday bag timing remains ISS-0019 / release.

@@ -78,3 +78,4 @@ Diag-first flash when jar lands (DEC-0027).
 | T-0805 | done | REQ-4.1 | DEC-0038: stub lab APK + skip USB policy; docs/LAB.md |
 | T-0401b | done | REQ-4.1 | S24 stub APK ↔ atnnode listen ESTABLISHED (BN-0034) |
 | T-0806 | done | REQ-4.1 | Lab UI live status + reconnect/ping; S24 situation matrix (BN-0035) |
+| T-0807 | done | REQ-4.1/5.3 | DEC-0039 lab BOOM: 30s hub silence + wrong code x5 (BN-0036) |

@@ -253,6 +253,29 @@ Java_com_athanor_daemon_AtnNative_dmon2faEnroll(JNIEnv *env, jclass cls,
 }
 
 JNIEXPORT jint JNICALL
+Java_com_athanor_daemon_AtnNative_dmon2faRevoke(JNIEnv *env, jclass cls,
+                                                jbyteArray id)
+{
+    jbyte *idp;
+    int rc;
+    (void)cls;
+    dmon_once();
+    if (id == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    if ((*env)->GetArrayLength(env, id) != (jint)ATN_2FA_ID_LEN) {
+        return ATN_ERR_LEN;
+    }
+    idp = (*env)->GetByteArrayElements(env, id, NULL);
+    if (idp == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    rc = atn_dmon_2fa_revoke(&g_dmon, (const uint8_t *)idp);
+    (*env)->ReleaseByteArrayElements(env, id, idp, JNI_ABORT);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
 Java_com_athanor_daemon_AtnNative_dmon2faChallenge(JNIEnv *env, jclass cls,
                                                    jbyteArray id, jbyteArray chalOut)
 {

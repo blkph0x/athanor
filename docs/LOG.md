@@ -4,6 +4,16 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0039 lab BOOM (30s silence + code x5)
+
+- User: Faraday/airplane/no-Wi‑Fi proxy; >30s no hub => 
+  `BOOM phone is dead now`; wrong unlock code x5 => same (testing only).
+- Lab APK: hub DATA probes; silence timer; EditText + 2FA verify fails;
+  `log_only` keeps keys. S24: silence BOOM PASS; code #5 LOCKOUT BOOM PASS.
+- ISS-0024 closed (lab). Faraday SoT still open.
+
+---
+
 ## 2026-09-06 — Lab UI live status + situation matrix (BN-0035)
 
 - Phone showed dead "Start mesh daemon" (no on-screen state). Reworked

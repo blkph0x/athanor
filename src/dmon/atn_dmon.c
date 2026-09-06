@@ -187,6 +187,14 @@ int atn_dmon_2fa_enroll(atn_dmon *d, const uint8_t id[ATN_2FA_ID_LEN],
     return atn_2fa_enroll(&d->twofa, id, key_out);
 }
 
+int atn_dmon_2fa_revoke(atn_dmon *d, const uint8_t id[ATN_2FA_ID_LEN])
+{
+    if (atn_dmon_require(d) != ATN_OK) {
+        return ATN_ERR_STATE;
+    }
+    return atn_2fa_revoke(&d->twofa, id);
+}
+
 int atn_dmon_2fa_challenge(atn_dmon *d, const uint8_t id[ATN_2FA_ID_LEN],
                            uint8_t chal[ATN_2FA_CHAL_LEN])
 {

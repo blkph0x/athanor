@@ -20,6 +20,7 @@ public final class AtnNative {
     public static native int dmonHbTick(long bucket);
     public static native int dmonHbState();
     public static native int dmon2faEnroll(byte[] id, byte[] keyOut);
+    public static native int dmon2faRevoke(byte[] id);
     public static native int dmon2faChallenge(byte[] id, byte[] chalOut);
     public static native int dmon2faVerify(byte[] id, byte[] chal, byte[] resp);
     /* DEC-0027/0038: apply diag/flush/outage before lab tunnel. */
@@ -29,6 +30,8 @@ public final class AtnNative {
     public static final int TUN_CLOSED = 0;
     public static final int TUN_HANDSHAKE = 1;
     public static final int TUN_ESTABLISHED = 2;
+    /* atn_crypto.h ATN_ERR_LOCKOUT — lab BOOM path (DEC-0039). */
+    public static final int ERR_LOCKOUT = 8;
     public static native int tunInitiator(byte[] peerEk);
     public static native int tunResponder(byte[] ownDk);
     public static native int tunBind(int port);

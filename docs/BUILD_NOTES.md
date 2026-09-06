@@ -4,6 +4,17 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0036 — DEC-0039 lab BOOM on S24 (2026-09-06)
+
+- **Device:** SM-S901E; stub APK; `diag=1` / `flush_mode=log_only`.
+- **Silence:** hub kill → UI `BOOM phone is dead now` after ~30s;
+  log `LAB BOOM: hub silence >30s (lab)`.
+- **Codes:** five wrong Submit → `code fail #5` verifyRc=8 (LOCKOUT) →
+  `BOOM phone is dead now` / reason `wrong code x5 (lab)`.
+- **SoT:** REQ-5.3 Faraday still `[ ]`. Keys kept (log_only).
+
+---
+
 ## BN-0035 — Lab UI + phone situation matrix (2026-09-06)
 
 - **Device:** SM-S901E; stub APK reinstall; UI shows `state=ESTABLISHED`.

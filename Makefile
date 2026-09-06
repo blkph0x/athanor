@@ -311,6 +311,7 @@ DAEMON_JAVA = \
 	android/java/com/athanor/daemon/AtnBootReceiver.java \
 	android/java/com/athanor/daemon/AtnPowerReceiver.java \
 	android/java/com/athanor/daemon/AtnNodeConfig.java \
+	android/java/com/athanor/daemon/AtnLabBoom.java \
 	android/java/com/athanor/daemon/AtnDaemonService.java \
 	android/java/com/athanor/daemon/AtnLabActivity.java
 STUB_JAVA = \

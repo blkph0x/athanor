@@ -5,7 +5,11 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -15,26 +19,42 @@ import android.util.Log;
 /**
  * Foreground mesh daemon. REQ-4.1. No Firebase, no Play services.
  * Loads Keystore-wrapped secrets into native dmon (DEC-0016/0017).
+ * DEC-0039: lab 30s hub-silence BOOM (diag/log_only, not a brick).
  */
 public class AtnDaemonService extends Service {
     private static final String TAG = "atn-daemon";
     private static final String CH = "atn-mesh";
     public static final String ACTION_RECONNECT = "com.athanor.daemon.RECONNECT";
+    public static final String ACTION_LAB_BOOM = "com.athanor.daemon.LAB_BOOM";
     /* DEC-0017: hb bucket 60s. DEC-0022: 1s pump, 15s KA so IPv4 NAT lives. */
     private static final long BUCKET_MS = 60L * 1000L;
     private static final long TICK_MS = 1000L;
     private static final int KA_TICKS = 15;
+    private static final int PROBE_TICKS = 5;
 
     private final Handler tickHandler = new Handler(Looper.getMainLooper());
     private boolean labTun;
     private boolean nativeReady;
     private long lastHbBucket = -1L;
     private int kaTicks;
+    private int probeTicks;
     private int lastNotifState = -1;
+    private boolean boomNotified;
+    private int prevTunState = -1;
     private final Runnable ticker = new Runnable() {
         @Override
         public void run() {
             long bucket = System.currentTimeMillis() / BUCKET_MS;
+            if (AtnLabBoom.isDead()) {
+                labTun = false;
+                if (!boomNotified) {
+                    boomNotified = true;
+                    Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
+                    pushBoomNotif();
+                }
+                tickHandler.postDelayed(this, TICK_MS);
+                return;
+            }
             if (labTun) {
                 int i;
                 for (i = 0; i < 8; i++) {
@@ -46,21 +66,52 @@ public class AtnDaemonService extends Service {
                 if (st == AtnNative.TUN_HANDSHAKE) {
                     AtnNative.tunHsRetry();
                 } else if (st == AtnNative.TUN_ESTABLISHED) {
+                    boolean fresh = prevTunState != AtnNative.TUN_ESTABLISHED;
+                    AtnLabBoom.noteEstablished(fresh);
                     kaTicks++;
                     if (kaTicks >= KA_TICKS) {
                         kaTicks = 0;
                         AtnNative.tunKeepalive();
                     }
-                    /* Lab echo: if hub sends DATA, drain one frame (optional). */
+                    /* DEC-0039: DATA probe so hub echo proves contact. */
+                    probeTicks++;
+                    if (probeTicks >= PROBE_TICKS || fresh) {
+                        probeTicks = 0;
+                        byte[] probe = new byte[] { 'L', 'A', 'B' };
+                        AtnNative.tunSend(probe);
+                    }
                     byte[] back = new byte[64];
                     int n = AtnNative.tunRecv(back, 0);
                     if (n > 0) {
+                        AtnLabBoom.noteHubContact();
                         Log.i(TAG, "lab recv " + n + " bytes");
+                    }
+                    boolean net = networkUp();
+                    if (AtnLabBoom.maybeSilenceBoom(net)) {
+                        labTun = false;
+                        boomNotified = true;
+                        Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
+                        pushBoomNotif();
                     }
                 } else if (st == AtnNative.TUN_CLOSED) {
                     labTun = false;
+                    if (AtnLabBoom.sawEstablished()) {
+                        boolean net = networkUp();
+                        if (AtnLabBoom.maybeSilenceBoom(net)) {
+                            boomNotified = true;
+                            Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
+                            pushBoomNotif();
+                        }
+                    }
                 }
+                prevTunState = st;
                 maybeUpdateNotif(st);
+            } else if (AtnLabBoom.sawEstablished() && !AtnLabBoom.isDead()) {
+                if (AtnLabBoom.maybeSilenceBoom(networkUp())) {
+                    boomNotified = true;
+                    Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
+                    pushBoomNotif();
+                }
             }
             if (bucket != lastHbBucket) {
                 lastHbBucket = bucket;
@@ -72,8 +123,10 @@ public class AtnDaemonService extends Service {
             if (AtnNative.dmonRequire() != 0) {
                 labTun = false;
                 AtnKeystore.deleteWrap(AtnDaemonService.this);
+                AtnLabBoom.clearEnrolled();
+                AtnLabBoom.trigger("native require failed (flush)");
                 Log.w(TAG, "hb UNTRUSTED/DEAD: wrap deleted");
-                maybeUpdateNotif(AtnNative.TUN_CLOSED);
+                pushBoomNotif();
             }
             tickHandler.postDelayed(this, TICK_MS);
         }
@@ -107,9 +160,29 @@ public class AtnDaemonService extends Service {
         }
         nativeReady = ks && loadNative();
         if (nativeReady) {
+            if (!AtnLabBoom.ensureEnrolled()) {
+                Log.w(TAG, "lab 2FA enroll failed");
+            }
             startLabTunnel();
         }
         tickHandler.postDelayed(ticker, TICK_MS);
+    }
+
+    private boolean networkUp() {
+        ConnectivityManager cm =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm == null) {
+            return false;
+        }
+        Network n = cm.getActiveNetwork();
+        if (n == null) {
+            return false;
+        }
+        NetworkCapabilities caps = cm.getNetworkCapabilities(n);
+        if (caps == null) {
+            return false;
+        }
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET);
     }
 
     private Notification buildNotif(String body) {
@@ -120,8 +193,22 @@ public class AtnDaemonService extends Service {
                 .build();
     }
 
+    private void pushBoomNotif() {
+        if (Build.VERSION.SDK_INT < 26) {
+            return;
+        }
+        lastNotifState = -99;
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (nm != null) {
+            nm.notify(1, buildNotif("BOOM phone is dead now"));
+        }
+        Intent i = new Intent(ACTION_LAB_BOOM);
+        i.setPackage(getPackageName());
+        sendBroadcast(i);
+    }
+
     private void maybeUpdateNotif(int st) {
-        if (st == lastNotifState || Build.VERSION.SDK_INT < 26) {
+        if (AtnLabBoom.isDead() || st == lastNotifState || Build.VERSION.SDK_INT < 26) {
             return;
         }
         lastNotifState = st;
@@ -252,9 +339,17 @@ public class AtnDaemonService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String act = intent != null ? intent.getAction() : null;
         if (ACTION_RECONNECT.equals(act) && nativeReady) {
+            /* DEC-0039: Start clears lab BOOM for another soak cycle. */
+            AtnLabBoom.reset();
+            boomNotified = false;
+            AtnLabBoom.reenrollFresh();
+            Log.i(TAG, "reconnect: lab BOOM reset");
             int st = AtnNative.tunState();
             if (st == AtnNative.TUN_ESTABLISHED) {
-                Log.i(TAG, "reconnect: already ESTABLISHED");
+                /* Soft mark only — do not arm 30s clock until hub echoes. */
+                AtnLabBoom.noteEstablished(false);
+                labTun = true;
+                Log.i(TAG, "reconnect: already ESTABLISHED (silence clock disarmed)");
                 maybeUpdateNotif(st);
             } else if (st == AtnNative.TUN_HANDSHAKE) {
                 Log.i(TAG, "reconnect: HS retry");
@@ -264,6 +359,11 @@ public class AtnDaemonService extends Service {
                 Log.i(TAG, "reconnect: startLabTunnel");
                 startLabTunnel();
             }
+        } else if (ACTION_LAB_BOOM.equals(act)) {
+            labTun = false;
+            boomNotified = true;
+            Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
+            pushBoomNotif();
         }
         return START_STICKY;
     }
@@ -272,6 +372,7 @@ public class AtnDaemonService extends Service {
     public void onDestroy() {
         tickHandler.removeCallbacks(ticker);
         AtnNative.dmonFlush();
+        AtnLabBoom.clearEnrolled();
         super.onDestroy();
     }
 

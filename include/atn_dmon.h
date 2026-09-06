@@ -61,6 +61,7 @@ int  atn_dmon_hb_state(const atn_dmon *d);
 
 int  atn_dmon_2fa_enroll(atn_dmon *d, const uint8_t id[ATN_2FA_ID_LEN],
                          uint8_t key_out[ATN_2FA_KEY_LEN]);
+int  atn_dmon_2fa_revoke(atn_dmon *d, const uint8_t id[ATN_2FA_ID_LEN]);
 int  atn_dmon_2fa_challenge(atn_dmon *d, const uint8_t id[ATN_2FA_ID_LEN],
                             uint8_t chal[ATN_2FA_CHAL_LEN]);
 int  atn_dmon_2fa_verify(atn_dmon *d, const uint8_t id[ATN_2FA_ID_LEN],
