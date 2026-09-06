@@ -16,6 +16,8 @@ If a constant is not in this list, it does not go in the tree.
 | FIPS 202 | SHA-3 / SHAKE (Keccak-p[1600,24]) | SHA3-256, SHA3-512, SHAKE128, SHAKE256, round constants Table 2 | REQ-1.1-PQ |
 | FIPS 203 | ML-KEM-1024 | n=256 q=3329 k=4 η1=η2=2 du=11 dv=5; Algorithms 7–21; ζ=17 | REQ-1.1-PQ |
 | FIPS 204 | ML-DSA-87 | q=8380417 ζ=1753 (k,ℓ)=(8,7) η=2 τ=60 λ=256 γ1=2^19; Alg. 6–8, 41–42; Appendix B zetas | REQ-5.1 / ISS-0005 |
+| CNSA 2.0 | NSA CNSA suite 2.0 | Pairing guidance: ML-KEM-1024 + ML-DSA-87 (category-5 class) | DEC-0033 floor |
+| ASD Essential Eight | cyber.gov.au / ASD Strategies to Mitigate Cyber Security Incidents | Org IT baseline; Athanor maps analogues in `docs/ESSENTIAL8.md` | DEC-0033 |
 | RFC 6234 SHA-512 | SHA-512 / HMAC-SHA-512 | §§4.2, 5.2, 6.3–6.4; RFC 4231 HMAC-SHA-512 KATs | REQ-1.1-PQ |
 | RFC 9112 | HTTP/1.1 | Request line, header block, CRLF, Host required | REQ-2.1 |
 | RFC 9110 | HTTP semantics | Method case-sensitivity, Host, 4xx status | REQ-2.1 |

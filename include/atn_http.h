@@ -67,6 +67,7 @@ typedef struct {
     atn_http_sess sess[ATN_HTTP_SESS_MAX];
     int      wipe_armed;
     atn_hb  *mesh;   /* DEC-0025: optional roster for console */
+    uint8_t *outage_class; /* DEC-0034: optional DEC-0029 class byte */
     atn_lock lock;
 } atn_http_srv;
 
@@ -113,6 +114,7 @@ int atn_http_listen(atn_http_srv *s, uint16_t port,
                     const uint8_t ek[ATN_MLKEM1024_EK_LEN],
                     const uint8_t dk[ATN_MLKEM1024_DK_LEN]);
 void atn_http_attach_mesh(atn_http_srv *s, atn_hb *mesh);
+void atn_http_attach_outage(atn_http_srv *s, uint8_t *outage_class);
 
 uint16_t atn_http_port(const atn_http_srv *s);
 

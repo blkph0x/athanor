@@ -25,7 +25,7 @@ same commit.
 | `tests/test_2fa.c` | REQ-1.3 | gates | Enroll, wrong key, replay, lockout |
 | `docs/HTTP.md` | REQ-2.1 | DEC-0009 / 0024 / 0026 | Listener + operator client. Not TLS 1.3. |
 | `docs/ISOLATION.md` | REQ-6.2 | DEC-0024 / 0026 | Measured URL scan + export notes; not NIC-down |
-| `include/atn_http.h` / `src/http/atn_http.c` | REQ-2.1 | DEC-0009 | Loopback TCP + DEC-0007 records + HTTP/1.1. Reuses `atn_net_init` in `atn_tun.c`. |
+| `include/atn_http.h` / `src/http/atn_http.c` | REQ-2.1 | DEC-0009 / 0034 | Loopback TCP + DEC-0007 records + HTTP/1.1. Outage 2FA. |
 | `src/http/atn_http_cli.c` | REQ-2.1 | DEC-0009 / 0026 | `atnhttp` demo / serve-once / get (operator client) |
 | `tests/test_http.c` | REQ-2.1/2.2 | gates | Parse, GET exact `/`, unauth close, login/2FA/wipe mutate |
 | `docs/DNS.md` | REQ-2.3 | DEC-0011 | RFC 1035 subset. Recursion off. |
@@ -50,7 +50,9 @@ same commit.
 | `include/atn_dmon.h` / `src/dmon/atn_dmon.c` | REQ-4.1/4.4 | DEC-0016/0017/0020/0021/0027/0029/0031 | Session; LOG_ONLY; blackout HOLD; hub failover |
 | `tools/src.list` | REQ-5.1 | DEC-0020 | Frozen path list for `atnsign manifest` |
 | `tools/export.ps1` | REQ-6.3 | DEC-0024 / 0026 | Copy src.list to export/; refuse jars; `make export-tree` |
-| `tests/test_recipe.c` | REQ-5.1 / 6.2 | DEC-0020 / 0023 | Makefile + src/include/android: no fetch URLs |
+| `docs/CRYPTO.md` | — | DEC-0033 | Category-5 PQ + AEAD floor; no downgrade |
+| `docs/ESSENTIAL8.md` | — | DEC-0033 | ASD Essential Eight → Athanor map |
+| `tests/test_recipe.c` | REQ-5.1 / 6.2 | DEC-0020 / 0023 / 0033 | Makefile + product paths: no fetch URLs; crypto floor |
 | `tests/test_fuzz.c` | REQ-6.1 | DEC-0023 | In-house HTTP/DNS/cfg mutator; not N-hour fuzz |
 | `tests/test_dmon.c` | REQ-4.4 | gates | ZEROIZE / LOG_ONLY / blackout HOLD |
 | `tests/test_hub_failover.c` | REQ-3.3 | DEC-0031 / D-08 | Dark hub0 → hub1; wrong-ek AUTH advance; all-dark failover |

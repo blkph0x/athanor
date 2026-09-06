@@ -1,7 +1,8 @@
 /*
- * REQ-5.1 / 6.2 recipe gate (DEC-0020 / DEC-0023).
+ * REQ-5.1 / 6.2 / DEC-0033 recipe + crypto-floor gate.
  * Product Makefile and src/include/android paths in tools/src.list
- * must not contain fetch URLs. Docs and GitHub Actions may cite URLs.
+ * must not contain fetch URLs or forbidden weak-crypto tokens.
+ * Docs may cite URLs and may name forbidden algs while banning them.
  */
 #include <stdio.h>
 #include <string.h>
@@ -13,6 +14,49 @@ static int has_fetch(const char *line)
         return 0;
     }
     return strstr(line, "http://") != NULL || strstr(line, "https://") != NULL;
+}
+
+/*
+ * DEC-0033: lines that only document the ban are allowed.
+ * Implementation of a weak primitive is not.
+ */
+static int ban_doc_line(const char *line)
+{
+    return strstr(line, "Do not") != NULL ||
+           strstr(line, "do not") != NULL ||
+           strstr(line, "Forbid") != NULL ||
+           strstr(line, "forbid") != NULL ||
+           strstr(line, "Forbidden") != NULL ||
+           strstr(line, "DEC-0033") != NULL ||
+           strstr(line, "not substitute") != NULL ||
+           strstr(line, "NEVER") != NULL ||
+           strstr(line, "reject") != NULL ||
+           strstr(line, "Reject") != NULL ||
+           strstr(line, "No OpenSSL") != NULL ||
+           strstr(line, "no OpenSSL") != NULL ||
+           strstr(line, "No WireGuard") != NULL;
+}
+
+static int has_weak_crypto(const char *line)
+{
+    static const char *bad[] = {
+        "ML-KEM-512", "ML-KEM-768", "mlkem512", "mlkem768",
+        "ML-DSA-44", "ML-DSA-65", "mldsa44", "mldsa65",
+        "AES-128", "AES_128",
+        "RC4", "3DES", "Blowfish",
+        "libsodium", "OpenSSL", "BoringSSL", "WireGuard", "liboqs",
+        NULL
+    };
+    unsigned i;
+    if (ban_doc_line(line)) {
+        return 0;
+    }
+    for (i = 0; bad[i] != NULL; i++) {
+        if (strstr(line, bad[i]) != NULL) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 static int product_path(const char *p)
@@ -48,6 +92,10 @@ static int scan_file(const char *path)
             printf("FAIL fetch URL in %s: %s", path, buf);
             bad = 1;
         }
+        if (has_weak_crypto(buf)) {
+            printf("FAIL crypto floor in %s: %s", path, buf);
+            bad = 1;
+        }
     }
     fclose(f);
     return bad;
@@ -60,11 +108,11 @@ int main(void)
     int bad = 0;
     unsigned nprod = 0;
 
-    printf("athanor recipe-check\n");
+    printf("athanor recipe-check (DEC-0023/0033)\n");
     if (scan_file("Makefile") != 0) {
         bad = 1;
     } else {
-        printf("ok   no fetch URL in Makefile\n");
+        printf("ok   Makefile floor clean\n");
     }
     lf = fopen("tools/src.list", "rb");
     if (lf == NULL) {
@@ -92,7 +140,7 @@ int main(void)
         printf("FAIL too few product paths (%u)\n", nprod);
         bad = 1;
     } else {
-        printf("ok   scanned %u product paths\n", nprod);
+        printf("ok   scanned %u product paths (URL + crypto floor)\n", nprod);
     }
     if (bad) {
         return 1;

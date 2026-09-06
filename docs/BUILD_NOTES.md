@@ -4,6 +4,16 @@ Newest entry at the top. Record facts, not hopes.
 
 ---
 
+## BN-0029 — DEC-0033/0034 crypto floor + console outage 2FA (2026-09-06)
+
+- **Host:** Windows x86_64 MinGW, gcc 11.3.0
+- **`make test`:** ALL PASSED; `test_recipe` URL + crypto floor;
+  `test_http` outage blackout via 2FA.
+- **Docs:** `docs/CRYPTO.md`, `docs/ESSENTIAL8.md`; README posture board.
+- **SoT:** unchanged. T-0800 + T-0802 done.
+
+---
+
 ## BN-0028 — DEC-0032 repl/hub cap 16 + atnnode multi-hub connect (2026-09-06)
 
 - **Host:** Windows x86_64 MinGW, gcc 11.3.0

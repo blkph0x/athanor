@@ -22,6 +22,8 @@ In-tree trackers are canonical so work continues when GitHub is unreachable
 | [SIGN.md](SIGN.md) | REQ-5.1 source manifest + `atnsign` (DEC-0019). |
 | [ISOLATION.md](ISOLATION.md) | REQ-6.2 URL scan notes (DEC-0024). |
 | [DIAG_USECASES.md](DIAG_USECASES.md) | Diag build, multi-hub/IRC model, blackout failsafe, feature inventory. |
+| [CRYPTO.md](CRYPTO.md) | **Crypto floor** — category-5 PQ + AEAD; no downgrade (DEC-0033). |
+| [ESSENTIAL8.md](ESSENTIAL8.md) | ASD Essential Eight → Athanor map (honest gaps). |
 
 Root [`../README.md`](../README.md) **Status** section holds the live pipeline +
 testing-phase board; update it in the same commit as tip changes.

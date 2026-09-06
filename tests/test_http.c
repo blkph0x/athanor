@@ -4,6 +4,7 @@
  * unauthenticated socket cannot read admin page, wire hides plaintext.
  */
 #include "atn_http.h"
+#include "atn_cfg.h"
 #include "atn_platform.h"
 
 #include <stdio.h>
@@ -127,6 +128,7 @@ int main(void)
     static const uint8_t http10[] =
         "GET / HTTP/1.0\r\nHost: x\r\n\r\n";
     uint8_t huge[ATN_HTTP_MAX_HDR + 64];
+    uint8_t oc = ATN_CFG_OUTAGE_NORMAL;
     int rc;
 
     printf("athanor http  platform=%s\n", atn_platform_id());
@@ -186,6 +188,7 @@ int main(void)
         check("mesh init", atn_hb_init(&mesh, hid, hk, 1, hh, NULL) == ATN_OK);
         check("mesh peer", atn_hb_add_peer(&mesh, pid, pk) == ATN_OK);
         atn_http_attach_mesh(&srv, &mesh);
+        atn_http_attach_outage(&srv, &oc);
     }
 
     rc = roundtrip(&srv, ek, "GET", "/", resp, &n, sizeof(resp));
@@ -430,6 +433,49 @@ int main(void)
             atn_http_cli_wipe(&c);
             check("wipe 200", rc == ATN_OK && status_is(resp, n, "200"));
             check("wipe armed", atn_http_wipe_armed(&srv) == 1);
+        }
+
+        /* DEC-0034: 2FA set outage_class=blackout */
+        p = (const uint8_t *)strstr((const char *)resp, "id=\"chal\">");
+        check("outage chal", p != NULL);
+        if (p != NULL) {
+            memcpy(chal_hex, p + 10, 64);
+            chal_hex[64] = 0;
+        }
+        for (i = 0; i < 32; i++) {
+            int a = chal_hex[2 * i];
+            int b = chal_hex[2 * i + 1];
+            a = (a >= '0' && a <= '9') ? a - '0' : a - 'a' + 10;
+            b = (b >= '0' && b <= '9') ? b - '0' : b - 'a' + 10;
+            chal[i] = (uint8_t)((a << 4) | b);
+        }
+        check("2fa outage respond", atn_2fa_respond(key, chal, mac) == ATN_OK);
+        for (i = 0; i < 64; i++) {
+            static const char H[] = "0123456789abcdef";
+            mac_hex[2 * i] = H[mac[i] >> 4];
+            mac_hex[2 * i + 1] = H[mac[i] & 15];
+        }
+        mac_hex[128] = 0;
+        snprintf(form, sizeof(form),
+                 "csrf=%s&action=outage&class=blackout&resp=%s", csrf, mac_hex);
+        {
+            atn_http_cli c;
+            check("open outage",
+                  atn_http_cli_open(&c, atn_http_port(&srv), ek) == ATN_OK);
+            check("init outage", atn_http_cli_send_init(&c) == ATN_OK);
+            check("send outage",
+                  atn_http_cli_send_req(&c, "POST", "/admin/do", sid, form) ==
+                  ATN_OK);
+            check("serve outage", atn_http_serve_one(&srv, 3000) == ATN_OK);
+            n = 0;
+            rc = atn_http_cli_finish(&c, resp, &n, sizeof(resp), 3000);
+            atn_http_cli_wipe(&c);
+            check("outage 200", rc == ATN_OK && status_is(resp, n, "200"));
+            check("outage blackout set",
+                  oc == ATN_CFG_OUTAGE_BLACKOUT);
+            check("outage shown",
+                  memmem_absent(resp, n, (const uint8_t *)"outage_class: blackout",
+                                22) == 0);
         }
     }
 

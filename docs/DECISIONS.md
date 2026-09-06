@@ -883,3 +883,58 @@ A decision is recorded **before** code that depends on it is written.
 - **Consequences:** Lab can list up to 16 failover hubs / repl roster
   slots. SoT 3.1 stays done (gate was factor-2 + clocks; cap is policy).
   Larger mesh soak is still a harness task, not a SoT flip.
+
+---
+
+## DEC-0033 — Crypto floor + Essential Eight posture (no downgrade)
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** User: maintain Essential Eight-or-better; no compromise on
+  transport crypto; bleeding-edge / next-gen only. SoT Tier 1 already
+  freezes ML-KEM-1024 + ChaCha20-Poly1305-256 + HMAC/HKDF-SHA-512.
+  DEC-0018 freezes ML-DSA-87. CNSA 2.0 pairs ML-KEM-1024 with ML-DSA-87
+  (same category-5 claim class). ASD Essential Eight
+  (cyber.gov.au / ASD Strategies to Mitigate Cyber Security Incidents)
+  is an **enterprise IT** baseline — Athanor maps analogues; it is not a
+  claim that this repo is an assessed ML3 Windows estate.
+- **Decision — crypto floor (never lower without a new DEC):**
+  - Key establishment: **ML-KEM-1024 only**. Forbid ML-KEM-512/768 and
+    classical-only KEX (RSA, ECDH, X25519) on Athanor tunnels.
+  - Signatures: **ML-DSA-87 only** for product signing. Forbid
+    ML-DSA-44/65, RSA, ECDSA for our pens.
+  - Symmetric AEAD on our wire/store: **ChaCha20-Poly1305** with
+    **256-bit** keys (RFC 8439). Forbid AES-128, RC4, 3DES, Blowfish on
+    our protocols. Android Keystore AES-256-GCM wrap of our 32-byte
+    device key remains allowed (hardware bond, not a tunnel cipher).
+  - MAC/KDF: HMAC-SHA-512 / HKDF-SHA-512 (and SHA-3/SHAKE as FIPS 203
+    requires). Forbid MD5 / SHA-1 as security primitives.
+  - No third-party crypto libs (OpenSSL, libsodium, WireGuard, etc.).
+  - Gate: `tests/test_recipe.c` rejects forbidden tokens in product
+    paths; `docs/CRYPTO.md` is the floor card.
+- **Decision — Essential Eight map:** document in `docs/ESSENTIAL8.md`
+  how each of the eight strategies maps to an Athanor control or an
+  honest **operator/OS gap**. Do not mark SoT boxes from E8 alone.
+- **Consequences:** Downgrades are SoT violations. PQ rekey (ISS-0008)
+  and console `outage_class` (2FA) remain open follow-ons, not excuses
+  to weaken the floor.
+
+---
+
+## DEC-0034 — Console 2FA sets `outage_class` (DEC-0029 live control)
+
+- **Date:** 2026-09-06
+- **Status:** accepted
+- **Evidence:** DEC-0029 froze conf `outage_class` but left console
+  mutate open. Essential Eight MFA (DEC-0033 map) wants admin policy
+  changes behind 2FA. Console already gates wipe/HOLD with CSRF+2FA
+  (DEC-0009/0025).
+- **Decision:**
+  - `atn_http_attach_outage(s, uint8_t *outage_class)` — optional pointer
+    into daemon/session policy (same byte values as `ATN_CFG_OUTAGE_*`).
+  - Console shows current class. POST `/admin/do` `action=outage` with
+    `class=normal|maintenance|blackout|faraday|capture` after CSRF+2FA.
+  - Invalid class → 400. No attach → 400. Does not write conf files;
+    process memory only until next conf apply.
+- **Consequences:** Operator can HOLD blackout class without editing
+  files mid-incident. T-0802 closes.

@@ -107,4 +107,6 @@ tools/ci_local.ps1
 tools/ci_local.sh
 tools/export.ps1
 tools/src.list
+docs/CRYPTO.md
+docs/ESSENTIAL8.md
 vendor/knox/README.md

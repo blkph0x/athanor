@@ -4,6 +4,17 @@ Newest at the top.
 
 ---
 
+## 2026-09-06 — DEC-0033/0034: crypto floor + E8 + console outage 2FA
+
+- User: Essential Eight or better; bleeding-edge PQ crypto; no compromise.
+- DEC-0033: freeze ML-KEM-1024 / ML-DSA-87 / ChaCha20-Poly1305-256;
+  forbid weaker algs + third-party crypto deps. Gate in `test_recipe`.
+- Docs: `CRYPTO.md`, `ESSENTIAL8.md`; README posture + pipeline rows.
+- DEC-0034: console `action=outage` after CSRF+2FA (T-0802).
+- Opened T-0801 (PQ rekey). SoT unchanged.
+
+---
+
 ## 2026-09-06 — DEC-0032: roster/hub cap 16 + README pipeline board
 
 - Raised `ATN_REPL_MAX_NODES` and `ATN_CFG_MAX_HUBS` to 16 (match hb

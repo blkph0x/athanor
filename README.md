@@ -11,6 +11,9 @@ Rule of the foundry: **zero external libraries, zero third-party runtimes, zero 
 
 **Build (Windows, Linux, ARM, Android NDK):** see [`docs/BUILD.md`](docs/BUILD.md). Short version: `make test` on the target, or `make CC=aarch64-linux-gnu-gcc` to cross-compile.
 
+**Crypto floor (no downgrade):** ML-KEM-1024 + ML-DSA-87 + ChaCha20-Poly1305 (256-bit) — [`docs/CRYPTO.md`](docs/CRYPTO.md), DEC-0033.  
+**Essential Eight map:** [`docs/ESSENTIAL8.md`](docs/ESSENTIAL8.md) (org IT baseline → Athanor analogues; we aim **above** that floor on the wire).
+
 **Pipeline:** local `make test` and GitHub Actions run the **same Makefile**. See [`docs/CI.md`](docs/CI.md). Pre-push hook refuses a push that fails tests. After `git push`, this laptop and `origin/main` are the same commit.
 
 > An *athanor* is the alchemist’s furnace built to hold a constant fire without feeding it from the outside. That is the point of this project. The heat has to come from ore we smelted.
@@ -175,7 +178,7 @@ Law of sequencing: do not start a requirement whose dependencies are still open.
 | [`SOURCE_OF_TRUTH.md`](SOURCE_OF_TRUTH.md) | Canonical specification. Non-negotiable. |
 | [`CAUSE_EFFECT_MAP.md`](CAUSE_EFFECT_MAP.md) | Why each requirement exists, how to finish it, what it unlocks, what breaks if skipped, and the verification gate. |
 | [`DEVELOPMENT_RULES.md`](DEVELOPMENT_RULES.md) | Never guess. Comment and document everything. Keep the task list current. |
-| [`docs/`](docs/README.md) | Living TASKS, ISSUES, DECISIONS, CODE_NOTES, BUILD_NOTES, LOG, SPEC_INDEX. |
+| [`docs/`](docs/README.md) | Living TASKS, ISSUES, DECISIONS, CODE_NOTES, BUILD_NOTES, LOG, SPEC_INDEX, **CRYPTO**, **ESSENTIAL8**. |
 
 The README is orientation. The source of truth is law. The cause/effect map is how work is sequenced and proven. The development rules are how we type. The `docs/` desk is how we remember.
 
@@ -210,6 +213,19 @@ The README is orientation. The source of truth is law. The cause/effect map is h
 | Diag soak | `diag=1` + `flush_mode=log_only` (DEC-0027) | Ready for lab |
 | Hub failover | `tests/test_hub_failover` (DEC-0031 / D-08) | Green |
 | Multi-hub roster | cap **16** hubs/repl (DEC-0032) | Green |
+| Crypto floor gate | `test_recipe` forbids weak/third-party tokens (DEC-0033) | Green |
+| Essential Eight map | `docs/ESSENTIAL8.md` | Documented; not an assessed ML3 claim |
+
+### Crypto & security posture (DEC-0033)
+
+| Control | Bar |
+|---|---|
+| Tunnel KEM | **ML-KEM-1024 only** (no 512/768, no classical-only KEX) |
+| Signatures | **ML-DSA-87 only** |
+| Wire/store AEAD | **ChaCha20-Poly1305**, 256-bit keys |
+| Admin mutate | Session + CSRF + **HMAC-SHA-512 2FA** |
+| Supply chain | Zero product package mirrors; recipe URL + crypto-floor scan |
+| Essential Eight | Mapped in `docs/ESSENTIAL8.md` — we meet or exceed on wire crypto; device/OS gaps tracked |
 
 ### Testing-phase readiness
 

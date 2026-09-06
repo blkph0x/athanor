@@ -5,6 +5,7 @@
  */
 
 #include "atn_http.h"
+#include "atn_cfg.h"
 #include "atn_tun.h"
 
 #include <stdio.h>
@@ -710,6 +711,7 @@ void atn_http_close(atn_http_srv *s)
     atn_2fa_store_init(&s->twofa);
     s->listen_sock = (intptr_t)ATN_INV;
     s->mesh = NULL;
+    s->outage_class = NULL;
     atn_lock_fini(&s->lock);
 }
 
@@ -721,6 +723,55 @@ void atn_http_attach_mesh(atn_http_srv *s, atn_hb *mesh)
     atn_lock_acquire(&s->lock);
     s->mesh = mesh;
     atn_lock_release(&s->lock);
+}
+
+void atn_http_attach_outage(atn_http_srv *s, uint8_t *outage_class)
+{
+    if (s == NULL) {
+        return;
+    }
+    atn_lock_acquire(&s->lock);
+    s->outage_class = outage_class;
+    atn_lock_release(&s->lock);
+}
+
+static const char *outage_name(uint8_t c)
+{
+    switch (c) {
+    case ATN_CFG_OUTAGE_NORMAL:
+        return "normal";
+    case ATN_CFG_OUTAGE_MAINTENANCE:
+        return "maintenance";
+    case ATN_CFG_OUTAGE_BLACKOUT:
+        return "blackout";
+    case ATN_CFG_OUTAGE_FARADAY:
+        return "faraday";
+    case ATN_CFG_OUTAGE_CAPTURE:
+        return "capture";
+    default:
+        return "unknown";
+    }
+}
+
+static int outage_parse(const char *s, uint8_t *out)
+{
+    if (s == NULL || out == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    if (strcmp(s, "normal") == 0) {
+        *out = ATN_CFG_OUTAGE_NORMAL;
+    } else if (strcmp(s, "maintenance") == 0) {
+        *out = ATN_CFG_OUTAGE_MAINTENANCE;
+    } else if (strcmp(s, "blackout") == 0) {
+        *out = ATN_CFG_OUTAGE_BLACKOUT;
+    } else if (strcmp(s, "faraday") == 0) {
+        *out = ATN_CFG_OUTAGE_FARADAY;
+    } else if (strcmp(s, "capture") == 0) {
+        *out = ATN_CFG_OUTAGE_CAPTURE;
+    } else {
+        return ATN_ERR_PARAM;
+    }
+    return ATN_OK;
 }
 
 static int hex_nib(int c)
@@ -984,6 +1035,7 @@ static size_t html_console(char *out, size_t max, const char *csrf,
                  "<h1>Athanor</h1><p>ATN-CONSOLE-PAGE</p>"
                  "%s"
                  "<p>wipe: %s</p>"
+                 "<p>outage_class: %s</p>"
                  "<p>fresh challenge</p><code id=\"chal\">%s</code>"
                  "<form method=\"POST\" action=\"/admin/do\">"
                  "<input type=\"hidden\" name=\"csrf\" value=\"%s\">"
@@ -991,9 +1043,24 @@ static size_t html_console(char *out, size_t max, const char *csrf,
                  "<label>2FA response (128 hex)</label>"
                  "<input name=\"resp\" size=\"64\" maxlength=\"128\">"
                  "<button type=\"submit\">arm wipe</button></form>"
+                 "<form method=\"POST\" action=\"/admin/do\">"
+                 "<input type=\"hidden\" name=\"csrf\" value=\"%s\">"
+                 "<input type=\"hidden\" name=\"action\" value=\"outage\">"
+                 "<label>class</label>"
+                 "<select name=\"class\">"
+                 "<option value=\"normal\">normal</option>"
+                 "<option value=\"maintenance\">maintenance</option>"
+                 "<option value=\"blackout\">blackout</option>"
+                 "<option value=\"faraday\">faraday</option>"
+                 "<option value=\"capture\">capture</option>"
+                 "</select>"
+                 "<label>2FA</label><input name=\"resp\" maxlength=\"128\">"
+                 "<button type=\"submit\">set outage_class</button></form>"
                  "</body></html>",
                  CSS, roster, (s != NULL && s->wipe_armed) ? "armed" : "idle",
-                 chal_hex, csrf);
+                 (s != NULL && s->outage_class != NULL) ?
+                     outage_name(*s->outage_class) : "n/a",
+                 chal_hex, csrf, csrf);
     if (n < 0 || (size_t)n >= max) {
         return 0;
     }
@@ -1214,6 +1281,27 @@ static int route_and_respond(atn_http_srv *s, atn_sock cs, uint8_t *last,
                                                chal_hex, s);
                             body = (const uint8_t *)html;
                             (void)rc;
+                        } else if (strcmp(action, "outage") == 0) {
+                            char cls[32];
+                            uint8_t oc = 0;
+                            if (s->outage_class == NULL ||
+                                atn_http_form_get(req + r.body_off, r.body_len,
+                                                  "class", cls,
+                                                  sizeof(cls)) != ATN_OK ||
+                                outage_parse(cls, &oc) != ATN_OK) {
+                                status = 400;
+                                reason = "Bad Request";
+                                body = (const uint8_t *)"<p>400</p>";
+                                blen = 10;
+                            } else {
+                                *s->outage_class = oc;
+                                if (issue_chal(s, se, chal_hex) != ATN_OK) {
+                                    chal_hex[0] = 0;
+                                }
+                                blen = html_console(html, sizeof(html),
+                                                   csrf_hex, chal_hex, s);
+                                body = (const uint8_t *)html;
+                            }
                         } else {
                             status = 400;
                             reason = "Bad Request";
