@@ -34,6 +34,8 @@ public class AtnLabActivity extends Activity {
     private TextView boomBanner;
     private TextView logBox;
     private TextView voiceStats;
+    private TextView ringBanner;
+    private TextView contactsBox;
     private EditText codeBox;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final StringBuilder lines = new StringBuilder();
@@ -130,18 +132,16 @@ public class AtnLabActivity extends Activity {
         voiceStats.setText("voice: idle");
         root.addView(voiceStats);
 
-        TextView ringBanner = new TextView(this);
+        ringBanner = new TextView(this);
         ringBanner.setTextSize(18f);
         ringBanner.setTypeface(Typeface.SANS_SERIF, Typeface.BOLD);
         ringBanner.setTextColor(Color.rgb(180, 40, 40));
         ringBanner.setVisibility(android.view.View.GONE);
-        ringBanner.setTag("ringBanner");
         root.addView(ringBanner);
 
-        TextView contactsBox = new TextView(this);
+        contactsBox = new TextView(this);
         contactsBox.setTypeface(Typeface.MONOSPACE);
         contactsBox.setTextSize(12f);
-        contactsBox.setTag("contactsBox");
         root.addView(contactsBox);
         refreshContacts(contactsBox);
 
@@ -572,14 +572,13 @@ public class AtnLabActivity extends Activity {
         if (voiceStats != null) {
             voiceStats.setText("voice: " + AtnVoice.statsText());
         }
-        TextView rb = (TextView) findViewWithTag("ringBanner");
-        if (rb != null) {
+        if (ringBanner != null) {
             if (AtnVoice.isRinging()) {
-                rb.setVisibility(android.view.View.VISIBLE);
-                rb.setText("RING: " + AtnVoice.ringLabel()
+                ringBanner.setVisibility(android.view.View.VISIBLE);
+                ringBanner.setText("RING: " + AtnVoice.ringLabel()
                         + " — tap Answer");
             } else {
-                rb.setVisibility(android.view.View.GONE);
+                ringBanner.setVisibility(android.view.View.GONE);
             }
         }
     }
