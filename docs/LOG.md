@@ -4,6 +4,16 @@ Newest at the top.
 
 ---
 
+## 2026-09-08 — Lab soak harness + update file gates
+
+- `tools/lab-soak.ps1`: soft-restart hub (assert `keys loaded` + stable
+  `peer_ek`), wait phone reconnect, policy bump, site update publish,
+  `scrub-check`; compromise boom skipped so phone stays live mid-soak.
+- `test_cfg`: `atn_update_file_sha256_hex` + announce save/load roundtrip.
+- `make android-so` also links compromise + update sources (JNI/Java still
+  owns wire apply). `docs/LAB.md`: listen restart keeps `peer_ek` when
+  `lab/hub-mlkem.keys` present.
+
 ## 2026-09-08 — Reconnect without silence BOOM + public peer path
 
 - Phone: pause unreachable silence clock while HANDSHAKE / auto-reconnect /

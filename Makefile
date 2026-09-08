@@ -365,7 +365,7 @@ STUB_JAVA = \
 
 android-so:
 	$(MAKE) CC="$(ANDROID_CC)" AR="$(ANDROID_AR)" lib
-	$(ANDROID_CC) -shared -o android/libatn.so $(JNI_SRC) $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) $(POLICY_SRC) -Iinclude -llog
+	$(ANDROID_CC) -shared -o android/libatn.so $(JNI_SRC) $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) $(POLICY_SRC) $(COMPROMISE_SRC) $(UPDATE_SRC) -Iinclude -llog
 
 android-java:
 ifeq ($(REAL_KNOX),)

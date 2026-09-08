@@ -344,6 +344,42 @@ int main(void)
         check("upd req U?",
               atn_update_parse_wire(wire, 2, &u2, &off, &clen, &cdata) ==
                   ATN_ERR_STATE);
+        /* File SHA-256 + announce save/load roundtrip (payload on disk). */
+        {
+            static const char pay[] = "abc";
+            /* SHA-256("abc") */
+            static const char want_sha[] =
+                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+            char hex[ATN_UPD_SHA_HEX + 1u];
+            uint32_t psz = 0;
+            FILE *pf = fopen("atn-upd-pay.tmp", "wb");
+            check("upd pay write", pf != NULL);
+            if (pf != NULL) {
+                fwrite(pay, 1, sizeof(pay) - 1u, pf);
+                fclose(pf);
+            }
+            check("upd file sha256",
+                  atn_update_file_sha256_hex("atn-upd-pay.tmp", hex, &psz) ==
+                          ATN_OK &&
+                      psz == 3u && strcmp(hex, want_sha) == 0);
+            atn_update_init(&u);
+            u.update_id = 42;
+            u.kind = ATN_UPD_KIND_SITE;
+            memcpy(u.version, "soak", 5);
+            memcpy(u.sha256_hex, want_sha, 65);
+            u.size = 3;
+            u.chunk_size = ATN_UPD_CHUNK_MAX;
+            memcpy(u.payload_path, "atn-upd-pay.tmp", 16);
+            check("upd save file",
+                  atn_update_save_file("atn-upd-ann.tmp", &u) == ATN_OK);
+            check("upd load roundtrip",
+                  atn_update_load_file("atn-upd-ann.tmp", &u2) == ATN_OK &&
+                      u2.update_id == 42u && u2.kind == ATN_UPD_KIND_SITE &&
+                      u2.size == 3u && strcmp(u2.sha256_hex, want_sha) == 0 &&
+                      strcmp(u2.version, "soak") == 0);
+            remove("atn-upd-pay.tmp");
+            remove("atn-upd-ann.tmp");
+        }
     }
 
     if (g_fail == 0) {

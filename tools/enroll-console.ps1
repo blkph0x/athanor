@@ -363,7 +363,7 @@ chunk_size=900
 payload_path=lab/updates/payload.bin
 "@
     [System.IO.File]::WriteAllText((Join-Path $updDir "announce.conf"), ($text.Trim() + "`n"))
-    return @{ Ok=$true; Msg=("OK: published update_id={0} kind={1} size={2} (DEC-0048). Hub streams over encrypted tunnel DATA only — no HTTP download. Keep atnnode listen running." -f $uid, $kind, $size); Detail=$text }
+    return @{ Ok=$true; Msg=("OK: published update_id={0} kind={1} size={2} (DEC-0048). Hub streams over encrypted tunnel DATA only - no HTTP download. Keep atnnode listen running." -f $uid, $kind, $size); Detail=$text }
 }
 
 function Page-Html([string]$flash, [string]$detail) {

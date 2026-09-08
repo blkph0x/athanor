@@ -30,8 +30,11 @@ Copy the printed `peer_port` / `peer_ek`. Set `peer_ipv4` to this PC's
 LAN address (from the edge panel **hub_lan_ipv4**, or `ipconfig`),
 **not** 127.0.0.1 (phone is another host).
 
-Leave the process running. After **ESTABLISHED**, the hub only echoes;
-restart `listen` (new `peer_ek`) before a fresh phone soak.
+Leave the process running. After **ESTABLISHED**, the hub only echoes.
+Hub ML-KEM keys persist in gitignored `lab/hub-mlkem.keys` (or
+`ATN_HUB_KEYS`); a soft restart of `listen` reloads the same `peer_ek` so
+the phone can reconnect without re-enroll. Only delete that keys file
+(or omit it on first start) when you intentionally want a new `peer_ek`.
 
 ## 2. Phone conf
 
