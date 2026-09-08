@@ -924,6 +924,15 @@ static int cmd_listen(uint16_t port)
                             }
                         }
                     }
+                } else if (n >= 1 && pt[0] == 0x41u /* 'A' DEC-0050 voice */) {
+                    /*
+                     * Opaque forward/echo of family 'A' (CONTROL / SEALED /
+                     * AUDIO). Lab single-session: echo enables loopback.
+                     * Product relay: hub MUST forward without attempting to
+                     * decode 'A''S' (nested E2E). Multi-peer A↔Hub↔B fan-out
+                     * still deferred on this listen path.
+                     */
+                    (void)atn_tun_send(&t, pt, n);
                 } else {
                     (void)atn_tun_send(&t, pt, n); /* LAB echo / other */
                 }

@@ -172,6 +172,11 @@ public class AtnDaemonService extends Service {
                                     AtnDaemonService.this, back, n);
                             continue;
                         }
+                        if (n >= 1 && back[0] == (byte) 'A') {
+                            /* DEC-0049 voice — do not feed hb_ingest. */
+                            AtnVoice.onFrame(back, n);
+                            continue;
+                        }
                         if (n < back.length) {
                             byte[] msg = new byte[n];
                             System.arraycopy(back, 0, msg, 0, n);

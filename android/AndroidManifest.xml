@@ -6,10 +6,12 @@
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="31" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="com.samsung.android.knox.permission.KNOX_RESTRICTION_MGMT" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <application
         android:label="Athanor Lab"
         android:allowBackup="false"

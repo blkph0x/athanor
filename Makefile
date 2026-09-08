@@ -140,6 +140,7 @@ CFG_SRC  = src/cfg/atn_cfg.c
 POLICY_SRC = src/policy/atn_policy.c
 COMPROMISE_SRC = src/compromise/atn_compromise.c
 UPDATE_SRC = src/update/atn_update.c
+VOICE_SRC = src/voice/atn_voice.c src/voice/atn_voice_codec.c src/voice/atn_voice_jitter.c src/voice/atn_voice_e2e.c src/voice/atn_voice_dial.c
 
 TEST_BIN = tests/test_crypto$(EXE)
 TEST_TUN = tests/test_tun$(EXE)
@@ -156,6 +157,7 @@ TEST_CFG  = tests/test_cfg$(EXE)
 TEST_FUZZ = tests/test_fuzz$(EXE)
 TEST_RECIPE = tests/test_recipe$(EXE)
 TEST_HUB  = tests/test_hub_failover$(EXE)
+TEST_VOICE = tests/test_voice$(EXE)
 CLI_2FA  = atn2fa$(EXE)
 CLI_HTTP = atnhttp$(EXE)
 CLI_DNS  = atndns$(EXE)
@@ -167,7 +169,7 @@ LIB_BIN  = libatn_crypto.a
 .PHONY: all test lib info clean ci test-unsigned-char android-so android-java android android-apk manifest report export-tree scrub-check
 
 
-all: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(TEST_CFG) $(TEST_FUZZ) $(TEST_RECIPE) $(TEST_HUB) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN) $(CLI_NODE) $(CLI_ENROLL)
+all: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(TEST_CFG) $(TEST_FUZZ) $(TEST_RECIPE) $(TEST_HUB) $(TEST_VOICE) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN) $(CLI_NODE) $(CLI_ENROLL)
 
 info:
 	$(info CC=$(CC))
@@ -230,6 +232,9 @@ $(TEST_CFG): $(SRC) $(CFG_SRC) $(POLICY_SRC) $(COMPROMISE_SRC) $(UPDATE_SRC) tes
 $(TEST_HUB): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) tests/test_hub_failover.c include/atn_dmon.h include/atn_cfg.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) tests/test_hub_failover.c $(LDFLAGS)
 
+$(TEST_VOICE): $(SRC) $(TUN_SRC) $(VOICE_SRC) tests/test_voice.c include/atn_voice.h include/atn_tun.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(VOICE_SRC) tests/test_voice.c $(LDFLAGS) -lm
+
 $(TEST_FUZZ): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(CFG_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_fuzz.c
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(CFG_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_fuzz.c $(LDFLAGS)
 
@@ -253,7 +258,7 @@ report: test $(CLI_SIGN)
 export-tree:
 	powershell -NoProfile -File tools/export.ps1
 
-test: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(TEST_CFG) $(TEST_FUZZ) $(TEST_RECIPE) $(TEST_HUB) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN) $(CLI_NODE) $(CLI_ENROLL)
+test: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(TEST_CFG) $(TEST_FUZZ) $(TEST_RECIPE) $(TEST_HUB) $(TEST_VOICE) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN) $(CLI_NODE) $(CLI_ENROLL)
 ifeq ($(CROSS),1)
 	@echo "cross-compiled for $(MACHINE) ($(ATN_TARGET_OS)-$(ATN_ARCH))"
 	@echo "run binaries on the target; not executing them on the builder"
@@ -271,6 +276,7 @@ else
 	$(TEST_SIGN)
 	$(TEST_CFG)
 	$(TEST_HUB)
+	$(TEST_VOICE)
 	$(TEST_FUZZ)
 	$(TEST_RECIPE)
 	./$(CLI_2FA) demo
@@ -302,8 +308,8 @@ $(LIB_BIN): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(TREE_SRC) $(R
 	$(AR) rcs $@ atn_platform.o atn_secure.o atn_sha256.o atn_sha512.o atn_hmac.o atn_hkdf.o atn_fips202.o atn_mlkem.o atn_mldsa.o atn_chacha20.o atn_poly1305.o atn_aead.o atn_nonce.o atn_tun.o atn_2fa.o atn_http.o atn_dns.o atn_tree.o atn_repl.o atn_hb.o atn_sync.o atn_dmon.o atn_sign.o atn_cfg.o
 
 clean:
-	-rm -f $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(TEST_CFG) $(TEST_FUZZ) $(TEST_RECIPE) $(TEST_HUB) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN) $(CLI_NODE) $(CLI_ENROLL) $(LIB_BIN) atn_*.o android/libatn.so MANIFEST REPORT
-	-cmd /c "del /Q tests\test_crypto.exe tests\test_tun.exe tests\test_2fa.exe tests\test_http.exe tests\test_dns.exe tests\test_tree.exe tests\test_repl.exe tests\test_hb.exe tests\test_dmon.exe tests\test_mldsa.exe tests\test_sign.exe tests\test_cfg.exe tests\test_fuzz.exe tests\test_recipe.exe tests\test_hub_failover.exe atn2fa.exe atnhttp.exe atndns.exe atnsign.exe atnnode.exe atnenroll.exe libatn_crypto.a atn_*.o 2>NUL"
+	-rm -f $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(TEST_CFG) $(TEST_FUZZ) $(TEST_RECIPE) $(TEST_HUB) $(TEST_VOICE) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN) $(CLI_NODE) $(CLI_ENROLL) $(LIB_BIN) atn_*.o android/libatn.so MANIFEST REPORT
+	-cmd /c "del /Q tests\test_crypto.exe tests\test_tun.exe tests\test_2fa.exe tests\test_http.exe tests\test_dns.exe tests\test_tree.exe tests\test_repl.exe tests\test_hb.exe tests\test_dmon.exe tests\test_mldsa.exe tests\test_sign.exe tests\test_cfg.exe tests\test_fuzz.exe tests\test_recipe.exe tests\test_hub_failover.exe tests\test_voice.exe atn2fa.exe atnhttp.exe atndns.exe atnsign.exe atnnode.exe atnenroll.exe libatn_crypto.a atn_*.o 2>NUL"
 
 # Android NDK aarch64 shared lib + javac against platform android.jar.
 # Knox without Partner jar (DEC-0015 / 0019 / 0030):
@@ -355,6 +361,8 @@ DAEMON_JAVA = \
 	android/java/com/athanor/daemon/AtnPwdDeny.java \
 	android/java/com/athanor/daemon/AtnCompromise.java \
 	android/java/com/athanor/daemon/AtnUpdate.java \
+	android/java/com/athanor/daemon/AtnVoice.java \
+	android/java/com/athanor/daemon/AtnContacts.java \
 	android/java/com/athanor/daemon/AtnLabBoom.java \
 	android/java/com/athanor/daemon/AtnDaemonService.java \
 	android/java/com/athanor/daemon/AtnLabActivity.java

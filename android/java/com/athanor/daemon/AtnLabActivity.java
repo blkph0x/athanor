@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Build;
@@ -27,10 +28,12 @@ public class AtnLabActivity extends Activity {
     private static final String TAG = "atn-lab";
     private static final long UI_MS = 500L;
     private static final int REQ_ADMIN = 41;
+    private static final int REQ_MIC = 42;
 
     private TextView status;
     private TextView boomBanner;
     private TextView logBox;
+    private TextView voiceStats;
     private EditText codeBox;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final StringBuilder lines = new StringBuilder();
@@ -116,6 +119,108 @@ public class AtnLabActivity extends Activity {
         });
         root.addView(ping);
 
+        TextView voiceNote = new TextView(this);
+        voiceNote.setText("Voice (DEC-0050): P2P E2E primary; hub relay is"
+                + " opaque nested seal. Lab Call hub-loop = echo self-test.");
+        root.addView(voiceNote);
+
+        voiceStats = new TextView(this);
+        voiceStats.setTypeface(Typeface.MONOSPACE);
+        voiceStats.setTextSize(12f);
+        voiceStats.setText("voice: idle");
+        root.addView(voiceStats);
+
+        TextView ringBanner = new TextView(this);
+        ringBanner.setTextSize(18f);
+        ringBanner.setTypeface(Typeface.SANS_SERIF, Typeface.BOLD);
+        ringBanner.setTextColor(Color.rgb(180, 40, 40));
+        ringBanner.setVisibility(android.view.View.GONE);
+        ringBanner.setTag("ringBanner");
+        root.addView(ringBanner);
+
+        TextView contactsBox = new TextView(this);
+        contactsBox.setTypeface(Typeface.MONOSPACE);
+        contactsBox.setTextSize(12f);
+        contactsBox.setTag("contactsBox");
+        root.addView(contactsBox);
+        refreshContacts(contactsBox);
+
+        Button addContact = new Button(this);
+        addContact.setText("Ensure demo contact 'hub'");
+        addContact.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View v) {
+                AtnContacts.addDemoHub(AtnLabActivity.this);
+                refreshContacts(contactsBox);
+                appendLog("contacts updated");
+            }
+        });
+        root.addView(addContact);
+
+        Button callHub = new Button(this);
+        callHub.setText("Call hub-loop");
+        callHub.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View v) {
+                ensureMicThenCall();
+            }
+        });
+        root.addView(callHub);
+
+        Button callContact = new Button(this);
+        callContact.setText("Call first contact (lab)");
+        callContact.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View v) {
+                java.util.List<AtnContacts.Entry> list =
+                        AtnContacts.load(AtnLabActivity.this);
+                if (list.isEmpty()) {
+                    appendLog("no contacts — tap Ensure demo contact");
+                    return;
+                }
+                appendLog("call contact " + list.get(0).label
+                        + " (P2P when reachable; else hub sealed via native)");
+                ensureMicThenCall();
+            }
+        });
+        root.addView(callContact);
+
+        Button answer = new Button(this);
+        answer.setText("Answer");
+        answer.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View v) {
+        boolean ok = AtnVoice.answer();
+        AtnVoice.clearRing();
+        appendLog(ok ? "voice answer" : "voice answer failed state="
+                + AtnVoice.stateName());
+            }
+        });
+        root.addView(answer);
+
+        Button muteBtn = new Button(this);
+        muteBtn.setText("Mute / unmute");
+        muteBtn.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View v) {
+                boolean next = !AtnVoice.isMute();
+                AtnVoice.setMute(next);
+                appendLog(next ? "muted (stop frames)" : "unmuted");
+            }
+        });
+        root.addView(muteBtn);
+
+        Button hangup = new Button(this);
+        hangup.setText("Hangup");
+        hangup.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View v) {
+                boolean ok = AtnVoice.hangup();
+                appendLog(ok ? "voice hangup" : "hangup ignored");
+            }
+        });
+        root.addView(hangup);
+
         Button voteYes = new Button(this);
         voteYes.setText("Compromise vote YES");
         voteYes.setOnClickListener(new android.view.View.OnClickListener() {
@@ -200,6 +305,50 @@ public class AtnLabActivity extends Activity {
                     : "Device Admin NOT activated (user declined)");
             paintStatus();
         }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                                           int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_MIC) {
+            if (grantResults != null && grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                appendLog("RECORD_AUDIO granted");
+                startHubLoopCall();
+            } else {
+                appendLog("RECORD_AUDIO denied — voice call aborted");
+            }
+        }
+    }
+
+    private void ensureMicThenCall() {
+        if (Build.VERSION.SDK_INT >= 23) {
+            if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(
+                        new String[] { android.Manifest.permission.RECORD_AUDIO },
+                        REQ_MIC);
+                appendLog("requesting RECORD_AUDIO");
+                return;
+            }
+        }
+        startHubLoopCall();
+    }
+
+    private void startHubLoopCall() {
+        int st = AtnNative.tunState();
+        if (st != AtnNative.TUN_ESTABLISHED) {
+            appendLog("voice call needs ESTABLISHED (state=" + stateName(st) + ")");
+            return;
+        }
+        int id = (int) (System.currentTimeMillis() & 0x7fffffff);
+        if (id == 0) {
+            id = 1;
+        }
+        boolean ok = AtnVoice.callHubLoop(id);
+        appendLog(ok ? "voice call hub-loop id=" + id
+                : "voice call failed (busy or tunnel down)");
     }
 
     @Override
@@ -417,11 +566,39 @@ public class AtnLabActivity extends Activity {
             }
             line += compLine;
         } catch (Throwable t) {
-            line = "native not ready: " + t.getMessage()
-                    + "\ndeviceAdmin=" + (admin ? "ON" : "OFF")
-                    + compLine;
+            line = "native not ready: " + t.getMessage();
         }
         status.setText(line);
+        if (voiceStats != null) {
+            voiceStats.setText("voice: " + AtnVoice.statsText());
+        }
+        TextView rb = (TextView) findViewWithTag("ringBanner");
+        if (rb != null) {
+            if (AtnVoice.isRinging()) {
+                rb.setVisibility(android.view.View.VISIBLE);
+                rb.setText("RING: " + AtnVoice.ringLabel()
+                        + " — tap Answer");
+            } else {
+                rb.setVisibility(android.view.View.GONE);
+            }
+        }
+    }
+
+    private void refreshContacts(TextView box) {
+        if (box == null) {
+            return;
+        }
+        java.util.List<AtnContacts.Entry> list = AtnContacts.load(this);
+        StringBuilder sb = new StringBuilder("contacts:\n");
+        if (list.isEmpty()) {
+            sb.append("  (empty)\n");
+        } else {
+            for (AtnContacts.Entry e : list) {
+                sb.append("  ").append(e.label).append(" ")
+                        .append(e.ipv4).append(':').append(e.port).append('\n');
+            }
+        }
+        box.setText(sb.toString());
     }
 
     private static String stateName(int st) {

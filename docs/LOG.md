@@ -4,6 +4,22 @@ Newest at the top.
 
 ---
 
+## 2026-09-08 — DEC-0050 voice P2P-first E2E + opaque hub relay
+
+- Supersedes DEC-0049 hop-by-hop SoT: primary = direct PQ/AEAD peer tunnel;
+  fallback = nested `'A''S'` AEAD (ML-KEM session to contact peer_ek).
+- Hub must not recover PCM on relay path (proven in `test_voice`).
+- Latency hub ranking, contact roster parse, dial helpers; Android contacts
+  + RING UI. Multi-session hub fan-out still deferred.
+
+## 2026-09-08 — DEC-0049 secure voice over tunnel
+
+- Voice family `'A'` CONTROL/AUDIO over existing PQ/AEAD `ATN_TUN_DATA`.
+- Native `atn_voice` (PCM16 + IMA ADPCM, jitter/PLC, call SM); `test_voice`.
+- Trust: hop-by-hop (hub sees plaintext) — not phone↔phone E2E.
+- Hub listen: echo `'A'` for lab loopback; multi-peer relay deferred.
+- Android lab: `AtnVoice` + Call hub-loop / Answer / Mute / Hangup + stats.
+
 ## 2026-09-08 — Lab soak harness + update file gates
 
 - `tools/lab-soak.ps1`: soft-restart hub (assert `keys loaded` + stable

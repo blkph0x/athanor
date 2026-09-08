@@ -28,6 +28,7 @@ Diag-first flash when jar lands (DEC-0027).
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
+| T-0903 | done | REQ-1.2/4.1 | DEC-0049/0050 secure voice: P2P E2E + opaque hub relay |
 | T-0902 | done | REQ-2.2/4.1 | DEC-0048 mesh update push (tunnel-only APK/site/hub) |
 | T-0901 | done | REQ-2.2/4.1 | DEC-0047 compromise vote + timeout boom (hub/admin/phone) |
 | T-0900 | done | REQ-2.2/4.1 | DEC-0045/0046 org policy + encrypted phone config + boom/K/lock |

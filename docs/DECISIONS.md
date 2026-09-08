@@ -1338,3 +1338,96 @@ A decision is recorded **before** code that depends on it is written.
   only stages files on the publishing hub.
 
 ---
+
+## DEC-0049 — Secure voice over existing PQ/AEAD tunnel (hop-by-hop)
+
+- **Date:** 2026-09-08
+- **Status:** accepted
+- **Evidence:** Lab needs phone↔hub voice without new crypto, WebRTC,
+  DTLS/SRTP, Opus, or plaintext UDP. `ATN_TUN_DATA` already carries
+  opaque PT ≤ `ATN_TUN_MAX_PT` (1024) under ML-KEM-1024 + ChaCha20-Poly1305.
+  Hub listen decrypts application plaintext today (policy/compromise/
+  update). Heartbeat already owns wire letter `'V'` (vote).
+- **Decision:**
+  - **Transport only:** Voice rides existing `atn_tun_send` /
+    `atn_tun_recv_data` (and dmon/JNI wrappers). Voice **never** opens
+    its own sockets. Call setup/media fail if tunnel is not
+    `ATN_TUN_ESTABLISHED`. **No plaintext voice fallback.**
+  - **Trust model (honest):** `ATN_TUN_DATA` is **hop-by-hop**. The hub
+    (or any ESTABLISHED peer that decrypts DATA) sees application
+    plaintext, including voice CONTROL/AUDIO. This is **not**
+    end-to-end phone↔phone confidentiality. Nested E2E AEAD inside
+    DATA is a later DEC if required.
+  - **Wire family `'A'` (0x41)** — not `'V'` (hb vote).
+    - CONTROL: `'A''C'` + compact binary (op, codec, call_id, …).
+    - AUDIO: `'A''F'` + call_id + seq + sample_ts + codec + encoded
+      bytes. Max PT = 1024. PCM16 20 ms @ 16 kHz = 640 sample bytes +
+      small header fits.
+  - **Codecs (in-tree only):** PCM16 passthrough first; IMA ADPCM
+    second. No Opus/WebRTC/third-party codecs. No recordings stored.
+  - **Call states:** IDLE / OUTGOING / RINGING / CONNECTING / ACTIVE /
+    HOLD / TERMINATING; invalid transitions rejected.
+  - **Jitter:** target 40–120 ms; bounded queues; PLC (repeat/fade or
+    silence); memzero sensitive PCM on hangup.
+  - **Routing today:** Phone↔hub only (single listen session). Lab:
+    hub **echoes** `'A'` frames (same as LAB ping) so phone self-test /
+    loopback works. Multi-peer hub relay (A↔Hub↔B fan-out) is
+    **deferred**. Tests cover direct two-peer tunnel and in-process
+    hub forward of `'A'` plaintext between two tunnels — no new UDP
+    outside the tunnel.
+  - **Android lab:** Mic → PCM → `tunSend`; `tunRecv` → jitter →
+    AudioTrack. Mute stops sending frames (not zero-PCM flood).
+    `RECORD_AUDIO` required.
+- **Consequences:** Voice security floor = tunnel AEAD hop-by-hop.
+  Operators must not claim phone↔phone E2E. Multi-session hub relay
+  and nested E2E remain open.
+
+---
+
+## DEC-0050 — Voice P2P-first E2E; opaque hub relay fallback (supersedes DEC-0049 SoT)
+
+- **Date:** 2026-09-08
+- **Status:** accepted
+- **Supersedes:** DEC-0049 product trust claim (hop-by-hop hub-visible PCM
+  as SoT). Family `'A'`, codecs, states, and no-plaintext-fallback from
+  0049 remain. Lab hop-by-hop echo may still exist for diagnostics but
+  is **not** the confidentiality model.
+- **Evidence:** Operators require real end-to-end audio confidentiality.
+  Hub decrypts outer `ATN_TUN_DATA` today; therefore any clear `'A''F'`
+  PCM on a hub path is visible to the hub. Direct peer PQ/AEAD tunnels
+  already provide E2E. Nested ChaCha20-Poly1305 under ML-KEM session
+  keys can seal media so a hub only forwards ciphertext.
+- **Decision:**
+  - **Primary path — P2P:** Caller dials callee with contact `peer_ek`
+    via a dedicated `atn_tun` (ML-KEM-1024 + ChaCha20-Poly1305). Voice
+    CONTROL/AUDIO (`'A''C'` / `'A''F'`) ride that tunnel. Outer tunnel
+    AEAD **is** the E2E floor — hub is not on path. Same capability for
+    node↔node, hub↔node, hub↔hub (hubs are dialable peers).
+  - **Fallback — opaque hub relay:** Only if P2P handshake cannot
+    complete. Peers run ML-KEM encaps to the callee's enrolled `peer_ek`
+    (CT chunked over hub signaling). Derive session AEAD key via
+    HKDF-SHA-512. Media uses `'A''S'` (sealed): hub forwards opaque
+    bytes and **must not** be able to recover PCM. Clear `'A''F'` on a
+    hub path is forbidden for product calls.
+  - **Signaling:** Rendezvous over an existing hub tunnel: offer/accept/
+    hangup, dial_info (ipv4:port) for P2P attempt, E2E CT chunks,
+    latency PROBE/PROBE_ACK. Wire family remains `'A'` (not `'V'`).
+  - **Hub selection:** Probe known hubs; prefer lowest RTT; allow
+    trying next hub / multi-hub path if the first fails.
+  - **Mesh handoff:** Presence/dial_info sync so a relayed call can
+    attempt P2P when reachability appears; on success switch to P2P
+    path and drop sealed relay for media.
+  - **Contacts:** Local roster (label, peer_ek, dial ipv4:port, optional
+    preferred hubs). Android: contact list, ring on incoming, call any
+    contact or hub. `RECORD_AUDIO`. No recordings stored.
+  - **No downgrade:** No plaintext voice, no classical/TLS/WebRTC path.
+    Call fails if neither P2P ESTABLISHED nor sealed-relay keys ready.
+  - **Honest limits:** Live `atnnode listen` may still be single
+    ESTABLISHED session (multi-session fan-out deferred); opacity is
+    proven in-process and by construction of `'A''S'`. Full mesh
+    presence DB is lab-minimal (files + signaling), not a DHT.
+- **Consequences:** Product claim = E2E audio (P2P tunnel or nested
+  seal). Hub operators must not assume they can lawfully hear PCM on
+  the relay path.
+
+---
