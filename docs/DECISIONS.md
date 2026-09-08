@@ -1327,15 +1327,23 @@ A decision is recorded **before** code that depends on it is written.
     gets the tunnel stream.
   - **Phone:** `AtnUpdate` parses announce/chunks, verifies hash, stages
     under app files (`atn-update.apk` / site / hub). Wipe plaintext
-    staging buffers after apply. APK *install* may still need
-    USB/PackageInstaller / Knox path (T-0400) — transfer ≠ install.
+    staging buffers after apply. For **kind=apk**, lab then triggers
+    self-update via `PackageInstaller` (preferred) or
+    `ACTION_INSTALL_PACKAGE` + `AtnApkProvider` (user confirm OK; Knox
+    silent install still T-0400). **Lab APK delivery SoT = tunnel** —
+    not `adb install`. USB install is bootstrap/recovery only (one
+    chicken-egg push of an installer-capable build), then
+    `tools/hub-push-apk.ps1` bumps `versionCode` and publishes over
+    `U`/`UC`. USB debug may remain for logcat/diagnosis; end goal is
+    no data over USB.
   - **Honest limits:** True simultaneous multi-phone fan-out on one UDP
     listen needs multi-session (still deferred). CLOSED re-arms the
     same `peer_ek`/port for the next peer. Peer fan-out requires peer
     listen free or re-armed. Hub package apply on peer OS is out of
     band after verified stage.
 - **Consequences:** Mesh updates are tunnel-AEAD end-to-end; admin UI
-  only stages files on the publishing hub.
+  only stages files on the publishing hub. Standing lab rule: hub→phone
+  APK updates use DEC-0048 tunnel, not `adb install`.
 
 ---
 

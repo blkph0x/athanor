@@ -66,6 +66,7 @@ lab/hub-mlkem.keys
 lab/org-policy.conf
 lab/compromise-vote.conf
 lab/updates/
+lab/apk-version.txt
 lab/hub-peers.conf
 # Local leak dumps for tools/gen_pwd_deny.py (never commit)
 rockyou.txt

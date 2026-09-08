@@ -44,7 +44,8 @@ same commit.
 | `android/jni/atn_jni.c` | REQ-4.1 | DEC-0015/0038 | JNI to libatn.so; dmonSetPolicy |
 | `docs/KNOX.md` | REQ-4.x | DEC-0015/0019/0030/0038 | Stub→jar path, lab APK, toolchain |
 | `docs/LAB.md` | REQ-4.1 | DEC-0038 | Phone↔hub USB lab recipe |
-| `tools/android-apk.ps1` | REQ-4.1 | DEC-0038 | aapt2/d8/apksigner pack (no Gradle) |
+| `tools/android-apk.ps1` | REQ-4.1 | DEC-0038 | aapt2/d8/apksigner pack (no Gradle); versionCode bump |
+| `tools/hub-push-apk.ps1` | REQ-4.1 | DEC-0048 | hub→phone APK via tunnel (no adb install) |
 | `vendor/knox/README.md` | REQ-4.1 | DEC-0015/0030 | Drop-in path for knoxsdk.jar |
 | `android/stubs/**` | REQ-4.1 | DEC-0019/0030 | Same packages as Samsung; ATN_STUB |
 | `android/java/.../AtnKnoxBuild.java` | REQ-4.1 | DEC-0019/0030 | `isStub()` via ATN_STUB field |

@@ -22,9 +22,21 @@
 #include <time.h>
 #if defined(_WIN32)
 #include <direct.h>
+#include <windows.h>
 #else
 #include <sys/stat.h>
+#include <unistd.h>
 #endif
+
+/* Pace UC chunks so phone 1Hz drain / WAN UDP can keep up (DEC-0048). */
+static void hub_upd_pace(void)
+{
+#if defined(_WIN32)
+    Sleep(20);
+#else
+    usleep(20000);
+#endif
+}
 
 static void print_hex(const uint8_t *p, size_t n)
 {
@@ -356,6 +368,7 @@ static int hub_stream_update(atn_tun *t, const atn_update *u)
             return rc;
         }
         off += want;
+        hub_upd_pace();
     }
     fclose(f);
     printf("update_stream_done id=%u bytes=%u\n", (unsigned)u->update_id,

@@ -29,12 +29,30 @@ Stub lab proves the signal (flush + UI dead); factory wipe waits **T-0400**.
 `lab/updates/payload.bin`, writes `announce.conf`, bumps `update_id`. Hub
 streams announce+chunks as tunnel DATA (`U` / `UC`) to the connected phone
 and to peer hubs (`lab/hub-peers.conf`) — **encrypted tunnel only**, never
-HTTP/URL download. Phone stages verified APK/site under app files; install
-may still need USB/PackageInstaller until Knox/DO (T-0400).
+HTTP/URL download. **Lab APK delivery SoT is the tunnel.** After SHA-256
+verify the phone stages `atn-update.apk` and triggers PackageInstaller
+(user confirm OK for lab). USB `adb install` is **bootstrap / recovery
+only** (chicken-egg: one installer-capable build), then all further bumps
+use `tools/hub-push-apk.ps1` (no `adb install`). USB debug may remain for
+logcat. Knox silent install still waits **T-0400**.
 
 This is **not** mesh `atnhttp` (browsers cannot speak DEC-0009 tunnel HTTP —
 ISS-0009). Air-gapped signing is **release beta**. Real Knox Device Owner /
 USB charge-only waits on **T-0400** (`knoxsdk.jar`).
+
+## Tunnel APK push (preferred)
+
+```bat
+make android-apk
+REM first time only on a phone that cannot self-update yet:
+powershell -NoProfile -File tools\hub-push-apk.ps1 -Bootstrap
+REM thereafter (zero adb install):
+powershell -NoProfile -File tools\hub-push-apk.ps1
+```
+
+`android-apk` auto-bumps `lab/apk-version.txt` (gitignored) or uses
+`ATN_APK_VERSION_CODE` / `ATN_APK_VERSION_NAME` so PackageManager accepts
+upgrades.
 
 ## Start (manual)
 

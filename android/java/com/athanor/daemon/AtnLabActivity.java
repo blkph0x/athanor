@@ -32,6 +32,7 @@ public class AtnLabActivity extends Activity {
 
     private TextView status;
     private TextView boomBanner;
+    private TextView updateStatus;
     private TextView logBox;
     private TextView voiceStats;
     private TextView ringBanner;
@@ -83,6 +84,12 @@ public class AtnLabActivity extends Activity {
         status.setText("status: starting...");
         root.addView(status);
 
+        updateStatus = new TextView(this);
+        updateStatus.setTextSize(14f);
+        updateStatus.setTypeface(Typeface.MONOSPACE);
+        updateStatus.setText("update: idle");
+        root.addView(updateStatus);
+
         TextView note = new TextView(this);
         note.setText("LAB (DEC-0040/0046/0047): Device Admin + wrong PIN"
                 + " x failMax => BOOM. Hub silence (boom_silence_s) also"
@@ -120,6 +127,19 @@ public class AtnLabActivity extends Activity {
             }
         });
         root.addView(ping);
+
+        Button updReq = new Button(this);
+        updReq.setText("Request update (U?)");
+        updReq.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View v) {
+                boolean ok = AtnUpdate.requestFromHub();
+                appendLog(ok ? "update request U? sent (tunnel)"
+                        : "update request U? failed");
+                paintStatus();
+            }
+        });
+        root.addView(updReq);
 
         TextView voiceNote = new TextView(this);
         voiceNote.setText("Voice (DEC-0050): P2P E2E primary; hub relay is"
@@ -569,6 +589,9 @@ public class AtnLabActivity extends Activity {
             line = "native not ready: " + t.getMessage();
         }
         status.setText(line);
+        if (updateStatus != null) {
+            updateStatus.setText(AtnUpdate.statusLine());
+        }
         if (voiceStats != null) {
             voiceStats.setText("voice: " + AtnVoice.statsText());
         }

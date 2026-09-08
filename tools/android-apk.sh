@@ -29,6 +29,27 @@ done
   exit 1
 }
 
+# PackageManager requires versionCode to rise on each upgrade push (DEC-0048).
+mkdir -p "$ROOT/lab"
+VER_FILE="$ROOT/lab/apk-version.txt"
+if [ -n "${ATN_APK_VERSION_CODE:-}" ] && printf '%s' "$ATN_APK_VERSION_CODE" | grep -Eq '^[0-9]+$'; then
+  VERSION_CODE=$ATN_APK_VERSION_CODE
+else
+  PREV=0
+  if [ -f "$VER_FILE" ]; then
+    PREV=$(head -n 1 "$VER_FILE" | tr -cd '0-9')
+    [ -n "$PREV" ] || PREV=0
+  fi
+  VERSION_CODE=$((PREV + 1))
+  [ "$VERSION_CODE" -ge 1 ] || VERSION_CODE=1
+fi
+if [ -n "${ATN_APK_VERSION_NAME:-}" ]; then
+  VERSION_NAME=$ATN_APK_VERSION_NAME
+else
+  VERSION_NAME="lab.$VERSION_CODE"
+fi
+printf '%s\n' "$VERSION_CODE" >"$VER_FILE"
+
 WORK="$ROOT/android/apk-work"
 rm -rf "$WORK"
 mkdir -p "$WORK/compiled" "$WORK/dex" "$WORK/lib/arm64-v8a"
@@ -44,6 +65,7 @@ fi
 "$AAPT2" compile --dir android/res -o "$WORK/compiled/res.zip"
 LINKED="$WORK/linked.apk"
 "$AAPT2" link -o "$LINKED" -I "$JAR" --manifest android/AndroidManifest.xml \
+  --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" \
   "$WORK/compiled/res.zip" --auto-add-overlay
 
 # Collect classes for d8
@@ -84,4 +106,4 @@ rm -f "$OUT"
 "$APKSIGNER" sign --ks "$KS" --ks-pass pass:android --key-pass pass:android \
   --out "$OUT" "$ALIGNED"
 
-echo "APK_OK $OUT"
+echo "APK_OK $OUT versionCode=$VERSION_CODE versionName=$VERSION_NAME"

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- REQ-4.1 daemon. INTERNET is DEC-0007 UDP to a configured lab node, not a CDN.
-     DEC-0038: lab stub APK may be USB-installed for connectivity; debuggable. -->
+     DEC-0038: lab stub APK may be USB-installed for connectivity; debuggable.
+     DEC-0048: REQUEST_INSTALL_PACKAGES for tunnel-staged APK self-update. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.athanor.daemon">
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="31" />
@@ -10,6 +11,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="com.samsung.android.knox.permission.KNOX_RESTRICTION_MGMT" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <application
@@ -28,6 +30,12 @@
             android:name=".AtnDaemonService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <!-- Minimal provider for ACTION_INSTALL_PACKAGE fallback (no AndroidX). -->
+        <provider
+            android:name=".AtnApkProvider"
+            android:authorities="com.athanor.daemon.update"
+            android:exported="false"
+            android:grantUriPermissions="true" />
         <receiver
             android:name=".AtnDeviceAdminReceiver"
             android:exported="true"
@@ -51,6 +59,13 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".AtnInstallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.athanor.daemon.UPDATE_INSTALL_STATUS" />
             </intent-filter>
         </receiver>
     </application>

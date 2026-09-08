@@ -143,8 +143,10 @@ public class AtnDaemonService extends Service {
                      * Drain via tunRecv — atn_dmon_tun_pump on ESTABLISHED
                      * feeds hb_ingest and drops LAB echoes, so liveness
                      * never saw hub contact (false silence BOOM).
+                     * Drain deeply: hub APK push blasts many UC chunks;
+                     * 8/tick dropped most of a ~100KB update (DEC-0048).
                      */
-                    for (i = 0; i < 8; i++) {
+                    for (i = 0; i < 2048; i++) {
                         byte[] back = new byte[2048];
                         int n = AtnNative.tunRecv(back, 0);
                         if (n <= 0) {

@@ -1,5 +1,6 @@
 # Pack lab stub/real APK without Gradle (DEC-0030 / 0038).
 # Prerequisites: make android-so + make android-java already run.
+# Version: ATN_APK_VERSION_CODE / ATN_APK_VERSION_NAME, else auto-bump lab/apk-version.txt.
 param(
     [string]$SdkRoot = "$env:LOCALAPPDATA\Android\Sdk",
     [string]$BuildTools = "34.0.0",
@@ -27,6 +28,29 @@ if (-not (Test-Path "android\out\com\athanor\daemon\AtnDaemonService.class")) {
     throw "android\out classes missing - run: make android-java"
 }
 
+# PackageManager requires versionCode to rise on each upgrade push (DEC-0048).
+$VerFile = Join-Path $Root "lab\apk-version.txt"
+$LabDir = Join-Path $Root "lab"
+if (-not (Test-Path $LabDir)) { New-Item -ItemType Directory -Path $LabDir | Out-Null }
+$VersionCode = 0
+if ($env:ATN_APK_VERSION_CODE -and $env:ATN_APK_VERSION_CODE -match '^\d+$') {
+    $VersionCode = [int]$env:ATN_APK_VERSION_CODE
+} else {
+    $prev = 0
+    if (Test-Path $VerFile) {
+        $raw = (Get-Content $VerFile -Raw).Trim()
+        if ($raw -match '^\d+') { $prev = [int]$Matches[0] }
+    }
+    $VersionCode = $prev + 1
+    if ($VersionCode -lt 1) { $VersionCode = 1 }
+}
+if ($env:ATN_APK_VERSION_NAME -and $env:ATN_APK_VERSION_NAME.Trim().Length -gt 0) {
+    $VersionName = $env:ATN_APK_VERSION_NAME.Trim()
+} else {
+    $VersionName = "lab.$VersionCode"
+}
+[System.IO.File]::WriteAllText($VerFile, "$VersionCode`n")
+
 $Work = Join-Path $Root "android\apk-work"
 if (Test-Path $Work) { Remove-Item -Recurse -Force $Work }
 New-Item -ItemType Directory -Path $Work | Out-Null
@@ -51,6 +75,7 @@ if ($LASTEXITCODE -ne 0) { throw "aapt2 compile failed" }
 
 $Linked = Join-Path $Work "linked.apk"
 & $Aapt2 link -o $Linked -I $Jar --manifest "android\AndroidManifest.xml" `
+    --version-code $VersionCode --version-name $VersionName `
     "$Work\compiled\res.zip" --auto-add-overlay
 if ($LASTEXITCODE -ne 0) { throw "aapt2 link failed" }
 
@@ -116,4 +141,4 @@ if (Test-Path $OutApk) { Remove-Item $OutApk -Force }
     --out $OutApk $Aligned
 if ($LASTEXITCODE -ne 0) { throw "apksigner failed" }
 
-Write-Output "APK_OK $OutApk"
+Write-Output "APK_OK $OutApk versionCode=$VersionCode versionName=$VersionName"

@@ -360,6 +360,8 @@ DAEMON_JAVA = \
 	android/java/com/athanor/daemon/AtnOrgPolicy.java \
 	android/java/com/athanor/daemon/AtnPwdDeny.java \
 	android/java/com/athanor/daemon/AtnCompromise.java \
+	android/java/com/athanor/daemon/AtnApkProvider.java \
+	android/java/com/athanor/daemon/AtnInstallReceiver.java \
 	android/java/com/athanor/daemon/AtnUpdate.java \
 	android/java/com/athanor/daemon/AtnVoice.java \
 	android/java/com/athanor/daemon/AtnContacts.java \

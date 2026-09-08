@@ -4,6 +4,22 @@ Newest at the top.
 
 ---
 
+## 2026-09-09 — Hub→phone APK self-update over tunnel (DEC-0048)
+
+- Lab APK delivery SoT = encrypted tunnel (`U`/`UC`), not `adb install`.
+- `android-apk.ps1`/`.sh`: `--version-code` / `--version-name` from env or
+  auto-bump `lab/apk-version.txt` (gitignored).
+- Manifest: `REQUEST_INSTALL_PACKAGES`; `AtnApkProvider` + `AtnInstallReceiver`.
+- `AtnUpdate`: after APK stage, PackageInstaller (fallback INSTALL_PACKAGE);
+  wipe partials; never log payload bytes. Lab UI status + Request update (U?).
+- Phone drain loop 8→2048 frames/tick; hub `hub_upd_pace` ~20ms/chunk so
+  ~100KB APK survives UDP blast (site soak was tiny).
+- `tools/hub-push-apk.ps1`: bump → make android-apk → POST /update → wait
+  fresh hub `update_stream_done id=N` + `atn-upd` logcat. `-Bootstrap` =
+  one USB install then N+1 tunnel-only. USB remains for logcat/diagnosis.
+- Lab prove: bootstrap USB `versionCode=6`, tunnel stage+PackageInstaller
+  confirm → `versionCode=7` (`install success`).
+
 ## 2026-09-08 — DEC-0050 voice P2P-first E2E + opaque hub relay
 
 - Supersedes DEC-0049 hop-by-hop SoT: primary = direct PQ/AEAD peer tunnel;
