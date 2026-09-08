@@ -57,6 +57,8 @@ lab/phone-atn-node.conf
 lab/phone-bad.conf
 lab/hub-listen.log
 lab/hub-listen.err
+lab/enroll-serve.log
+lab/enroll-serve.err
 lab/edge/www/edge-state.json
 lab/deploy-state.json
 lab/org.local.json
