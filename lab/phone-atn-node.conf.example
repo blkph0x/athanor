@@ -1,11 +1,13 @@
 # Example phone → single hub conf (DEC-0038)
 # Copy to lab/phone-atn-node.conf (gitignored) and fill from:
-#   - atnnode listen  (peer_port / peer_ek)
-#   - edge panel      (hub_lan_ipv4 on Wi‑Fi, or public_ipv4 off-LAN)
+#   - atnnode listen  (peer_port / peer_ek) — persisted in lab/hub-mlkem.keys
+#   - edge panel / local deploy-state (hub LAN or public forward target)
 # peer_ipv4 MUST NOT be 127.0.0.1 (phone is another host).
+# Do NOT commit real org IPs or peer_ek; keep them in gitignored lab files.
 
 peer_ipv4=REPLACE_WITH_HUB_OR_PUBLIC_IPV4
 peer_port=47000
 peer_ek=REPLACE_WITH_HEX_FROM_LISTEN
 diag=1
 flush_mode=log_only
+outage_class=normal

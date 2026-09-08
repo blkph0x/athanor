@@ -8,8 +8,8 @@ package com.athanor.daemon;
  * tunState==ESTABLISHED — UDP state can stay ESTABLISHED in airplane mode.
  */
 public final class AtnLabBoom {
-    public static final long SILENCE_MS = 30L * 1000L;
-    public static final int FAIL_MAX = 5;
+    public static final long SILENCE_MS_DEFAULT = 30L * 1000L;
+    public static final int FAIL_MAX_DEFAULT = 5;
     public static final int ERR_LOCKOUT = 8;
     /* Exactly ATN_2FA_ID_LEN (32). */
     public static final byte[] LAB_ID = {
@@ -29,9 +29,29 @@ public final class AtnLabBoom {
     private static volatile int pinFails;
     private static volatile int deviceUnlockFails;
     private static volatile boolean enrolled;
+    private static volatile long silenceMs = SILENCE_MS_DEFAULT;
+    private static volatile int failMax = FAIL_MAX_DEFAULT;
 
     private AtnLabBoom() {}
 
+    /** DEC-0046: hub-driven boom silence + password-fail K. */
+    public static synchronized void setPolicyTimers(long silenceMilliseconds,
+                                                    int passwordFailMax) {
+        if (silenceMilliseconds >= 5000L && silenceMilliseconds <= 86400000L) {
+            silenceMs = silenceMilliseconds;
+        }
+        if (passwordFailMax >= 1 && passwordFailMax <= 20) {
+            failMax = passwordFailMax;
+        }
+    }
+
+    public static long silenceMs() {
+        return silenceMs;
+    }
+
+    public static int failMax() {
+        return failMax;
+    }
     public static synchronized void reset() {
         dead = false;
         reason = "";
@@ -94,7 +114,7 @@ public final class AtnLabBoom {
             return false;
         }
         long age = System.currentTimeMillis() - lastHubMs;
-        return age >= 0L && age < SILENCE_MS;
+        return age >= 0L && age < silenceMs;
     }
 
     /**
@@ -142,15 +162,36 @@ public final class AtnLabBoom {
     }
 
     /**
+     * Pause unreachable silence clocks while the daemon is actively
+     * reconnecting / handshaking / waiting for network. Prevents lab
+     * silence BOOM during WiFi↔cell roam and hub outages; keep retrying.
+     * Compromise / wrong-PIN / require-flush paths still boom separately.
+     */
+    public static synchronized void pauseUnreachableWatch() {
+        long now = System.currentTimeMillis();
+        if (lastHubMs > 0L) {
+            lastHubMs = now;
+        }
+        noNetSinceMs = 0L;
+        noHubSinceMs = 0L;
+    }
+
+    /**
      * DEC-0041: no unreachable BOOM until first join.
      * DEC-0043 (corrected): do not freeze on tunState==ESTABLISHED —
      * BOOM on airplane / hub silence after join using lastHubMs + net.
      * Re-join / fresh ESTABLISHED only restarts the liveness clock; it
      * does not disable silence detection.
+     * While HANDSHAKE: do not silence-boom (reconnect path owns retries).
      */
     public static synchronized boolean maybeUnreachableBoom(boolean netUp,
                                                            int tunState) {
         if (dead || !soakArmed) {
+            return false;
+        }
+        /* Actively handshaking — reconnect daemon will retry; no silence BOOM. */
+        if (tunState == AtnNative.TUN_HANDSHAKE) {
+            pauseUnreachableWatch();
             return false;
         }
         long now = System.currentTimeMillis();
@@ -176,13 +217,13 @@ public final class AtnLabBoom {
             return false;
         }
 
-        if (noNetSinceMs > 0L && (now - noNetSinceMs) >= SILENCE_MS) {
-            return trigger("airplane/no net >30s after join (lab)");
+        if (noNetSinceMs > 0L && (now - noNetSinceMs) >= silenceMs) {
+            return trigger("airplane/no net after join (lab boom_silence_s)");
         }
-        if (lastHubMs > 0L && (now - lastHubMs) >= SILENCE_MS) {
+        if (lastHubMs > 0L && (now - lastHubMs) >= silenceMs) {
             String why = netUp
-                    ? "hub silence >30s after join (lab)"
-                    : "no net/airplane + hub silence >30s after join (lab)";
+                    ? "hub silence after join (lab boom_silence_s)"
+                    : "no net/airplane + hub silence after join (lab)";
             return trigger(why);
         }
         return false;
@@ -198,8 +239,8 @@ public final class AtnLabBoom {
             return pinFails;
         }
         pinFails++;
-        if (pinFails >= FAIL_MAX) {
-            trigger("wrong code x" + FAIL_MAX + " (lab)");
+        if (pinFails >= failMax) {
+            trigger("wrong code x" + failMax + " (lab)");
         }
         return pinFails;
     }

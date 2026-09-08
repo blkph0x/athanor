@@ -23,6 +23,8 @@
     8. You plug the first phone (USB debugging) -> Connect & Enroll in the browser
 
   Never commit real IPs - answers stay under lab/* (gitignored).
+  Prefer lab/org.local.json (SoT) then lab/deploy-state.json for defaults.
+  Push gate: tools/scrub-check (+ install-git-hooks) blocks org IP leaks.
 
 .NOTES
   LAN-only first phone: peer_ipv4 = hub LAN.
@@ -128,12 +130,31 @@ Write-Host "    public_ipv4    - WAN IP for cellular phones (optional if LAN-onl
 Write-Host "    domain         - DNS name for the edge panel (optional)."
 Write-Host "    edge_lan_ipv4  - DMZ/edge Linux host on LAN (optional; for DNAT)."
 
-$prevPath = Join-Path $Root "lab\deploy-state.json"
-$prev = $null
-if (Test-Path $prevPath) {
-    try { $prev = Get-Content $prevPath -Raw | ConvertFrom-Json } catch { $prev = $null }
-    if ($prev) { Write-Host "  (found previous lab/deploy-state.json - defaults shown in [brackets])" }
+# Defaults: lab/org.local.json (SoT) then lab/deploy-state.json
+function Merge-Prev($primary, $fallback) {
+    if ($null -eq $primary) { return $fallback }
+    if ($null -eq $fallback) { return $primary }
+    $o = [ordered]@{}
+    foreach ($src in @($fallback, $primary)) {
+        foreach ($p in $src.PSObject.Properties) {
+            $o[$p.Name] = $p.Value
+        }
+    }
+    return [pscustomobject]$o
 }
+$orgPath = Join-Path $Root "lab\org.local.json"
+$prevPath = Join-Path $Root "lab\deploy-state.json"
+$org = $null
+$dep = $null
+if (Test-Path $orgPath) {
+    try { $org = Get-Content $orgPath -Raw | ConvertFrom-Json } catch { $org = $null }
+}
+if (Test-Path $prevPath) {
+    try { $dep = Get-Content $prevPath -Raw | ConvertFrom-Json } catch { $dep = $null }
+}
+$prev = Merge-Prev $org $dep
+if ($org) { Write-Host "  (found lab/org.local.json - defaults shown in [brackets])" }
+elseif ($dep) { Write-Host "  (found previous lab/deploy-state.json - defaults shown in [brackets])" }
 
 $hubLanDefault = Prev-Str $prev "hub_lan_ipv4"
 $hubLan = Ask-Text "Hub LAN IPv4 (Windows atnnode host)" $hubLanDefault

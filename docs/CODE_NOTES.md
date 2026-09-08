@@ -60,7 +60,10 @@ same commit.
 | `tests/test_dmon.c` | REQ-4.4 | gates | ZEROIZE / LOG_ONLY / blackout HOLD |
 | `tests/test_hub_failover.c` | REQ-3.3 | DEC-0031 / D-08 | Dark hub0 → hub1; wrong-ek AUTH advance; all-dark failover |
 | `include/atn_cfg.h` / `src/cfg/atn_cfg.c` | REQ-4.1 | DEC-0021/0027/0028/0029/0032 | peer + hub2..16 + diag + outage |
-| `tests/test_cfg.c` | REQ-4.1 | gates | parse/ready/hubs/diag/outage/cap16 |
+| `include/atn_policy.h` / `src/policy/atn_policy.c` | REQ-2.2/4.1 | DEC-0045/0046 | org policy encode/parse + wire `P` |
+| `include/atn_compromise.h` / `src/compromise/atn_compromise.c` | REQ-2.2/4.1 | DEC-0047 | compromise vote + wire `C` |
+| `include/atn_update.h` / `src/update/atn_update.c` | REQ-2.2/4.1 | DEC-0048 | mesh update announce/chunks wire `U` |
+| `tests/test_cfg.c` | REQ-4.1 | gates | parse/ready/hubs/diag/outage/cap16/policy/compromise/update |
 | `include/atn_sign.h` / `src/sign/atn_sign.c` | REQ-5.1 | DEC-0019/0021/0027 | Manifest + report `diag=` |
 | `docs/SIGN.md` | REQ-5.1 | DEC-0019/0021/0027 | Manifest + report wire format |
 | `docs/DIAG_USECASES.md` | — | planning | Diag / multi-hub / blackout inventory |
@@ -69,7 +72,7 @@ same commit.
 | `android/java/.../AtnBootReceiver.java` | REQ-4.1 | DEC-0015 | Start daemon on BOOT_COMPLETED |
 | `src/sign/atn_sign_cli.c` | REQ-5.1 | DEC-0019 / 0021 | `atnsign` CLI (manifest + report) |
 | `tests/test_sign.c` | REQ-5.1 | gates | sort, sign, verify, tamper; report diag |
-| `src/node/atn_node_cli.c` | REQ-4.1 | DEC-0021 / 0023 / 0031 / 0032 | `atnnode` listen/demo; connect multi-hub failover |
+| `src/node/atn_node_cli.c` | REQ-4.1 | DEC-0021 / 0023 / 0031 / 0032 / 0045 / 0047 / 0048 | `atnnode` listen policy+compromise+update push |
 | `android/java/.../AtnNodeConfig.java` | REQ-4.1 | DEC-0021 | Java mirror of atn_cfg.c |
 | `src/crypto/atn_hmac.c` | REQ-1.1 | RFC 2104 | HMAC-SHA-256 |
 | `src/crypto/atn_hkdf.c` | REQ-1.1 | RFC 5869 §§2.2–2.3 | Extract then expand, SHA-256 |

@@ -4,6 +4,65 @@ Newest at the top.
 
 ---
 
+## 2026-09-08 — Reconnect without silence BOOM + public peer path
+
+- Phone: pause unreachable silence clock while HANDSHAKE / auto-reconnect /
+  network down; WiFi↔cell forces immediate reconnect; backoff forever (cap
+  60s). Silence BOOM only when ESTABLISHED + net up but hub truly silent.
+- Hub keys persist in gitignored `lab/hub-mlkem.keys`. Local org:
+  `lab/org.local.json` / deploy-state / phone conf use public WAN peer
+  (domain A may be LAN-only — phone uses public IP for cell+WiFi).
+- Ops note: org domain A may be LAN-only (split-horizon); phone_peer stays
+  public WAN so cellular works. Activity `--ez reconnect true` for adb.
+
+## 2026-09-08 — Hub ML-KEM key persistence + phone auto-reconnect
+
+- `atnnode listen` loads/saves `lab/hub-mlkem.keys` (or `ATN_HUB_KEYS`) so
+  peer_ek survives process restart; CLOSED re-arm already kept in-memory ek.
+- Phone daemon: TUN_CLOSED / stuck HANDSHAKE (~18s) / network change →
+  auto `startLabTunnel` with exponential backoff (cap 60s); boom-dead still
+  needs user Start. Local IPs/keys stay gitignored (`phone-atn-node.conf`,
+  hub keys, deploy-state); tracked examples keep placeholders only.
+
+## 2026-09-08 — DEC-0048 mesh update push (tunnel-only)
+
+- Admin **Publish update** → `lab/updates/payload.bin` + announce.conf.
+- Hub streams `'U'` announce + `'U''C'` chunks over PQ/AEAD TUN_DATA to
+  ESTABLISHED phone; fan-out to `lab/hub-peers.conf` via initiator tunnel.
+- Phone `AtnUpdate` verifies SHA-256 and stages under app files. No
+  HTTP/URL/cleartext download path. CLOSED re-arms same peer_ek.
+- `test_cfg` update gates + rebuild `atnnode`. Multi-session listen and
+  Knox auto-install still deferred / T-0400.
+
+## 2026-09-07 — DEC-0047 compromise vote + timeout boom
+
+- Admin: start/yes/no/clear → `lab/compromise-vote.conf`; hub listen
+  pushes `C` open/boom; quorum YES or timeout → boom (fail-closed).
+- Phone: `AtnCompromise` applies boom (dmon flush + wrap delete; Knox
+  wipeData when jar present). Stub proves boom signal. Lab YES/NO buttons.
+- `test_cfg` policy + compromise gates ALL PASSED. T-0400 still blocks
+  real factory wipe / DO.
+
+## 2026-09-07 — DEC-0046 extended device policy + encrypted phone config
+
+- Admin: boom_silence_s, password_fail_max, biometric_allowed=0,
+  password_min_len, usb_data_block, pwd_deny_check.
+- Phone: Keystore-wrapped `atn-policy.bin`; wipe-after-apply; deny-hash
+  asset; USB attach reasserts. Full Knox biometric/USB SoT still T-0400.
+- `tools/gen_pwd_deny.py` builds curated (or local rockyou) SHA-256 set.
+
+---
+
+## 2026-09-07 — DEC-0045 network-wide org policy (admin → hub → phone)
+
+- Admin loopback UI: **Save network policy** → `lab/org-policy.conf`.
+- Hub `atnnode listen` pushes `P`+policy on ESTABLISHED / file change / `P?`.
+- Android applies via `dmonSetPolicy`, persists `atn-policy.conf` (no USB).
+- `test_cfg` policy gates ALL PASSED. Restart hub to pick up new binary
+  (running `atnnode` held the .exe lock on this builder).
+
+---
+
 ## 2026-09-06 — 5G silence BOOM: UDP return path + stale ESTABLISHED
 
 - `tunSend rc=0` is send-only; boom was hub-silence after WiFi↔5G.

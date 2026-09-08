@@ -75,22 +75,30 @@ ipv4_ok() {
 }
 
 prev_get() {
-  # prev_get key -> stdout value from lab/deploy-state.json if present
+  # Prefer lab/org.local.json then lab/deploy-state.json
   _k=$1
-  _f="$ROOT/lab/deploy-state.json"
-  if [ ! -f "$_f" ] || ! command -v python3 >/dev/null 2>&1; then
+  if ! command -v python3 >/dev/null 2>&1; then
     echo ""
     return 0
   fi
-  python3 - "$_f" "$_k" <<'PY'
-import json,sys
-p,k=sys.argv[1],sys.argv[2]
-try:
-    j=json.load(open(p,encoding="utf-8"))
-    v=j.get(k,"")
-    print("" if v is None else str(v))
-except Exception:
-    print("")
+  python3 - "$ROOT" "$_k" <<'PY'
+import json, sys
+from pathlib import Path
+root, k = Path(sys.argv[1]), sys.argv[2]
+val = ""
+for name in ("org.local.json", "deploy-state.json"):
+    p = root / "lab" / name
+    if not p.is_file():
+        continue
+    try:
+        j = json.load(open(p, encoding="utf-8"))
+        v = j.get(k, "")
+        if v is not None and str(v).strip() != "":
+            val = str(v)
+            break
+    except Exception:
+        pass
+print(val)
 PY
 }
 
@@ -129,7 +137,9 @@ printf '  public_ipv4    - WAN IP for cellular (optional if LAN-only).\n'
 printf '  domain         - DNS name for edge panel (optional).\n'
 printf '  edge_lan_ipv4  - DMZ/edge host on LAN (optional).\n'
 
-if [ -f lab/deploy-state.json ]; then
+if [ -f lab/org.local.json ]; then
+  printf '  (found lab/org.local.json - defaults in [brackets])\n'
+elif [ -f lab/deploy-state.json ]; then
   printf '  (found lab/deploy-state.json - defaults in [brackets])\n'
 fi
 

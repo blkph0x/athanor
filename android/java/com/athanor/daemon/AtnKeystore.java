@@ -136,6 +136,66 @@ public final class AtnKeystore {
         }
     }
 
+    /**
+     * DEC-0046: wrap arbitrary policy/config bytes (Keystore AES-GCM).
+     * Caller must wipe {@code pt} after return. Never logs plaintext.
+     */
+    public static byte[] wrapData(byte[] pt) {
+        if (pt == null || pt.length == 0 || pt.length > 4096) {
+            return null;
+        }
+        if (!ensureKey()) {
+            return null;
+        }
+        try {
+            KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+            ks.load(null);
+            SecretKey key = (SecretKey) ks.getKey(ALIAS, null);
+            if (key == null) {
+                return null;
+            }
+            Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
+            c.init(Cipher.ENCRYPT_MODE, key);
+            byte[] iv = c.getIV();
+            if (iv == null || iv.length != IV_LEN) {
+                return null;
+            }
+            byte[] ct = c.doFinal(pt);
+            byte[] out = new byte[IV_LEN + ct.length];
+            System.arraycopy(iv, 0, out, 0, IV_LEN);
+            System.arraycopy(ct, 0, out, IV_LEN, ct.length);
+            return out;
+        } catch (Exception e) {
+            Log.e(TAG, "wrapData failed", e);
+            return null;
+        }
+    }
+
+    /** Caller must wipe returned plaintext after use. */
+    public static byte[] unwrapData(byte[] blob) {
+        if (blob == null || blob.length <= IV_LEN || blob.length > 8192) {
+            return null;
+        }
+        try {
+            KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+            ks.load(null);
+            SecretKey key = (SecretKey) ks.getKey(ALIAS, null);
+            if (key == null) {
+                return null;
+            }
+            byte[] iv = new byte[IV_LEN];
+            byte[] ct = new byte[blob.length - IV_LEN];
+            System.arraycopy(blob, 0, iv, 0, IV_LEN);
+            System.arraycopy(blob, IV_LEN, ct, 0, ct.length);
+            Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
+            c.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_BITS, iv));
+            return c.doFinal(ct);
+        } catch (Exception e) {
+            Log.e(TAG, "unwrapData failed", e);
+            return null;
+        }
+    }
+
     public static boolean storeWrap(Context ctx, byte[] blob) {
         if (ctx == null || blob == null) {
             return false;

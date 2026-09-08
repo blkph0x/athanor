@@ -59,6 +59,15 @@ lab/hub-listen.log
 lab/hub-listen.err
 lab/edge/www/edge-state.json
 lab/deploy-state.json
+lab/org.local.json
+lab/hub-mlkem.keys
+lab/org-policy.conf
+lab/compromise-vote.conf
+lab/updates/
+lab/hub-peers.conf
+# Local leak dumps for tools/gen_pwd_deny.py (never commit)
+rockyou.txt
+**/rockyou*.txt
 lab/enrollments/
 lab/enroll-keys/
 *.idsig

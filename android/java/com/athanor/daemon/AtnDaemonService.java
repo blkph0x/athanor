@@ -10,6 +10,7 @@ import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -20,6 +21,7 @@ import android.util.Log;
  * Foreground mesh daemon. REQ-4.1. No Firebase, no Play services.
  * Loads Keystore-wrapped secrets into native dmon (DEC-0016/0017).
  * DEC-0039: lab 30s hub-silence BOOM (diag/log_only, not a brick).
+ * Auto-reconnect: CLOSED / stuck HANDSHAKE / network change → retry.
  */
 public class AtnDaemonService extends Service {
     private static final String TAG = "atn-daemon";
@@ -32,6 +34,10 @@ public class AtnDaemonService extends Service {
     private static final int KA_TICKS = 15;
     /* Cellular CGNAT: probe every 3s so return path stays warm. */
     private static final int PROBE_TICKS = 3;
+    /* Stuck HANDSHAKE → full reconnect (~15–20s). */
+    private static final int HS_STUCK_TICKS = 18;
+    private static final long RECONNECT_BACKOFF_MIN_MS = 1000L;
+    private static final long RECONNECT_BACKOFF_CAP_MS = 60L * 1000L;
 
     private final Handler tickHandler = new Handler(Looper.getMainLooper());
     private boolean labTun;
@@ -42,12 +48,35 @@ public class AtnDaemonService extends Service {
     private int lastNotifState = -1;
     private boolean boomNotified;
     private int prevTunState = -1;
+    private int hsStuckTicks;
+    private long reconnectBackoffMs = RECONNECT_BACKOFF_MIN_MS;
+    private boolean reconnectPending;
+    private boolean everJoined;
+    private boolean autoReconnecting;
+    private int lastNetTransport = -1; /* 1=wifi 2=cell 0=other */
+    private ConnectivityManager.NetworkCallback netCb;
+    private final Runnable reconnectRunnable = new Runnable() {
+        @Override
+        public void run() {
+            reconnectPending = false;
+            if (AtnLabBoom.isDead() || !nativeReady) {
+                autoReconnecting = false;
+                return;
+            }
+            Log.i(TAG, "auto-reconnect: startLabTunnel backoff was "
+                    + reconnectBackoffMs + "ms");
+            startLabTunnel();
+            maybeUpdateNotif(AtnNative.tunState());
+        }
+    };
     private final Runnable ticker = new Runnable() {
         @Override
         public void run() {
             long bucket = System.currentTimeMillis() / BUCKET_MS;
             if (AtnLabBoom.isDead()) {
                 labTun = false;
+                autoReconnecting = false;
+                cancelScheduledReconnect();
                 if (!boomNotified) {
                     boomNotified = true;
                     Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
@@ -72,10 +101,33 @@ public class AtnDaemonService extends Service {
                     if (st == AtnNative.TUN_HANDSHAKE && net) {
                         AtnNative.tunHsRetry();
                     }
+                    if (st == AtnNative.TUN_HANDSHAKE) {
+                        hsStuckTicks++;
+                        if (hsStuckTicks >= HS_STUCK_TICKS) {
+                            Log.w(TAG, "HANDSHAKE stuck " + hsStuckTicks
+                                    + "s — full reconnect");
+                            hsStuckTicks = 0;
+                            scheduleAutoReconnect(true);
+                            tickHandler.postDelayed(this, TICK_MS);
+                            return;
+                        }
+                    } else {
+                        hsStuckTicks = 0;
+                    }
+                } else {
+                    hsStuckTicks = 0;
                 }
                 if (st == AtnNative.TUN_ESTABLISHED) {
                     boolean fresh = prevTunState != AtnNative.TUN_ESTABLISHED;
                     AtnLabBoom.noteEstablished(fresh);
+                    if (fresh) {
+                        everJoined = true;
+                        reconnectBackoffMs = RECONNECT_BACKOFF_MIN_MS;
+                        autoReconnecting = false;
+                        cancelScheduledReconnect();
+                        /* DEC-0045: ask hub for current network-wide policy. */
+                        AtnNative.tunSend(new byte[] { 'P', '?' });
+                    }
                     kaTicks++;
                     if (kaTicks >= KA_TICKS) {
                         kaTicks = 0;
@@ -99,6 +151,27 @@ public class AtnDaemonService extends Service {
                             break;
                         }
                         AtnLabBoom.noteHubContact();
+                        if (n >= 1 && back[0] == (byte) 'P') {
+                            AtnOrgPolicy.applyFromWire(AtnDaemonService.this, back, n);
+                            continue;
+                        }
+                        if (n >= 1 && back[0] == (byte) 'C') {
+                            boolean boom = AtnCompromise.applyFromWire(
+                                    AtnDaemonService.this, back, n);
+                            if (AtnLabBoom.isDead()) {
+                                labTun = false;
+                                boomNotified = true;
+                                pushBoomNotif();
+                            }
+                            if (boom) {
+                                continue;
+                            }
+                        }
+                        if (n >= 1 && back[0] == (byte) 'U') {
+                            AtnUpdate.applyFromWire(
+                                    AtnDaemonService.this, back, n);
+                            continue;
+                        }
                         if (n < back.length) {
                             byte[] msg = new byte[n];
                             System.arraycopy(back, 0, msg, 0, n);
@@ -109,23 +182,39 @@ public class AtnDaemonService extends Service {
                         Log.i(TAG, "lab recv " + n + " bytes");
                     }
                 } else if (st == AtnNative.TUN_CLOSED) {
-                    labTun = false;
+                    Log.w(TAG, "TUN_CLOSED — auto-reconnect");
+                    scheduleAutoReconnect(false);
                 }
-                if (AtnLabBoom.maybeUnreachableBoom(net, st)) {
+                /*
+                 * Skip silence BOOM while reconnecting, handshaking, or
+                 * network down — keep retrying forever (backoff). Boom only
+                 * via compromise / require / wrong PIN / user Start after dead.
+                 */
+                if (!autoReconnecting && net
+                        && st == AtnNative.TUN_ESTABLISHED
+                        && AtnLabBoom.maybeUnreachableBoom(net, st)) {
                     labTun = false;
                     boomNotified = true;
+                    autoReconnecting = false;
+                    cancelScheduledReconnect();
                     Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
                     pushBoomNotif();
+                } else if (autoReconnecting || !net
+                        || st == AtnNative.TUN_HANDSHAKE
+                        || st == AtnNative.TUN_CLOSED) {
+                    AtnLabBoom.pauseUnreachableWatch();
                 }
                 prevTunState = st;
                 maybeUpdateNotif(st);
-            } else if (AtnLabBoom.isSoakArmed() && !AtnLabBoom.isDead()) {
-                int st = AtnNative.tunState();
-                if (AtnLabBoom.maybeUnreachableBoom(networkUp(), st)) {
-                    boomNotified = true;
-                    Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
-                    pushBoomNotif();
-                }
+            } else if (!AtnLabBoom.isDead() && nativeReady
+                    && (autoReconnecting || reconnectPending)) {
+                AtnLabBoom.pauseUnreachableWatch();
+                maybeUpdateNotif(AtnNative.TUN_CLOSED);
+            } else if (AtnLabBoom.isSoakArmed() && !AtnLabBoom.isDead()
+                    && everJoined && !autoReconnecting) {
+                /* Idle after join without active reconnect — should not happen;
+                 * start reconnect instead of silence BOOM. */
+                scheduleAutoReconnect(false);
             }
             if (bucket != lastHbBucket) {
                 lastHbBucket = bucket;
@@ -136,6 +225,8 @@ public class AtnDaemonService extends Service {
             }
             if (AtnNative.dmonRequire() != 0) {
                 labTun = false;
+                autoReconnecting = false;
+                cancelScheduledReconnect();
                 AtnKeystore.deleteWrap(AtnDaemonService.this);
                 AtnLabBoom.clearEnrolled();
                 AtnLabBoom.trigger("native require failed (flush)");
@@ -178,8 +269,157 @@ public class AtnDaemonService extends Service {
                 Log.w(TAG, "lab 2FA enroll failed");
             }
             startLabTunnel();
+            if (!labTun && !AtnLabBoom.isDead()) {
+                scheduleAutoReconnect(false);
+            }
         }
+        registerNetCallback();
         tickHandler.postDelayed(ticker, TICK_MS);
+    }
+
+    private void registerNetCallback() {
+        ConnectivityManager cm =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm == null || netCb != null) {
+            return;
+        }
+        netCb = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                tickHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        onNetworkEvent("available");
+                    }
+                });
+            }
+
+            @Override
+            public void onLost(Network network) {
+                tickHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (AtnLabBoom.isDead() || !nativeReady) {
+                            return;
+                        }
+                        Log.i(TAG, "network lost — pause boom, reconnect when up");
+                        AtnLabBoom.pauseUnreachableWatch();
+                        autoReconnecting = true;
+                        maybeUpdateNotif(AtnNative.TUN_CLOSED);
+                    }
+                });
+            }
+
+            @Override
+            public void onCapabilitiesChanged(Network network,
+                                              NetworkCapabilities caps) {
+                if (caps == null) {
+                    return;
+                }
+                final int transport;
+                if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                    transport = 1;
+                } else if (caps.hasTransport(
+                        NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                    transport = 2;
+                } else {
+                    transport = 0;
+                }
+                tickHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (transport == lastNetTransport) {
+                            return;
+                        }
+                        int prev = lastNetTransport;
+                        lastNetTransport = transport;
+                        /* First callback only seeds; WiFi↔cell forces reconnect. */
+                        if (prev < 0) {
+                            return;
+                        }
+                        String why = transport == 1 ? "wifi"
+                                : (transport == 2 ? "cell" : "other");
+                        onNetworkEvent("roam->" + why);
+                    }
+                });
+            }
+        };
+        try {
+            if (Build.VERSION.SDK_INT >= 24) {
+                cm.registerDefaultNetworkCallback(netCb);
+            } else {
+                NetworkRequest req = new NetworkRequest.Builder()
+                        .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                        .build();
+                cm.registerNetworkCallback(req, netCb);
+            }
+        } catch (RuntimeException e) {
+            Log.w(TAG, "net callback register failed", e);
+            netCb = null;
+        }
+    }
+
+    private void onNetworkEvent(String why) {
+        if (AtnLabBoom.isDead() || !nativeReady) {
+            return;
+        }
+        int st = AtnNative.tunState();
+        /* After first join, or any non-ESTABLISHED: reconnect on net change. */
+        if (everJoined || st != AtnNative.TUN_ESTABLISHED) {
+            Log.i(TAG, "network " + why + " — reconnect (st=" + st + ")");
+            AtnLabBoom.pauseUnreachableWatch();
+            scheduleAutoReconnect(true);
+        }
+    }
+
+    private void unregisterNetCallback() {
+        if (netCb == null) {
+            return;
+        }
+        ConnectivityManager cm =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (cm != null) {
+            try {
+                cm.unregisterNetworkCallback(netCb);
+            } catch (RuntimeException e) {
+                /* ignore */
+            }
+        }
+        netCb = null;
+    }
+
+    private void cancelScheduledReconnect() {
+        tickHandler.removeCallbacks(reconnectRunnable);
+        reconnectPending = false;
+    }
+
+    /**
+     * Schedule startLabTunnel with exponential backoff (cap ~60s).
+     * immediate=true still respects a short delay if already pending, but
+     * resets to try sooner after stuck-HS / network events.
+     */
+    private void scheduleAutoReconnect(boolean immediate) {
+        if (AtnLabBoom.isDead() || !nativeReady) {
+            return;
+        }
+        labTun = false;
+        autoReconnecting = true;
+        hsStuckTicks = 0;
+        prevTunState = -1;
+        AtnLabBoom.pauseUnreachableWatch();
+        maybeUpdateNotif(AtnNative.TUN_CLOSED);
+        if (reconnectPending && !immediate) {
+            return;
+        }
+        cancelScheduledReconnect();
+        long delay = immediate ? Math.min(reconnectBackoffMs, 2000L)
+                : reconnectBackoffMs;
+        reconnectPending = true;
+        Log.i(TAG, "schedule auto-reconnect in " + delay + "ms");
+        tickHandler.postDelayed(reconnectRunnable, delay);
+        /* Grow backoff for next failure; ESTABLISHED resets. */
+        reconnectBackoffMs = Math.min(reconnectBackoffMs * 2L,
+                RECONNECT_BACKOFF_CAP_MS);
     }
 
     private boolean networkUp() {
@@ -222,15 +462,24 @@ public class AtnDaemonService extends Service {
     }
 
     private void maybeUpdateNotif(int st) {
-        if (AtnLabBoom.isDead() || st == lastNotifState || Build.VERSION.SDK_INT < 26) {
+        if (AtnLabBoom.isDead() || Build.VERSION.SDK_INT < 26) {
             return;
         }
-        lastNotifState = st;
+        /* Distinct sentinel for reconnect banner vs raw CLOSED. */
+        int key = (autoReconnecting && st != AtnNative.TUN_ESTABLISHED
+                && st != AtnNative.TUN_HANDSHAKE) ? -2 : st;
+        if (key == lastNotifState) {
+            return;
+        }
+        lastNotifState = key;
         String body;
         if (st == AtnNative.TUN_ESTABLISHED) {
             body = "ESTABLISHED - mesh up";
         } else if (st == AtnNative.TUN_HANDSHAKE) {
-            body = "HANDSHAKE - waiting hub";
+            body = autoReconnecting ? "reconnect… HANDSHAKE"
+                    : "HANDSHAKE - waiting hub";
+        } else if (autoReconnecting) {
+            body = "reconnect…";
         } else {
             body = "CLOSED - tap Start/reconnect";
         }
@@ -332,6 +581,18 @@ public class AtnDaemonService extends Service {
                 c.outageClass);
         Log.i(TAG, "lab policy rc=" + pol + " diag=" + c.diag
                 + " flush=" + c.flushMode);
+        /* DEC-0046: wrapped org overlay overrides enroll seed when present. */
+        AtnOrgPolicy wrapped = AtnOrgPolicy.loadWrapped(this);
+        if (wrapped != null) {
+            wrapped.apply(this);
+        } else {
+            AtnOrgPolicy seed = AtnOrgPolicy.defaults();
+            seed.diag = c.diag;
+            seed.flushMode = c.flushMode;
+            seed.wipeArmed = c.wipeArmed;
+            seed.outageClass = c.outageClass;
+            seed.apply(this);
+        }
         int rc = AtnNative.tunInitiator(c.ek);
         if (rc == 0) {
             rc = AtnNative.tunBind(0);
@@ -346,8 +607,12 @@ public class AtnDaemonService extends Service {
             c.ek[i] = 0;
         }
         labTun = rc == 0;
+        hsStuckTicks = 0;
         if (labTun) {
             AtnLabBoom.armSoak();
+        } else if (autoReconnecting && !AtnLabBoom.isDead()) {
+            /* Init failed — keep retrying with backoff. */
+            scheduleAutoReconnect(false);
         }
         Log.i(TAG, "lab tun rc=" + rc + " port=" + AtnNative.tunPort());
     }
@@ -362,6 +627,10 @@ public class AtnDaemonService extends Service {
             prevTunState = -1;
             kaTicks = 0;
             probeTicks = 0;
+            hsStuckTicks = 0;
+            reconnectBackoffMs = RECONNECT_BACKOFF_MIN_MS;
+            autoReconnecting = false;
+            cancelScheduledReconnect();
             AtnLabBoom.reenrollFresh();
             AtnLabBoom.armSoak();
             Log.i(TAG, "reconnect: lab BOOM reset; fresh tunnel (WiFi/5G path)");
@@ -371,10 +640,16 @@ public class AtnDaemonService extends Service {
              * then returns rc=0 with no hub echo → silence BOOM.
              */
             startLabTunnel();
-            maybeUpdateNotif(AtnNative.tunState());
+            if (!labTun && !AtnLabBoom.isDead()) {
+                scheduleAutoReconnect(false);
+            } else {
+                maybeUpdateNotif(AtnNative.tunState());
+            }
         } else if (ACTION_LAB_BOOM.equals(act)) {
             labTun = false;
             boomNotified = true;
+            autoReconnecting = false;
+            cancelScheduledReconnect();
             Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
             pushBoomNotif();
         }
@@ -384,6 +659,8 @@ public class AtnDaemonService extends Service {
     @Override
     public void onDestroy() {
         tickHandler.removeCallbacks(ticker);
+        cancelScheduledReconnect();
+        unregisterNetCallback();
         AtnNative.dmonFlush();
         AtnLabBoom.clearEnrolled();
         super.onDestroy();

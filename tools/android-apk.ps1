@@ -36,6 +36,16 @@ New-Item -ItemType Directory -Path "$Work\lib\arm64-v8a" | Out-Null
 
 Copy-Item "android\libatn.so" "$Work\lib\arm64-v8a\libatn.so"
 
+$AssetsSrc = Join-Path $Root "android\assets"
+$DenyBin = Join-Path $AssetsSrc "atn_pwd_deny.bin"
+if (-not (Test-Path $DenyBin)) {
+    python (Join-Path $Root "tools\gen_pwd_deny.py")
+}
+if (Test-Path $AssetsSrc) {
+    New-Item -ItemType Directory -Path "$Work\assets" -Force | Out-Null
+    Copy-Item -Path (Join-Path $AssetsSrc "*") -Destination "$Work\assets" -Recurse -Force
+}
+
 & $Aapt2 compile --dir "android\res" -o "$Work\compiled\res.zip"
 if ($LASTEXITCODE -ne 0) { throw "aapt2 compile failed" }
 
@@ -69,6 +79,20 @@ try {
         $es2 = $soEntry.Open()
         try { $fs2.CopyTo($es2) } finally { $es2.Dispose() }
     } finally { $fs2.Dispose() }
+
+    $assetsDir = Join-Path $Work "assets"
+    if (Test-Path $assetsDir) {
+        Get-ChildItem -Path $assetsDir -File -Recurse | ForEach-Object {
+            $rel = $_.FullName.Substring($assetsDir.Length).TrimStart('\', '/')
+            $entryName = ("assets/" + ($rel -replace '\\', '/'))
+            $ae = $zip.CreateEntry($entryName)
+            $afs = [System.IO.File]::OpenRead($_.FullName)
+            try {
+                $aes = $ae.Open()
+                try { $afs.CopyTo($aes) } finally { $aes.Dispose() }
+            } finally { $afs.Dispose() }
+        }
+    }
 } finally {
     $zip.Dispose()
 }

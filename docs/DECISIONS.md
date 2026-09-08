@@ -1191,3 +1191,150 @@ A decision is recorded **before** code that depends on it is written.
     password / DO waits on T-0400.
 - **Consequences:** Browser enroll UX on the builder; mesh admin stays
   on `atnhttp`. Air-gap sign host remains Phase 5 / release.
+
+---
+
+## DEC-0045 — Network-wide org policy (admin website → hub → phones)
+
+- **Date:** 2026-09-07
+- **Status:** accepted
+- **Evidence:** Operator needs one browser admin page to set policy for
+  all connected Android nodes without USB re-enroll. Enroll-time
+  `atn-node.conf` is bootstrap only. Mesh `atnhttp` cannot be spoken by
+  browsers (ISS-0009). Hub `outage_class` was RAM-only (DEC-0034) and
+  did not reach phones.
+- **Decision:**
+  - **Authoritative store:** `lab/org-policy.conf` (gitignored), written
+    by loopback admin UI `POST /policy` (`tools/enroll-console.*`,
+    DEC-0042 surface extended). Fields: `policy_ver` (monotonic),
+    `diag`, `flush_mode`, `wipe_armed`, `outage_class`. Fail-closed
+    parse; `log_only` requires `diag=1` (DEC-0027).
+  - **Hub push:** `atnnode listen` loads/reloads that file, sends
+    ATN_TUN_DATA wire `P` + key=value on ESTABLISHED, on phone `P`/`P?`
+    request, and whenever the file changes. Hub never applies
+    phone-authored policy.
+  - **Phone apply:** On recv `P…`, parse + `dmonSetPolicy`; persist
+    `files/atn-policy.conf` overlay so reboot keeps last org policy
+    without USB. Enroll conf still supplies `peer_*` identity.
+  - **Scope now:** org policy knobs listed above. Hub list / Knox DO /
+    multi-peer hub fan-out need later DECs. `peer_ek` stays enroll-static.
+- **Consequences:** Website sets network-wide policy; Android is dynamic
+  after first join. USB enroll remains bootstrap only.
+
+---
+
+## DEC-0046 — Extended org device policy + encrypted phone config
+
+- **Date:** 2026-09-07
+- **Status:** accepted
+- **Evidence:** Operator needs hub-driven, post-enroll mutable policy for:
+  hub-silence → BOOM timer; password-fail K; USB/data or local policy
+  tamper → re-assert fingerprint/face off, alphanumeric passwords only,
+  reject passwords on known-leak lists; phone config Keystore-wrapped
+  and wiped from RAM after apply.
+- **Decision:**
+  - Extend DEC-0045 `lab/org-policy.conf` / wire `P` with:
+    `boom_silence_s` (default 30), `password_fail_max` (default 5),
+    `biometric_allowed` (0 = FP+iris/face off), `password_min_len`
+    (default 12), `usb_data_block` (1 = charge-only when real Knox),
+    `pwd_deny_check` (1 = reject SHA-256 hits in deny set).
+  - **Phone storage:** AES-256-GCM via Android Keystore. On-disk
+    `files/atn-policy.bin` = iv||ct||tag only. Plaintext only during
+    parse/apply, then wipe. Never log plaintext policy or keys.
+  - **Hub authority:** ignore local plaintext edits as org policy.
+    USB-data attach / tamper → re-apply wrapped policy + DPM/Knox assert.
+    Stub lab: boom/K timers apply; full USB/biometric SoT waits T-0400.
+  - **Deny list:** APK asset `atn_pwd_deny.bin` (sorted SHA-256). Default
+    curated commons — not full rockyou in git. Builder may rebuild from
+    rockyou via `tools/gen_pwd_deny.py` (local input gitignored).
+  - **Honest limit:** values exist in RAM while used; wipe-after-use,
+    non-extractable Keystore key — not “magic never in memory.”
+- **Consequences:** Admin can change boom/K/lock rules after enroll;
+  phones stay dynamic; config encrypted at rest.
+
+---
+
+## DEC-0047 — Compromise vote + timeout boom (stolen phone)
+
+- **Date:** 2026-09-07
+- **Status:** accepted
+- **Evidence:** Operator needs to mark an enrolled roster label as
+  suspected stolen/compromised, collect YES/NO from the network, and
+  BOOM that phone on quorum YES **or** on hub timeout (fail-closed).
+  DEC-0025 already defined mesh WARN + HOLD/WIPE before wipe; do not
+  invent a second MAC scheme. ISS-0020 forbids SMS. Hub listen is still
+  single-peer (DEC-0045 multi-peer fan-out later).
+- **Decision:**
+  - **Authoritative store:** `lab/compromise-vote.conf` (gitignored),
+    written by loopback admin `POST /compromise` (enroll-console).
+    Fields: `vote_id`, `target_label` (DEC-0042 roster phone label),
+    `opened_unix`, `timeout_s` (default 300; min 30), `yes`, `no`,
+    `quorum` (default 1), `state`
+    (`none|open|boom_pending|done|cleared`).
+  - **Vote semantics (DEC-0025 reuse, not parallel crypto):** YES ≈
+    WIPE (compromise confirmed → boom). NO is tallied for audit but
+    does **not** cancel; only admin **clear** aborts before boom.
+    Timeout while `open` → boom (fail-closed for theft). Quorum YES
+    (`yes >= quorum`) → boom immediately. Tunnel AEAD (DEC-0007)
+    authenticates wire; no new HMAC.
+  - **Wire:** ATN_TUN_DATA plaintext `C` + key=value (`ATN_COMP_WIRE`).
+    Actions: `open`, `vote_yes`, `vote_no`, `boom`, `clear`. Hub is
+    authority; phone-authored state is ignored except vote tallies
+    matching the open `vote_id`. Hub pushes `open` on file open /
+    reload; sends `boom` when `boom_pending`; phones apply boom locally.
+  - **Boom:** `dmonFlush` (zeroize keys per flush_mode) + delete
+    Keystore wrap + lab BOOM UI proof. When real Knox/DO jar present
+    (T-0400): DPM `wipeData` (+ reboot path). Stub lab must still
+    receive/prove the boom signal without claiming factory wipe stuck.
+  - **Admin UI:** list enrolled labels from `lab/enrollments/`; start
+    vote; cast YES/NO; clear. Keep `atnnode listen` running.
+  - **Scope now:** single ESTABLISHED peer on hub listen. Multi-peer
+    fan-out / per-label routing = later DEC.
+- **Consequences:** Stolen-phone path is operator-driven + timeout
+  fail-closed; crypto stays tunnel AEAD + existing dmon flush.
+
+---
+
+## DEC-0048 — Mesh update push (APK / site / hub) over tunnel only
+
+- **Date:** 2026-09-08
+- **Status:** accepted
+- **Evidence:** Operator needs to publish APK, phone-site, or hub packages
+  from the admin hub to connected phones **and** peer hubs without USB
+  for the transfer. Browser/HTTP cannot carry mesh payloads (ISS-0009).
+  Cleartext side channels are forbidden.
+- **Decision:**
+  - **SoT delivery = encrypted tunnel DATA only.** Announce + binary
+    chunks ride the same PQ/AEAD tunnel as policy (`P`) and compromise
+    (`C`). Wire: `ATN_UPD_WIRE` `'U'` + announce key=value, or `'U''C'` +
+    big-endian `update_id`/`offset`/`len` + payload bytes. Phone may
+    request with `'U'` / `'U?'`. **No** plaintext HTTP/HTTPS download,
+    **no** cleartext UDP/TCP binary side channel, **no** phone/hub URL
+    fetch fallback.
+  - **Authoritative store (hub-local):** `lab/updates/announce.conf` +
+    `lab/updates/payload.bin` (gitignored). Admin loopback
+    `POST /update` copies a *local* source path into `payload.bin`,
+    hashes SHA-256, bumps `update_id`, writes announce. That is disk I/O
+    on the hub only — not network delivery.
+  - **Hub push:** `atnnode listen` reloads announce like org policy;
+    on ESTABLISHED / announce change / `U?`, streams announce then chunks
+    via `atn_tun_send`. On announce change also **fan-out** to peers in
+    `lab/hub-peers.conf` (`ipv4 port ek_hex`): initiator handshake to
+    each peer, then the same tunnel chunk stream (never raw file copy).
+  - **Inbound peer receive:** listen side stages `payload.recv`, verifies
+    SHA-256, promotes to `payload.bin` + announce; updates in-memory
+    state **without** re-fanout (avoids A↔B loops). Next phone session
+    gets the tunnel stream.
+  - **Phone:** `AtnUpdate` parses announce/chunks, verifies hash, stages
+    under app files (`atn-update.apk` / site / hub). Wipe plaintext
+    staging buffers after apply. APK *install* may still need
+    USB/PackageInstaller / Knox path (T-0400) — transfer ≠ install.
+  - **Honest limits:** True simultaneous multi-phone fan-out on one UDP
+    listen needs multi-session (still deferred). CLOSED re-arms the
+    same `peer_ek`/port for the next peer. Peer fan-out requires peer
+    listen free or re-armed. Hub package apply on peer OS is out of
+    band after verified stage.
+- **Consequences:** Mesh updates are tunnel-AEAD end-to-end; admin UI
+  only stages files on the publishing hub.
+
+---

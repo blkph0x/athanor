@@ -1,0 +1,10 @@
+{
+  "hub_lan_ipv4": "REPLACE_HUB_LAN_IPV4",
+  "public_ipv4": "REPLACE_PUBLIC_IPV4",
+  "phone_peer_ipv4": "REPLACE_PHONE_PEER_IPV4",
+  "peer_port": "47000",
+  "path_mode": "lan",
+  "domain": "REPLACE_ORG_DOMAIN",
+  "edge_lan_ipv4": "",
+  "notes": ""
+}

@@ -33,6 +33,13 @@ WORK="$ROOT/android/apk-work"
 rm -rf "$WORK"
 mkdir -p "$WORK/compiled" "$WORK/dex" "$WORK/lib/arm64-v8a"
 cp android/libatn.so "$WORK/lib/arm64-v8a/libatn.so"
+if [ ! -f android/assets/atn_pwd_deny.bin ]; then
+  python3 tools/gen_pwd_deny.py
+fi
+if [ -d android/assets ]; then
+  mkdir -p "$WORK/assets"
+  cp -R android/assets/. "$WORK/assets/"
+fi
 
 "$AAPT2" compile --dir android/res -o "$WORK/compiled/res.zip"
 LINKED="$WORK/linked.apk"
@@ -46,13 +53,19 @@ CLASSLIST=$(find android/out -name '*.class' -print)
 
 UNSIGNED="$WORK/unsigned.apk"
 cp "$LINKED" "$UNSIGNED"
-# Inject classes.dex + native lib into the APK zip (paths must match APK layout).
-python3 - "$UNSIGNED" "$WORK/dex/classes.dex" "$WORK/lib/arm64-v8a/libatn.so" <<'PY'
-import sys, zipfile
-apk, dex, so = sys.argv[1], sys.argv[2], sys.argv[3]
+# Inject classes.dex + native lib + assets into the APK zip.
+python3 - "$UNSIGNED" "$WORK/dex/classes.dex" "$WORK/lib/arm64-v8a/libatn.so" "$WORK/assets" <<'PY'
+import os, sys, zipfile
+apk, dex, so, assets = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 with zipfile.ZipFile(apk, "a", compression=zipfile.ZIP_DEFLATED) as z:
     z.write(dex, "classes.dex")
     z.write(so, "lib/arm64-v8a/libatn.so")
+    if os.path.isdir(assets):
+        for root, _dirs, files in os.walk(assets):
+            for name in files:
+                path = os.path.join(root, name)
+                rel = os.path.relpath(path, assets).replace("\\", "/")
+                z.write(path, "assets/" + rel)
 PY
 
 ALIGNED="$WORK/aligned.apk"

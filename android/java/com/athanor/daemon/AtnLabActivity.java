@@ -79,10 +79,10 @@ public class AtnLabActivity extends Activity {
         root.addView(status);
 
         TextView note = new TextView(this);
-        note.setText("LAB (DEC-0040): enable Device Admin, lock the phone,"
-                + " enter wrong PIN/password 5 times => BOOM.\n"
-                + "Use real lock screen (not fingerprint-only). "
-                + "Hub silence >30s also BOOMs. Keys kept (log_only).");
+        note.setText("LAB (DEC-0040/0046/0047): Device Admin + wrong PIN"
+                + " x failMax => BOOM. Hub silence (boom_silence_s) also"
+                + " BOOMs. Compromise vote YES/NO when hub opens a vote."
+                + " Keys kept under log_only.");
         root.addView(note);
 
         Button adminBtn = new Button(this);
@@ -116,6 +116,36 @@ public class AtnLabActivity extends Activity {
         });
         root.addView(ping);
 
+        Button voteYes = new Button(this);
+        voteYes.setText("Compromise vote YES");
+        voteYes.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View v) {
+                if (AtnCompromise.openVoteId() <= 0) {
+                    appendLog("no open compromise vote from hub");
+                    return;
+                }
+                boolean ok = AtnCompromise.sendVote(true);
+                appendLog(ok ? "sent vote_yes" : "vote_yes send failed");
+            }
+        });
+        root.addView(voteYes);
+
+        Button voteNo = new Button(this);
+        voteNo.setText("Compromise vote NO");
+        voteNo.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View v) {
+                if (AtnCompromise.openVoteId() <= 0) {
+                    appendLog("no open compromise vote from hub");
+                    return;
+                }
+                boolean ok = AtnCompromise.sendVote(false);
+                appendLog(ok ? "sent vote_no" : "vote_no send failed");
+            }
+        });
+        root.addView(voteNo);
+
         codeBox = new EditText(this);
         codeBox.setHint("optional app 2FA soak (not lock screen)");
         codeBox.setSingleLine(true);
@@ -147,7 +177,9 @@ public class AtnLabActivity extends Activity {
         } else {
             appendLog("Device Admin ON - lock phone and fail PIN x5");
         }
-        if (getIntent() != null && getIntent().getBooleanExtra("autostart", false)) {
+        if (getIntent() != null && getIntent().getBooleanExtra("reconnect", false)) {
+            startDaemon(true);
+        } else if (getIntent() != null && getIntent().getBooleanExtra("autostart", false)) {
             /* Cold start: do not ACTION_RECONNECT (resets boom + races HS). */
             startDaemon(false);
         }
@@ -286,10 +318,10 @@ public class AtnLabActivity extends Activity {
             System.arraycopy(raw, 0, resp, 0, n);
             int vrc = AtnNative.dmon2faVerify(AtnLabBoom.LAB_ID, chal, resp);
             int fails = AtnLabBoom.noteWrongCode();
-            appendLog("app-code fail #" + fails + "/" + AtnLabBoom.FAIL_MAX
+            appendLog("app-code fail #" + fails + "/" + AtnLabBoom.failMax()
                     + " verifyRc=" + vrc);
-            if (vrc == AtnNative.ERR_LOCKOUT || fails >= AtnLabBoom.FAIL_MAX) {
-                AtnLabBoom.trigger("wrong app code x" + AtnLabBoom.FAIL_MAX
+            if (vrc == AtnNative.ERR_LOCKOUT || fails >= AtnLabBoom.failMax()) {
+                AtnLabBoom.trigger("wrong app code x" + AtnLabBoom.failMax()
                         + " (lab)");
                 appendLog("BOOM phone is dead now");
                 Intent svc = new Intent(this, AtnDaemonService.class);
@@ -321,6 +353,11 @@ public class AtnLabActivity extends Activity {
         if (unlockFails < 0) {
             unlockFails = AtnLabBoom.deviceUnlockFails();
         }
+        String compLine = "";
+        if (AtnCompromise.openVoteId() > 0) {
+            compLine = "\ncompromise vote OPEN id=" + AtnCompromise.openVoteId()
+                    + " target=" + AtnCompromise.openTarget();
+        }
         String line;
         try {
             int st = AtnNative.tunState();
@@ -331,11 +368,12 @@ public class AtnLabActivity extends Activity {
                     + "  platform=" + AtnNative.platformId()
                     + "\ndeviceAdmin=" + (admin ? "ON" : "OFF")
                     + "  unlockFails=" + unlockFails + "/"
-                    + AtnKnoxPolicy.PASSWORD_FAIL_FLUSH
+                    + AtnLabBoom.failMax()
                     + "\nappCodeFails=" + AtnLabBoom.pinFails()
-                    + "/" + AtnLabBoom.FAIL_MAX;
+                    + "/" + AtnLabBoom.failMax();
             if (!admin) {
-                line += "\nENABLE DEVICE ADMIN then lock + wrong PIN x5";
+                line += "\nENABLE DEVICE ADMIN then lock + wrong PIN x"
+                        + AtnLabBoom.failMax();
             } else {
                 boolean net = false;
                 try {
@@ -363,7 +401,8 @@ public class AtnLabActivity extends Activity {
                     line += "\nunreachable timer OFF (hub live)";
                 } else {
                     line += "\nunreachable " + watch
-                            + "s / 30s (silence/airplane)";
+                            + "s / " + (AtnLabBoom.silenceMs() / 1000L)
+                            + "s (silence/airplane)";
                 }
                 if (st == AtnNative.TUN_ESTABLISHED
                         && AtnLabBoom.meshLive(net)) {
@@ -376,9 +415,11 @@ public class AtnLabActivity extends Activity {
                     line += "\ntap Start/reconnect after hub is listening";
                 }
             }
+            line += compLine;
         } catch (Throwable t) {
             line = "native not ready: " + t.getMessage()
-                    + "\ndeviceAdmin=" + (admin ? "ON" : "OFF");
+                    + "\ndeviceAdmin=" + (admin ? "ON" : "OFF")
+                    + compLine;
         }
         status.setText(line);
     }

@@ -137,6 +137,9 @@ SYNC_SRC = src/sync/atn_sync.c
 DMON_SRC = src/dmon/atn_dmon.c
 SIGN_SRC = src/sign/atn_sign.c
 CFG_SRC  = src/cfg/atn_cfg.c
+POLICY_SRC = src/policy/atn_policy.c
+COMPROMISE_SRC = src/compromise/atn_compromise.c
+UPDATE_SRC = src/update/atn_update.c
 
 TEST_BIN = tests/test_crypto$(EXE)
 TEST_TUN = tests/test_tun$(EXE)
@@ -161,7 +164,7 @@ CLI_NODE = atnnode$(EXE)
 CLI_ENROLL = atnenroll$(EXE)
 LIB_BIN  = libatn_crypto.a
 
-.PHONY: all test lib info clean ci test-unsigned-char android-so android-java android android-apk manifest report export-tree
+.PHONY: all test lib info clean ci test-unsigned-char android-so android-java android android-apk manifest report export-tree scrub-check
 
 
 all: $(TEST_BIN) $(TEST_TUN) $(TEST_2FA) $(TEST_HTTP) $(TEST_DNS) $(TEST_TREE) $(TEST_REPL) $(TEST_HB) $(TEST_DMON) $(TEST_MLDSA) $(TEST_SIGN) $(TEST_CFG) $(TEST_FUZZ) $(TEST_RECIPE) $(TEST_HUB) $(CLI_2FA) $(CLI_HTTP) $(CLI_DNS) $(CLI_SIGN) $(CLI_NODE) $(CLI_ENROLL)
@@ -221,8 +224,8 @@ $(TEST_SIGN): $(SRC) $(SIGN_SRC) tests/test_sign.c include/atn_sign.h
 $(CLI_SIGN): $(SRC) $(SIGN_SRC) src/sign/atn_sign_cli.c include/atn_sign.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(SIGN_SRC) src/sign/atn_sign_cli.c $(LDFLAGS)
 
-$(TEST_CFG): $(SRC) $(CFG_SRC) tests/test_cfg.c include/atn_cfg.h
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(CFG_SRC) tests/test_cfg.c $(LDFLAGS)
+$(TEST_CFG): $(SRC) $(CFG_SRC) $(POLICY_SRC) $(COMPROMISE_SRC) $(UPDATE_SRC) tests/test_cfg.c include/atn_cfg.h include/atn_policy.h include/atn_compromise.h include/atn_update.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(CFG_SRC) $(POLICY_SRC) $(COMPROMISE_SRC) $(UPDATE_SRC) tests/test_cfg.c $(LDFLAGS)
 
 $(TEST_HUB): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) tests/test_hub_failover.c include/atn_dmon.h include/atn_cfg.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) tests/test_hub_failover.c $(LDFLAGS)
@@ -230,8 +233,8 @@ $(TEST_HUB): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(C
 $(TEST_FUZZ): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(CFG_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_fuzz.c
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(CFG_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_fuzz.c $(LDFLAGS)
 
-$(CLI_NODE): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) src/node/atn_node_cli.c include/atn_cfg.h include/atn_tun.h include/atn_dmon.h
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) src/node/atn_node_cli.c $(LDFLAGS)
+$(CLI_NODE): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) $(POLICY_SRC) $(COMPROMISE_SRC) $(UPDATE_SRC) src/node/atn_node_cli.c include/atn_cfg.h include/atn_policy.h include/atn_compromise.h include/atn_update.h include/atn_tun.h include/atn_dmon.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) $(POLICY_SRC) $(COMPROMISE_SRC) $(UPDATE_SRC) src/node/atn_node_cli.c $(LDFLAGS)
 
 $(CLI_ENROLL): src/enroll/atn_enroll_cli.c
 	$(CC) $(CFLAGS) -o $@ src/enroll/atn_enroll_cli.c $(LDFLAGS)
@@ -278,8 +281,16 @@ else
 	./$(CLI_ENROLL) demo
 endif
 
-# Same three commands GitHub Actions runs. Local pre-push runs `make test`.
+# Same three commands GitHub Actions runs. Local pre-push runs scrub-check then make test.
 ci: info test lib
+
+# Org-local scrub: fail if lab/org.local.json IPs/domains appear in tracked files.
+scrub-check:
+ifeq ($(OS),Windows_NT)
+	powershell -NoProfile -ExecutionPolicy Bypass -File tools/scrub-check.ps1
+else
+	sh tools/scrub-check.sh
+endif
 
 test-unsigned-char:
 	$(MAKE) test CFLAGS="-std=c99 -Wall -Wextra -Werror -O2 -Iinclude -Itests -funsigned-char"
@@ -340,6 +351,10 @@ DAEMON_JAVA = \
 	android/java/com/athanor/daemon/AtnBootReceiver.java \
 	android/java/com/athanor/daemon/AtnPowerReceiver.java \
 	android/java/com/athanor/daemon/AtnNodeConfig.java \
+	android/java/com/athanor/daemon/AtnOrgPolicy.java \
+	android/java/com/athanor/daemon/AtnPwdDeny.java \
+	android/java/com/athanor/daemon/AtnCompromise.java \
+	android/java/com/athanor/daemon/AtnUpdate.java \
 	android/java/com/athanor/daemon/AtnLabBoom.java \
 	android/java/com/athanor/daemon/AtnDaemonService.java \
 	android/java/com/athanor/daemon/AtnLabActivity.java
@@ -350,7 +365,7 @@ STUB_JAVA = \
 
 android-so:
 	$(MAKE) CC="$(ANDROID_CC)" AR="$(ANDROID_AR)" lib
-	$(ANDROID_CC) -shared -o android/libatn.so $(JNI_SRC) $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) -Iinclude -llog
+	$(ANDROID_CC) -shared -o android/libatn.so $(JNI_SRC) $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) $(POLICY_SRC) -Iinclude -llog
 
 android-java:
 ifeq ($(REAL_KNOX),)

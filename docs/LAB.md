@@ -127,3 +127,18 @@ Receipts: `lab/enrollments/` (gitignored). Local ML-DSA sign via `atnsign`
 ## Firewall
 
 Allow UDP on the hub listen port (inbound) on the PC firewall.
+
+## Org-local config (do not push real IPs)
+
+Keep real hosts/IPs on the dev box only:
+
+```bat
+copy lab\org.local.json.example lab\org.local.json
+REM edit lab\org.local.json with hub_lan / public / phone_peer / path_mode
+powershell -NoProfile -File tools\install-git-hooks.ps1
+```
+
+`DEPLOY` / enroll console read `lab/org.local.json` then `lab/deploy-state.json`
+(both gitignored). Before push, scrub-check blocks if those org IPs/domains
+leak into tracked files (`make scrub-check` or the pre-push hook).
+

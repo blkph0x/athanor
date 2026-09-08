@@ -28,6 +28,9 @@ Diag-first flash when jar lands (DEC-0027).
 
 | ID | Status | REQ | Task |
 |---|---|---|---|
+| T-0902 | done | REQ-2.2/4.1 | DEC-0048 mesh update push (tunnel-only APK/site/hub) |
+| T-0901 | done | REQ-2.2/4.1 | DEC-0047 compromise vote + timeout boom (hub/admin/phone) |
+| T-0900 | done | REQ-2.2/4.1 | DEC-0045/0046 org policy + encrypted phone config + boom/K/lock |
 | T-0001 | done | — | Write development rules (never guess, document, comment, track) |
 | T-0002 | done | — | Stand up docs/ trackers, SPEC_INDEX, DEC-0001/0002/0003 |
 | T-0003 | done | REQ-1.1 | Implement SHA-256, HMAC, HKDF, ChaCha20-Poly1305, ct_equal, memzero, OS CSPRNG, nonce sequencer from cited RFCs |

@@ -46,16 +46,31 @@ public final class AtnKnoxPolicy {
     }
 
     public static boolean applyPasswordPolicy(Context ctx, ComponentName admin) {
+        AtnOrgPolicy p = AtnOrgPolicy.defaults();
+        p.passwordMinLen = PASSWORD_MIN;
+        p.biometricAllowed = 0;
+        return applyOrgDeviceLock(ctx, admin, p);
+    }
+
+    /**
+     * DEC-0046: alphanumeric password only; biometrics off unless allowed;
+     * min length from org policy.
+     */
+    public static boolean applyOrgDeviceLock(Context ctx, ComponentName admin,
+                                             AtnOrgPolicy pol) {
+        if (pol == null) {
+            return false;
+        }
         DevicePolicyManager dpm =
                 (DevicePolicyManager) ctx.getSystemService(Context.DEVICE_POLICY_SERVICE);
         if (dpm == null) {
             return false;
         }
+        int minLen = pol.passwordMinLen > 0 ? pol.passwordMinLen : PASSWORD_MIN;
         try {
             dpm.setPasswordQuality(admin,
                     DevicePolicyManager.PASSWORD_QUALITY_ALPHANUMERIC);
-            dpm.setPasswordMinimumLength(admin, PASSWORD_MIN);
-            /* AOSP DPM; Knox DA-deprecation page lists these as the mirrored APIs. */
+            dpm.setPasswordMinimumLength(admin, minLen);
             dpm.setPasswordMinimumLetters(admin, 1);
             dpm.setPasswordMinimumNumeric(admin, 1);
         } catch (SecurityException e) {
@@ -65,11 +80,11 @@ public final class AtnKnoxPolicy {
         try {
             PasswordPolicy pp = EnterpriseDeviceManager.getInstance(ctx)
                     .getPasswordPolicy();
-            /* Convenience biometric only after quality is set (Knox docs). */
-            pp.setBiometricAuthenticationEnabled(
-                    PasswordPolicy.BIOMETRIC_AUTHENTICATION_FINGERPRINT
-                            | PasswordPolicy.BIOMETRIC_AUTHENTICATION_IRIS,
-                    true);
+            int mask = PasswordPolicy.BIOMETRIC_AUTHENTICATION_FINGERPRINT
+                    | PasswordPolicy.BIOMETRIC_AUTHENTICATION_IRIS;
+            /* Face may share iris bit on some Knox docs; disable both. */
+            boolean enable = pol.biometricAllowed == 1;
+            pp.setBiometricAuthenticationEnabled(mask, enable);
         } catch (UnsupportedOperationException e) {
             Log.w(TAG, "PasswordPolicy: knoxsdk.jar not installed");
             return false;
@@ -78,5 +93,12 @@ public final class AtnKnoxPolicy {
             return false;
         }
         return true;
+    }
+
+    public static int passwordFailMax(AtnOrgPolicy pol) {
+        if (pol != null && pol.passwordFailMax >= 1) {
+            return pol.passwordFailMax;
+        }
+        return PASSWORD_FAIL_FLUSH;
     }
 }
