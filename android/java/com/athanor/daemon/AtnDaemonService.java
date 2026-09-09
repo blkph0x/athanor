@@ -54,6 +54,7 @@ public class AtnDaemonService extends Service {
     private boolean everJoined;
     private boolean autoReconnecting;
     private int lastNetTransport = -1; /* 1=wifi 2=cell 0=other */
+    private long lastVoiceAudioLogSec;
     private ConnectivityManager.NetworkCallback netCb;
     private final Runnable reconnectRunnable = new Runnable() {
         @Override
@@ -125,6 +126,8 @@ public class AtnDaemonService extends Service {
                         reconnectBackoffMs = RECONNECT_BACKOFF_MIN_MS;
                         autoReconnecting = false;
                         cancelScheduledReconnect();
+                        Log.i(TAG, "tun state → ESTABLISHED (was "
+                                + tunStateName(prevTunState) + ")");
                         /* DEC-0045: ask hub for current network-wide policy. */
                         AtnNative.tunSend(new byte[] { 'P', '?' });
                     }
@@ -175,7 +178,17 @@ public class AtnDaemonService extends Service {
                             continue;
                         }
                         if (n >= 1 && back[0] == (byte) 'A') {
-                            /* DEC-0049 voice — do not feed hb_ingest. */
+                            /* DEC-0049/0050 voice — do not feed hb_ingest. */
+                            byte sub = n >= 2 ? back[1] : 0;
+                            if (sub != (byte) 'F') {
+                                Log.i(TAG, "voice frame n=" + n
+                                        + " subtype=" + (char) (sub & 0xff));
+                            } else if ((System.currentTimeMillis() / 1000L)
+                                    != lastVoiceAudioLogSec) {
+                                lastVoiceAudioLogSec =
+                                        System.currentTimeMillis() / 1000L;
+                                Log.i(TAG, "voice AUDIO dispatch (1Hz)");
+                            }
                             AtnVoice.onFrame(back, n);
                             continue;
                         }
@@ -189,8 +202,18 @@ public class AtnDaemonService extends Service {
                         Log.i(TAG, "lab recv " + n + " bytes");
                     }
                 } else if (st == AtnNative.TUN_CLOSED) {
-                    Log.w(TAG, "TUN_CLOSED — auto-reconnect");
+                    if (prevTunState != AtnNative.TUN_CLOSED) {
+                        Log.w(TAG, "tun state → CLOSED (was "
+                                + tunStateName(prevTunState)
+                                + ") — auto-reconnect");
+                    } else {
+                        Log.w(TAG, "TUN_CLOSED — auto-reconnect");
+                    }
                     scheduleAutoReconnect(false);
+                } else if (st == AtnNative.TUN_HANDSHAKE
+                        && prevTunState != AtnNative.TUN_HANDSHAKE) {
+                    Log.i(TAG, "tun state → HANDSHAKE (was "
+                            + tunStateName(prevTunState) + ")");
                 }
                 /*
                  * Skip silence BOOM while reconnecting, handshaking, or
@@ -676,5 +699,21 @@ public class AtnDaemonService extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return null;
+    }
+
+    private static String tunStateName(int st) {
+        if (st == AtnNative.TUN_CLOSED) {
+            return "CLOSED";
+        }
+        if (st == AtnNative.TUN_HANDSHAKE) {
+            return "HANDSHAKE";
+        }
+        if (st == AtnNative.TUN_ESTABLISHED) {
+            return "ESTABLISHED";
+        }
+        if (st < 0) {
+            return "none";
+        }
+        return "UNKNOWN(" + st + ")";
     }
 }

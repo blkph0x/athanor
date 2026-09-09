@@ -50,7 +50,7 @@ same commit.
 | `android/stubs/**` | REQ-4.1 | DEC-0019/0030 | Same packages as Samsung; ATN_STUB |
 | `android/java/.../AtnKnoxBuild.java` | REQ-4.1 | DEC-0019/0030 | `isStub()` via ATN_STUB field |
 | `android/java/.../AtnKnoxPolicy.java` | REQ-4.2/4.3 | DEC-0015/0017/0030 | USB + password; stub throws |
-| `android/java/.../AtnLabActivity.java` | REQ-4.1 | DEC-0038 | Lab launcher Activity |
+| `android/java/.../AtnLabActivity.java` | REQ-4.1 | DEC-0038 | Lab Mesh/Call/Logs tabs |
 | `include/atn_dmon.h` / `src/dmon/atn_dmon.c` | REQ-4.1/4.4 | DEC-0016/0017/0020/0021/0027/0029/0031 | Session; LOG_ONLY; blackout HOLD; hub failover |
 | `tools/src.list` | REQ-5.1 | DEC-0020 | Frozen path list for `atnsign manifest` |
 | `tools/export.ps1` | REQ-6.3 | DEC-0024 / 0026 | Copy src.list to export/; refuse jars; `make export-tree` |
@@ -78,7 +78,7 @@ same commit.
 | `android/java/.../AtnBootReceiver.java` | REQ-4.1 | DEC-0015 | Start daemon on BOOT_COMPLETED |
 | `src/sign/atn_sign_cli.c` | REQ-5.1 | DEC-0019 / 0021 | `atnsign` CLI (manifest + report) |
 | `tests/test_sign.c` | REQ-5.1 | gates | sort, sign, verify, tamper; report diag |
-| `src/node/atn_node_cli.c` | REQ-4.1 | DEC-0021 / 0023 / 0031 / 0032 / 0045 / 0047 / 0048 / 0050 | `atnnode` listen; opaque `'A'` echo/forward |
+| `src/node/atn_node_cli.c` | REQ-4.1 | DEC-0021 / 0023 / 0031 / 0032 / 0045 / 0047 / 0048 / 0050 | `atnnode` listen; opaque `'A'` echo; AUTH/NONCE continue |
 | `android/java/.../AtnNodeConfig.java` | REQ-4.1 | DEC-0021 | Java mirror of atn_cfg.c |
 | `src/crypto/atn_hmac.c` | REQ-1.1 | RFC 2104 | HMAC-SHA-256 |
 | `src/crypto/atn_hkdf.c` | REQ-1.1 | RFC 5869 §§2.2–2.3 | Extract then expand, SHA-256 |

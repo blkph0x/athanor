@@ -76,12 +76,45 @@ public final class AtnVoice {
     private static final Handler main = new Handler(Looper.getMainLooper());
     private static volatile boolean incomingRing;
     private static String ringLabel = "";
+    private static String peerLabel = "";
+    private static String routeLabel = "—";
+    private static boolean speakerOn;
+    private static long activeSinceMs;
 
     static {
         for (int i = 0; i < JB_SLOTS; i++) {
             jb[i] = new JbSlot();
         }
         lastPcm = new short[FRAME_SAMPLES];
+    }
+
+    private static void setStateLocked(int next, String why) {
+        if (state == next) {
+            return;
+        }
+        Log.i(TAG, "state " + nameOf(state) + " → " + nameOf(next)
+                + " (" + why + ")");
+        state = next;
+        if (next == ACTIVE || next == CONNECTING || next == OUTGOING) {
+            if (activeSinceMs == 0L) {
+                activeSinceMs = System.currentTimeMillis();
+            }
+        }
+        if (next == IDLE || next == TERMINATING) {
+            activeSinceMs = 0L;
+        }
+    }
+
+    private static String nameOf(int st) {
+        switch (st) {
+            case OUTGOING: return "OUTGOING";
+            case RINGING: return "RINGING";
+            case CONNECTING: return "CONNECTING";
+            case ACTIVE: return "ACTIVE";
+            case HOLD: return "HOLD";
+            case TERMINATING: return "TERMINATING";
+            default: return "IDLE";
+        }
     }
 
     public static boolean isRinging() {
@@ -112,26 +145,51 @@ public final class AtnVoice {
     }
 
     public static String stateName() {
-        switch (state()) {
-            case OUTGOING: return "OUTGOING";
-            case RINGING: return "RINGING";
-            case CONNECTING: return "CONNECTING";
-            case ACTIVE: return "ACTIVE";
-            case HOLD: return "HOLD";
-            case TERMINATING: return "TERMINATING";
-            default: return "IDLE";
+        return nameOf(state());
+    }
+
+    public static String peerLabel() {
+        synchronized (LOCK) {
+            return peerLabel.length() == 0 ? "(none)" : peerLabel;
+        }
+    }
+
+    public static String routeLabel() {
+        synchronized (LOCK) {
+            return routeLabel;
+        }
+    }
+
+    public static String codecLabel() {
+        synchronized (LOCK) {
+            return codec == CODEC_PCM16 ? "PCM16@16k" : ("codec=" + codec);
+        }
+    }
+
+    public static String durationText() {
+        synchronized (LOCK) {
+            if (activeSinceMs == 0L
+                    || state == IDLE || state == TERMINATING) {
+                return "0:00";
+            }
+            long sec = (System.currentTimeMillis() - activeSinceMs) / 1000L;
+            if (sec < 0L) {
+                sec = 0L;
+            }
+            return (sec / 60L) + ":" + String.format("%02d", (int) (sec % 60L));
         }
     }
 
     public static String statsText() {
         synchronized (LOCK) {
-            return "state=" + stateName()
+            return "state=" + nameOf(state)
                     + " loss=" + framesLost
                     + " drop=" + framesDropped
                     + " jitterMs=" + jitterMs
                     + " sent=" + framesSent
                     + " recv=" + framesRecv
-                    + " mute=" + (mute ? 1 : 0);
+                    + " mute=" + (mute ? 1 : 0)
+                    + " spk=" + (speakerOn ? 1 : 0);
         }
     }
 
@@ -144,33 +202,48 @@ public final class AtnVoice {
     public static void setMute(boolean m) {
         synchronized (LOCK) {
             mute = m;
+            Log.i(TAG, m ? "mute ON (stop frames)" : "mute OFF");
+        }
+    }
+
+    public static void setSpeaker(boolean on) {
+        synchronized (LOCK) {
+            speakerOn = on;
+            Log.i(TAG, on ? "speaker ON" : "speaker OFF");
         }
     }
 
     public static boolean callHubLoop(int id) {
         synchronized (LOCK) {
             if (state != IDLE) {
+                Log.w(TAG, "callHubLoop busy state=" + nameOf(state));
                 return false;
             }
             if (AtnNative.tunState() != AtnNative.TUN_ESTABLISHED) {
+                Log.w(TAG, "callHubLoop blocked: tun not ESTABLISHED");
                 return false;
             }
             callId = id;
             codec = CODEC_PCM16;
+            peerLabel = "hub-loop";
+            routeLabel = "LOOP";
             sendSeq = 0;
             sampleTs = 0;
             peerMaxSeq = 0;
             framesSent = framesRecv = framesDropped = framesLost = 0;
             resetJbLocked();
-            state = OUTGOING;
+            setStateLocked(OUTGOING, "callHubLoop");
             byte[] offer = encodeCtrl(OP_OFFER, codec, callId);
-            if (AtnNative.tunSend(offer) != 0) {
+            int rc = AtnNative.tunSend(offer);
+            Log.i(TAG, "send ctrl OFFER id=" + callId + " tunSend rc=" + rc);
+            if (rc != 0) {
                 enterIdleLocked();
                 return false;
             }
-            AtnNative.tunSend(encodeCtrl(OP_CODEC, codec, callId));
+            rc = AtnNative.tunSend(encodeCtrl(OP_CODEC, codec, callId));
+            Log.i(TAG, "send ctrl CODEC id=" + callId + " tunSend rc=" + rc);
             /* Lab hub-loop: become ACTIVE immediately; hub echoes AUDIO back. */
-            state = ACTIVE;
+            setStateLocked(ACTIVE, "hub-loop self-accept");
         }
         startMedia();
         return true;
@@ -179,33 +252,60 @@ public final class AtnVoice {
     public static boolean answer() {
         synchronized (LOCK) {
             if (state != RINGING) {
+                Log.w(TAG, "answer ignored state=" + nameOf(state));
                 return false;
             }
             if (AtnNative.tunState() != AtnNative.TUN_ESTABLISHED) {
+                Log.w(TAG, "answer blocked: tun not ESTABLISHED");
                 return false;
             }
-            state = CONNECTING;
-            if (AtnNative.tunSend(encodeCtrl(OP_ACCEPT, codec, callId)) != 0) {
+            setStateLocked(CONNECTING, "answer");
+            int rc = AtnNative.tunSend(encodeCtrl(OP_ACCEPT, codec, callId));
+            Log.i(TAG, "send ctrl ACCEPT id=" + callId + " tunSend rc=" + rc);
+            if (rc != 0) {
                 return false;
             }
-            state = ACTIVE;
+            if (routeLabel.equals("—")) {
+                routeLabel = "VIA HUB";
+            }
+            setStateLocked(ACTIVE, "accepted");
         }
         startMedia();
+        return true;
+    }
+
+    public static boolean reject() {
+        synchronized (LOCK) {
+            if (state != RINGING) {
+                Log.w(TAG, "reject ignored state=" + nameOf(state));
+                return false;
+            }
+            if (AtnNative.tunState() == AtnNative.TUN_ESTABLISHED) {
+                int rc = AtnNative.tunSend(encodeCtrl(OP_REJECT, codec, callId));
+                Log.i(TAG, "send ctrl REJECT id=" + callId + " tunSend rc=" + rc);
+            }
+            setStateLocked(TERMINATING, "reject");
+            enterIdleLocked();
+        }
+        stopMedia();
         return true;
     }
 
     public static boolean hangup() {
         synchronized (LOCK) {
             if (state == IDLE || state == TERMINATING) {
+                Log.w(TAG, "hangup ignored state=" + nameOf(state));
                 return false;
             }
-            state = TERMINATING;
+            setStateLocked(TERMINATING, "hangup");
             if (AtnNative.tunState() == AtnNative.TUN_ESTABLISHED) {
-                AtnNative.tunSend(encodeCtrl(OP_HANGUP, codec, callId));
+                int rc = AtnNative.tunSend(encodeCtrl(OP_HANGUP, codec, callId));
+                Log.i(TAG, "send ctrl HANGUP id=" + callId + " tunSend rc=" + rc);
             }
             enterIdleLocked();
         }
         stopMedia();
+        Log.i(TAG, "hangup complete → IDLE");
         return true;
     }
 
@@ -243,12 +343,16 @@ public final class AtnVoice {
         int c = msg[3] & 0xff;
         int id = getBe32(msg, 4);
         synchronized (LOCK) {
+            Log.i(TAG, "recv ctrl op=" + op + " id=" + id
+                    + " state=" + nameOf(state));
             switch (op) {
                 case OP_OFFER:
                     if (state == IDLE) {
                         callId = id;
                         codec = (c == CODEC_PCM16) ? c : CODEC_PCM16;
-                        state = RINGING;
+                        peerLabel = "incoming";
+                        routeLabel = "VIA HUB";
+                        setStateLocked(RINGING, "recv OFFER");
                         incomingRing = true;
                         ringLabel = "call " + id;
                         resetJbLocked();
@@ -256,12 +360,14 @@ public final class AtnVoice {
                         /* Hub echo of our own offer (lab loopback) — ignore. */
                         ;
                     } else {
-                        AtnNative.tunSend(encodeCtrl(OP_BUSY, codec, callId));
+                        int rc = AtnNative.tunSend(
+                                encodeCtrl(OP_BUSY, codec, callId));
+                        Log.i(TAG, "send ctrl BUSY tunSend rc=" + rc);
                     }
                     break;
                 case OP_ACCEPT:
                     if (state == OUTGOING && id == callId) {
-                        state = ACTIVE;
+                        setStateLocked(ACTIVE, "recv ACCEPT");
                     } else if (state == ACTIVE && id == callId) {
                         /* echo of accept — ignore */
                         ;
@@ -271,6 +377,7 @@ public final class AtnVoice {
                 case OP_BUSY:
                 case OP_HANGUP:
                     if (state != IDLE && (id == 0 || id == callId)) {
+                        setStateLocked(TERMINATING, "recv op=" + op);
                         enterIdleLocked();
                         main.post(new Runnable() {
                             @Override
@@ -392,6 +499,7 @@ public final class AtnVoice {
     private static void startMedia() {
         stopMedia();
         mediaRun = true;
+        Log.i(TAG, "media start");
         int minRec = AudioRecord.getMinBufferSize(RATE_HZ,
                 AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
         int minPlay = AudioTrack.getMinBufferSize(RATE_HZ,
@@ -407,6 +515,7 @@ public final class AtnVoice {
                     AudioTrack.MODE_STREAM);
             recorder.startRecording();
             track.play();
+            Log.i(TAG, "media started rec+track");
         } catch (Exception e) {
             Log.w(TAG, "media start failed: " + e.getMessage());
             mediaRun = false;
@@ -460,6 +569,9 @@ public final class AtnVoice {
     }
 
     private static void stopMedia() {
+        if (mediaRun) {
+            Log.i(TAG, "media stop");
+        }
         mediaRun = false;
         if (captureThread != null) {
             try {
@@ -515,10 +627,13 @@ public final class AtnVoice {
                 framesDropped++;
                 return;
             }
-            if (AtnNative.tunSend(wire) == 0) {
+            int rc = AtnNative.tunSend(wire);
+            if (rc == 0) {
                 sendSeq++;
                 sampleTs += FRAME_SAMPLES;
                 framesSent++;
+            } else if ((framesSent & 0x3f) == 0) {
+                Log.w(TAG, "audio tunSend rc=" + rc + " seq=" + sendSeq);
             }
             Arrays.fill(wire, (byte) 0);
         }
@@ -568,6 +683,9 @@ public final class AtnVoice {
     private static void enterIdleLocked() {
         resetJbLocked();
         Arrays.fill(lastPcm, (short) 0);
+        if (state != IDLE) {
+            Log.i(TAG, "enter IDLE from " + nameOf(state));
+        }
         state = IDLE;
         callId = 0;
         sendSeq = 0;
@@ -575,6 +693,9 @@ public final class AtnVoice {
         mute = false;
         incomingRing = false;
         ringLabel = "";
+        peerLabel = "";
+        routeLabel = "—";
+        activeSinceMs = 0L;
     }
 
     private static void resetJbLocked() {

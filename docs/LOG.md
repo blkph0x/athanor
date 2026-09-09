@@ -4,6 +4,20 @@ Newest at the top.
 
 ---
 
+## 2026-09-09 — Lab UI tabs + hub listen harden (voice flood)
+
+- Hub `listen` ESTABLISHED loop: AUTH/NONCE/LEN/PARAM recv failures log to
+  stderr and **continue** (or CLOSED → re-arm). No longer `return 1` on a
+  single bad frame during voice echo flood (`recv failed 3`).
+- Hub logs `voice_frame n=… subtype=…` (no payload).
+- `AtnLabActivity`: Mesh / Call / Logs tabs; Call tab has peer/state/
+  duration/route/codec/stats, RING, Answer/Reject/Mute/Speaker/Hangup;
+  call blocked with clear reason unless mesh ESTABLISHED.
+- Logging: `AtnVoice` state/ctrl/media/mute/hangup; daemon tun transitions
+  + voice dispatch (AUDIO 1Hz).
+
+---
+
 ## 2026-09-09 — Hub→phone APK self-update over tunnel (DEC-0048)
 
 - Lab APK delivery SoT = encrypted tunnel (`U`/`UC`), not `adb install`.

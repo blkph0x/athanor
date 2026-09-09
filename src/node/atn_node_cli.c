@@ -788,11 +788,26 @@ static int cmd_listen(uint16_t port)
                 break;
             }
             if (rc != ATN_OK && rc != ATN_ERR_STATE) {
-                fprintf(stderr, "pump failed %d\n", rc);
+                /*
+                 * AUTH/NONCE/LEN/PARAM during wait: log and keep listening.
+                 * CLOSED → re-arm below (do not kill hub process).
+                 */
+                fprintf(stderr, "pump failed %d (transient; continue)\n", rc);
+                fflush(stderr);
+            }
+            if (t.state == ATN_TUN_CLOSED) {
+                printf("CLOSED — re-arm listen port=%u (same peer_ek)\n",
+                       (unsigned)listen_port);
+                fflush(stdout);
                 hub_upd_rx_close(&urx);
-                atn_memzero(dk, sizeof(dk));
                 atn_tun_wipe(&t);
-                return 1;
+                if (atn_tun_init_responder(&t, dk) != ATN_OK ||
+                    atn_tun_bind_any(&t, listen_port) != ATN_OK) {
+                    fprintf(stderr, "re-arm bind failed\n");
+                    atn_memzero(dk, sizeof(dk));
+                    return 1;
+                }
+                continue; /* wait for next ESTABLISHED */
             }
             /* Still wait HS: reload announce so idle hub sees admin publish. */
             if (atn_update_load_file(upath, &upd_new) == ATN_OK &&
@@ -945,6 +960,12 @@ static int cmd_listen(uint16_t port)
                      * decode 'A''S' (nested E2E). Multi-peer A↔Hub↔B fan-out
                      * still deferred on this listen path.
                      */
+                    {
+                        unsigned subtype = (n >= 2) ? (unsigned)pt[1] : 0u;
+                        printf("voice_frame n=%u subtype=%u\n",
+                               (unsigned)n, subtype);
+                        fflush(stdout);
+                    }
                     (void)atn_tun_send(&t, pt, n);
                 } else {
                     (void)atn_tun_send(&t, pt, n); /* LAB echo / other */
@@ -956,11 +977,15 @@ static int cmd_listen(uint16_t port)
             } else if (rc == ATN_ERR_STATE) {
                 (void)atn_tun_keepalive(&t);
             } else if (rc != ATN_OK) {
-                fprintf(stderr, "recv failed %d\n", rc);
-                hub_upd_rx_close(&urx);
-                atn_memzero(dk, sizeof(dk));
-                atn_tun_wipe(&t);
-                return 1;
+                /*
+                 * AUTH closes tunnel → CLOSED re-arm below.
+                 * NONCE/LEN/PARAM (bad/replay frame during voice flood):
+                 * log and stay ESTABLISHED — never exit hub process.
+                 */
+                fprintf(stderr,
+                        "recv failed %d (AUTH/NONCE/transient; continue)\n",
+                        rc);
+                fflush(stderr);
             }
             if (t.state == ATN_TUN_CLOSED) {
                 printf("CLOSED — re-arm listen port=%u (same peer_ek)\n",

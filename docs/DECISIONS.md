@@ -1392,6 +1392,23 @@ A decision is recorded **before** code that depends on it is written.
 
 ---
 
+## DEC-0051 — Hub listen: tolerate AUTH/NONCE on ESTABLISHED (lab)
+
+- **Date:** 2026-09-09
+- **Status:** accepted
+- **Context:** Voice flood/echo caused `atn_tun_recv_data` to return
+  `ATN_ERR_NONCE` (3); hub `listen` exited the process (`recv failed 3`),
+  leaving the mesh dead and lab calls unable to reach ESTABLISHED.
+- **Decision:** On ESTABLISHED (and HS wait) recv/pump failures that are
+  AUTH/NONCE/LEN/PARAM/STATE-ish: log to stderr and **continue**. If the
+  tunnel is `CLOSED`, wipe + re-arm the same `peer_ek`/port. Exit the
+  process only on fatal bind/wipe after re-arm failure. Log
+  `voice_frame n=… subtype=…` for family `'A'` (no payload dump).
+- **Lab UI:** `AtnLabActivity` uses Mesh / Call / Logs tabs; Call tab
+  shows mesh state and refuses dial until ESTABLISHED.
+
+---
+
 ## DEC-0050 — Voice P2P-first E2E; opaque hub relay fallback (supersedes DEC-0049 SoT)
 
 - **Date:** 2026-09-08
