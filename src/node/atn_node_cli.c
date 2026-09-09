@@ -790,24 +790,11 @@ static int cmd_listen(uint16_t port)
             if (rc != ATN_OK && rc != ATN_ERR_STATE) {
                 /*
                  * AUTH/NONCE/LEN/PARAM during wait: log and keep listening.
-                 * CLOSED → re-arm below (do not kill hub process).
+                 * Do NOT re-arm on CLOSED here — responder idle state is
+                 * CLOSED until HS_INIT (re-arm storm blocked all handshakes).
                  */
-                fprintf(stderr, "pump failed %d (transient; continue)\n", rc);
+                fprintf(stderr, "pump failed %d (wait-HS; continue)\n", rc);
                 fflush(stderr);
-            }
-            if (t.state == ATN_TUN_CLOSED) {
-                printf("CLOSED — re-arm listen port=%u (same peer_ek)\n",
-                       (unsigned)listen_port);
-                fflush(stdout);
-                hub_upd_rx_close(&urx);
-                atn_tun_wipe(&t);
-                if (atn_tun_init_responder(&t, dk) != ATN_OK ||
-                    atn_tun_bind_any(&t, listen_port) != ATN_OK) {
-                    fprintf(stderr, "re-arm bind failed\n");
-                    atn_memzero(dk, sizeof(dk));
-                    return 1;
-                }
-                continue; /* wait for next ESTABLISHED */
             }
             /* Still wait HS: reload announce so idle hub sees admin publish. */
             if (atn_update_load_file(upath, &upd_new) == ATN_OK &&
