@@ -78,6 +78,7 @@ public class AtnLabActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        AtnVoice.setContext(this);
         boolean stub = AtnKnoxBuild.isStub();
         float dens = getResources().getDisplayMetrics().density;
         int pad = (int) (12 * dens);

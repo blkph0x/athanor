@@ -270,6 +270,7 @@ public class AtnDaemonService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        AtnVoice.setContext(this);
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationChannel c = new NotificationChannel(
                     CH, "Athanor mesh", NotificationManager.IMPORTANCE_LOW);

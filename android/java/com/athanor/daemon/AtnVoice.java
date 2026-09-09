@@ -1,5 +1,6 @@
 package com.athanor.daemon;
 
+import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
@@ -46,8 +47,8 @@ public final class AtnVoice {
     public static final int FRAME_MS = 20;
     public static final int AUDIO_HDR = 15;
     public static final int CTRL_LEN = 12;
-    public static final int JB_SLOTS = 8;
-    public static final int JB_TARGET = 3; /* ~60ms */
+    public static final int JB_SLOTS = 24; /* ~480ms — WAN hub-loop RTT */
+    public static final int JB_TARGET = 6; /* ~120ms playout delay */
 
     private static final Object LOCK = new Object();
     private static int state = IDLE;
@@ -76,6 +77,7 @@ public final class AtnVoice {
     private static final Handler main = new Handler(Looper.getMainLooper());
     private static volatile boolean incomingRing;
     private static String ringLabel = "";
+    private static Context appCtx;
     private static String peerLabel = "";
     private static String routeLabel = "—";
     private static boolean speakerOn;
@@ -114,6 +116,13 @@ public final class AtnVoice {
             case HOLD: return "HOLD";
             case TERMINATING: return "TERMINATING";
             default: return "IDLE";
+        }
+    }
+
+    /** Application context for AudioManager speaker routing. */
+    public static void setContext(Context ctx) {
+        if (ctx != null) {
+            appCtx = ctx.getApplicationContext();
         }
     }
 
@@ -211,6 +220,30 @@ public final class AtnVoice {
             speakerOn = on;
             Log.i(TAG, on ? "speaker ON" : "speaker OFF");
         }
+        applySpeakerphone();
+    }
+
+    private static void applySpeakerphone() {
+        Context ctx = appCtx;
+        if (ctx == null) {
+            return;
+        }
+        try {
+            AudioManager am =
+                    (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+            if (am == null) {
+                return;
+            }
+            boolean on;
+            synchronized (LOCK) {
+                on = speakerOn;
+            }
+            am.setMode(AudioManager.MODE_IN_COMMUNICATION);
+            am.setSpeakerphoneOn(on);
+            Log.i(TAG, "AudioManager speakerphone=" + on);
+        } catch (Exception e) {
+            Log.w(TAG, "applySpeakerphone: " + e.getMessage());
+        }
     }
 
     public static boolean callHubLoop(int id) {
@@ -244,8 +277,10 @@ public final class AtnVoice {
             Log.i(TAG, "send ctrl CODEC id=" + callId + " tunSend rc=" + rc);
             /* Lab hub-loop: become ACTIVE immediately; hub echoes AUDIO back. */
             setStateLocked(ACTIVE, "hub-loop self-accept");
+            speakerOn = true; /* earpiece + AEC kills self-echo */
         }
         startMedia();
+        applySpeakerphone();
         return true;
     }
 
@@ -356,9 +391,12 @@ public final class AtnVoice {
                         incomingRing = true;
                         ringLabel = "call " + id;
                         resetJbLocked();
-                    } else if (state == OUTGOING && id == callId) {
-                        /* Hub echo of our own offer (lab loopback) — ignore. */
-                        ;
+                    } else if (id == callId && (state == OUTGOING
+                            || state == ACTIVE || state == CONNECTING
+                            || state == HOLD)) {
+                        /* Hub-loop / relay echo of our own OFFER — ignore. */
+                        Log.i(TAG, "ignore OFFER echo id=" + id
+                                + " state=" + nameOf(state));
                     } else {
                         int rc = AtnNative.tunSend(
                                 encodeCtrl(OP_BUSY, codec, callId));
@@ -368,14 +406,21 @@ public final class AtnVoice {
                 case OP_ACCEPT:
                     if (state == OUTGOING && id == callId) {
                         setStateLocked(ACTIVE, "recv ACCEPT");
-                    } else if (state == ACTIVE && id == callId) {
+                    } else if (id == callId && (state == ACTIVE
+                            || state == CONNECTING || state == OUTGOING)) {
                         /* echo of accept — ignore */
-                        ;
+                        Log.i(TAG, "ignore ACCEPT echo id=" + id);
                     }
                     break;
                 case OP_REJECT:
                 case OP_BUSY:
                 case OP_HANGUP:
+                    if (id == callId && "LOOP".equals(routeLabel)
+                            && (op == OP_BUSY || op == OP_REJECT)) {
+                        /* Hub echoed our mistaken BUSY — do not tear down. */
+                        Log.i(TAG, "ignore " + op + " echo on LOOP");
+                        break;
+                    }
                     if (state != IDLE && (id == 0 || id == callId)) {
                         setStateLocked(TERMINATING, "recv op=" + op);
                         enterIdleLocked();
@@ -499,23 +544,40 @@ public final class AtnVoice {
     private static void startMedia() {
         stopMedia();
         mediaRun = true;
-        Log.i(TAG, "media start");
+        boolean loop;
+        synchronized (LOCK) {
+            loop = "LOOP".equals(routeLabel);
+        }
+        Log.i(TAG, "media start loop=" + loop);
         int minRec = AudioRecord.getMinBufferSize(RATE_HZ,
                 AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
         int minPlay = AudioTrack.getMinBufferSize(RATE_HZ,
                 AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
         try {
-            recorder = new AudioRecord(MediaRecorder.AudioSource.VOICE_COMMUNICATION,
-                    RATE_HZ, AudioFormat.CHANNEL_IN_MONO,
+            /*
+             * Hub-loop echoes our own mic: VOICE_COMMUNICATION + STREAM_VOICE_CALL
+             * AEC cancels the return path → silence. Use MIC + MUSIC for LOOP.
+             */
+            int src = loop ? MediaRecorder.AudioSource.MIC
+                    : MediaRecorder.AudioSource.VOICE_COMMUNICATION;
+            int stream = loop ? AudioManager.STREAM_MUSIC
+                    : AudioManager.STREAM_VOICE_CALL;
+            recorder = new AudioRecord(src, RATE_HZ, AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT,
                     Math.max(minRec, FRAME_SAMPLES * 4));
-            track = new AudioTrack(AudioManager.STREAM_VOICE_CALL, RATE_HZ,
+            track = new AudioTrack(stream, RATE_HZ,
                     AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
                     Math.max(minPlay, FRAME_SAMPLES * 4),
                     AudioTrack.MODE_STREAM);
+            if (recorder.getState() != AudioRecord.STATE_INITIALIZED) {
+                throw new IllegalStateException("AudioRecord not initialized");
+            }
+            if (track.getState() != AudioTrack.STATE_INITIALIZED) {
+                throw new IllegalStateException("AudioTrack not initialized");
+            }
             recorder.startRecording();
             track.play();
-            Log.i(TAG, "media started rec+track");
+            Log.i(TAG, "media started rec+track src=" + src + " stream=" + stream);
         } catch (Exception e) {
             Log.w(TAG, "media start failed: " + e.getMessage());
             mediaRun = false;
@@ -525,24 +587,33 @@ public final class AtnVoice {
             @Override
             public void run() {
                 short[] buf = new short[FRAME_SAMPLES];
+                int frames = 0;
                 while (mediaRun) {
                     int n = 0;
                     try {
                         n = recorder.read(buf, 0, FRAME_SAMPLES);
                     } catch (Exception e) {
+                        Log.w(TAG, "capture read fail: " + e.getMessage());
                         break;
                     }
                     if (n < FRAME_SAMPLES) {
                         continue;
                     }
                     sendPcmFrame(buf);
+                    frames++;
+                    if ((frames % 50) == 0) {
+                        Log.i(TAG, "capture alive frames=" + frames
+                                + " " + statsText());
+                    }
                 }
                 Arrays.fill(buf, (short) 0);
+                Log.i(TAG, "capture thread exit");
             }
         }, "atn-voice-cap");
         playThread = new Thread(new Runnable() {
             @Override
             public void run() {
+                int frames = 0;
                 while (mediaRun) {
                     short[] pcm;
                     synchronized (LOCK) {
@@ -559,9 +630,16 @@ public final class AtnVoice {
                     try {
                         track.write(pcm, 0, pcm.length);
                     } catch (Exception e) {
+                        Log.w(TAG, "play write fail: " + e.getMessage());
                         break;
                     }
+                    frames++;
+                    if ((frames % 50) == 0) {
+                        Log.i(TAG, "play alive frames=" + frames
+                                + " " + statsText());
+                    }
                 }
+                Log.i(TAG, "play thread exit");
             }
         }, "atn-voice-play");
         captureThread.start();
@@ -608,6 +686,18 @@ public final class AtnVoice {
             } catch (Exception ignored) {
             }
             track = null;
+        }
+        try {
+            Context ctx = appCtx;
+            if (ctx != null) {
+                AudioManager am =
+                        (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+                if (am != null) {
+                    am.setSpeakerphoneOn(false);
+                    am.setMode(AudioManager.MODE_NORMAL);
+                }
+            }
+        } catch (Exception ignored) {
         }
     }
 
