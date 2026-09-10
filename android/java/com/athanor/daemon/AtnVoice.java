@@ -78,6 +78,7 @@ public final class AtnVoice {
     private static long probeSentMs;
     private static int probeSeq;
     private static boolean transportHold;
+    private static int stateBeforeTransportHold;
     private static String qualityWarn = "";
 
     private static final JbSlot[] jb = new JbSlot[JB_SLOTS];
@@ -256,6 +257,7 @@ public final class AtnVoice {
                     ? reason
                     : "Hub path lost — reconnecting (call held)";
             if (state == ACTIVE || state == OUTGOING || state == CONNECTING) {
+                stateBeforeTransportHold = state;
                 setStateLocked(HOLD, "transport lost");
             }
             Log.w(TAG, "transport lost: " + qualityWarn);
@@ -271,17 +273,27 @@ public final class AtnVoice {
             if (state == IDLE || state == TERMINATING) {
                 return;
             }
-            boolean wasHold = transportHold || state == HOLD;
+            /* Ignore fresh ESTABLISHED when we never held (e.g. RINGING). */
+            if (!transportHold && state != HOLD) {
+                return;
+            }
+            int resume = stateBeforeTransportHold;
+            if (resume != ACTIVE && resume != OUTGOING
+                    && resume != CONNECTING) {
+                resume = ACTIVE;
+            }
             transportHold = false;
-            if (wasHold && state == HOLD) {
-                setStateLocked(ACTIVE, "transport restored");
+            stateBeforeTransportHold = IDLE;
+            if (state == HOLD) {
+                setStateLocked(resume, "transport restored");
             }
             /* Soft bump playout for unknown new-path RTT; PROBE retunes. */
             setJbTargetLocked(Math.min(JB_TARGET_MAX,
                     Math.max(jbTarget + 2, JB_TARGET_DEFAULT + 2)));
             if ("LOOP".equals(routeLabel)) {
                 routeLabel = "LOOP (restored)";
-            } else if (routeLabel.indexOf("bounce") < 0) {
+            } else if (routeLabel.indexOf("bounce") < 0
+                    && routeLabel.indexOf("restored") < 0) {
                 routeLabel = routeLabel + " · bounce";
             }
             qualityWarn = (reason != null && reason.length() > 0)
@@ -289,7 +301,8 @@ public final class AtnVoice {
                     : "Mesh restored — call continuing (cadence retuned)";
             probeSentMs = 0L;
             Log.i(TAG, "transport restored: " + qualityWarn
-                    + " jb=" + (jbTarget * FRAME_MS) + "ms");
+                    + " jb=" + (jbTarget * FRAME_MS) + "ms"
+                    + " resume=" + nameOf(resume));
         }
         maybeSendProbe();
     }
@@ -359,6 +372,7 @@ public final class AtnVoice {
             lastRttMs = -1;
             probeSentMs = 0L;
             transportHold = false;
+            stateBeforeTransportHold = IDLE;
             qualityWarn = "";
             jbTarget = JB_TARGET_DEFAULT;
             resetJbLocked();
@@ -534,14 +548,23 @@ public final class AtnVoice {
                 case OP_CODEC:
                     break;
                 case OP_PROBE:
+                    /*
+                     * Hub-loop echoes our PROBE (same op) — count as RTT.
+                     * Real peers send PROBE; answer with PROBE_ACK only.
+                     */
                     if (id == callId && probeSentMs != 0L
+                            && routeLabel != null
+                            && routeLabel.startsWith("LOOP")
                             && (state == ACTIVE || state == HOLD
                             || state == OUTGOING || state == CONNECTING)) {
-                        /* Hub-loop echo of our PROBE = RTT sample. */
                         applyRttLocked(System.currentTimeMillis() - probeSentMs);
                         probeSentMs = 0L;
                     } else if (id == callId && (state == ACTIVE
-                            || state == HOLD || state == CONNECTING)) {
+                            || state == HOLD || state == CONNECTING
+                            || state == OUTGOING)
+                            && !transportHold
+                            && AtnNative.tunState()
+                            == AtnNative.TUN_ESTABLISHED) {
                         int rc = AtnNative.tunSend(
                                 encodeCtrl(OP_PROBE_ACK, codec, callId));
                         Log.i(TAG, "send ctrl PROBE_ACK rc=" + rc);
@@ -952,6 +975,9 @@ public final class AtnVoice {
                     && state != OUTGOING) {
                 return;
             }
+            if (transportHold) {
+                return;
+            }
             if (AtnNative.tunState() != AtnNative.TUN_ESTABLISHED) {
                 return;
             }
@@ -999,7 +1025,9 @@ public final class AtnVoice {
                     + "ms — playout " + (jbTarget * FRAME_MS) + "ms";
         } else if (qualityWarn.startsWith("High latency")
                 || qualityWarn.startsWith("Mesh restored")
-                || qualityWarn.startsWith("Hub path")) {
+                || qualityWarn.startsWith("Hub path")
+                || qualityWarn.startsWith("Hub dropped")
+                || qualityWarn.startsWith("Reconnecting")) {
             /* Clear transient path warns once RTT looks healthy. */
             if (rtt < 250L && !transportHold) {
                 qualityWarn = "";
@@ -1099,6 +1127,7 @@ public final class AtnVoice {
         lastRttMs = -1;
         probeSentMs = 0L;
         transportHold = false;
+        stateBeforeTransportHold = IDLE;
         qualityWarn = "";
         jbTarget = JB_TARGET_DEFAULT;
     }

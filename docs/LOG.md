@@ -9,7 +9,9 @@ Newest at the top.
 - Native: JB soft retarget 40–480 ms (`atn_voice_jb_set_target_ms`); PROBE →
   PROBE_ACK in SM; `test_soft_jb_and_probe`.
 - Android: periodic PROBE RTT + loss-adaptive playout; TUN CLOSED/HANDSHAKE
-  mid-call → HOLD + quality warn (no hangup); ESTABLISHED → restore + retune.
+  mid-call → HOLD + quality warn (no hangup); ESTABLISHED → restore + retune
+  (resume prior ACTIVE/OUTGOING/CONNECTING; ignore restore unless held).
+  LOOP-only PROBE-echo RTT; peer path uses PROBE_ACK.
 - Lab Call tab quality banner; mesh banner shows “held / bouncing” in-call.
 - Docs: DEC-0053, VOICE mid-call section.
 
