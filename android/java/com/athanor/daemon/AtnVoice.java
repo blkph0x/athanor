@@ -47,8 +47,8 @@ public final class AtnVoice {
     public static final int FRAME_MS = 20;
     public static final int AUDIO_HDR = 15;
     public static final int CTRL_LEN = 12;
-    public static final int JB_SLOTS = 24; /* ~480ms — WAN hub-loop RTT */
-    public static final int JB_TARGET = 6; /* ~120ms playout delay */
+    public static final int JB_SLOTS = 48; /* ~960ms — WAN hub-loop RTT */
+    public static final int JB_TARGET = 12; /* ~240ms playout delay */
 
     private static final Object LOCK = new Object();
     private static int state = IDLE;
@@ -277,7 +277,8 @@ public final class AtnVoice {
             Log.i(TAG, "send ctrl CODEC id=" + callId + " tunSend rc=" + rc);
             /* Lab hub-loop: become ACTIVE immediately; hub echoes AUDIO back. */
             setStateLocked(ACTIVE, "hub-loop self-accept");
-            speakerOn = true; /* earpiece + AEC kills self-echo */
+            /* Earpiece (normal call speaker). SPEAKER button → loudspeaker. */
+            speakerOn = false;
         }
         startMedia();
         applySpeakerphone();
@@ -555,13 +556,13 @@ public final class AtnVoice {
                 AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
         try {
             /*
-             * Hub-loop echoes our own mic: VOICE_COMMUNICATION + STREAM_VOICE_CALL
-             * AEC cancels the return path → silence. Use MIC + MUSIC for LOOP.
+             * Hub-loop echoes our own mic: VOICE_COMMUNICATION AEC cancels the
+             * return path → silence. Keep MIC for LOOP; use STREAM_VOICE_CALL
+             * so playout stays on the earpiece (MUSIC often forces loudspeaker).
              */
             int src = loop ? MediaRecorder.AudioSource.MIC
                     : MediaRecorder.AudioSource.VOICE_COMMUNICATION;
-            int stream = loop ? AudioManager.STREAM_MUSIC
-                    : AudioManager.STREAM_VOICE_CALL;
+            int stream = AudioManager.STREAM_VOICE_CALL;
             recorder = new AudioRecord(src, RATE_HZ, AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT,
                     Math.max(minRec, FRAME_SAMPLES * 4));

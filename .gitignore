@@ -56,7 +56,11 @@ android/apk-work/
 lab/phone-atn-node.conf
 lab/phone-bad.conf
 lab/hub-listen.log
+lab/hub-listen.log.prev
 lab/hub-listen.err
+lab/hub-listen.err.prev
+lab/hub-watchdog.log
+lab/hub-watchdog.err
 lab/enroll-serve.log
 lab/enroll-serve.err
 lab/edge/www/edge-state.json
