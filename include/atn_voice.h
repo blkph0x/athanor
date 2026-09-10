@@ -42,9 +42,9 @@
     ((ATN_MLKEM1024_CT_LEN + ATN_VOICE_E2E_CT_CHUNK - 1u) / ATN_VOICE_E2E_CT_CHUNK)
 
 #define ATN_VOICE_JB_MIN_MS    40u
-#define ATN_VOICE_JB_MAX_MS    120u
+#define ATN_VOICE_JB_MAX_MS    480u /* soft WAN retarget ceiling (DEC-0053) */
 #define ATN_VOICE_JB_TARGET_MS 60u
-#define ATN_VOICE_JB_SLOTS     8u
+#define ATN_VOICE_JB_SLOTS     24u /* was 8; room for soft cadence on bounce */
 
 #define ATN_VOICE_IDLE         0
 #define ATN_VOICE_OUTGOING     1
@@ -227,6 +227,10 @@ int atn_voice_ima_decode(const uint8_t *in, size_t in_n,
 
 void atn_voice_jitter_init(atn_voice_jitter *j);
 void atn_voice_jitter_reset(atn_voice_jitter *j);
+/* Soft retarget playout depth (ms). Clamped to [JB_MIN_MS, JB_MAX_MS]. */
+int  atn_voice_jitter_set_target_ms(atn_voice_jitter *j, uint32_t target_ms);
+int  atn_voice_jb_set_target_ms(atn_voice *v, uint32_t target_ms);
+int  atn_voice_jb_target_ms(const atn_voice *v);
 int  atn_voice_jitter_push(atn_voice_jitter *j, uint32_t seq, uint32_t sample_ts,
                            uint8_t codec, const int16_t *pcm, size_t nsamples,
                            atn_voice_stats *st);

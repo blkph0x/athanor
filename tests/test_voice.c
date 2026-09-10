@@ -620,6 +620,57 @@ static void test_rekey_during_call(void)
     atn_tun_wipe(&tb);
 }
 
+/* Soft config: retarget JB mid-call; PROBE/PROBE_ACK RTT path stays live. */
+static void test_soft_jb_and_probe(void)
+{
+    atn_tun ta, tb;
+    atn_voice va, vb;
+    uint8_t ctrl[ATN_VOICE_CTRL_LEN];
+    size_t cn = 0;
+
+    printf("--- soft jb / probe ---\n");
+    check("soft pair", establish_pair(&ta, &tb) == 0);
+    atn_voice_init(&va, &ta);
+    atn_voice_init(&vb, &tb);
+    check("soft call", atn_voice_call(&va, 77, ATN_VOICE_CODEC_PCM16) == ATN_OK);
+    drain_voice(&vb, 8);
+    check("soft ringing", atn_voice_state(&vb) == ATN_VOICE_RINGING);
+    check("soft answer", atn_voice_answer(&vb) == ATN_OK);
+    drain_voice(&va, 8);
+    check("soft active a", atn_voice_state(&va) == ATN_VOICE_ACTIVE);
+    check("soft active b", atn_voice_state(&vb) == ATN_VOICE_ACTIVE);
+
+    check("default jb 60", atn_voice_jb_target_ms(&va) == 60);
+    check("set jb 240", atn_voice_jb_set_target_ms(&va, 240) == ATN_OK);
+    check("jb now 240", atn_voice_jb_target_ms(&va) == 240);
+    check("set jb 80", atn_voice_jb_set_target_ms(&va, 80) == ATN_OK);
+    check("jb now 80", atn_voice_jb_target_ms(&va) == 80);
+    /* Soft clamp — out-of-range retargets to JB_MIN / JB_MAX. */
+    check("clamp tiny", atn_voice_jb_set_target_ms(&va, 10) == ATN_OK);
+    check("jb min 40", atn_voice_jb_target_ms(&va) == 40);
+    check("clamp huge", atn_voice_jb_set_target_ms(&va, 2000) == ATN_OK);
+    check("jb max 480", atn_voice_jb_target_ms(&va) == 480);
+
+    check("encode probe",
+          atn_voice_encode_ctrl(ATN_VOICE_OP_PROBE, ATN_VOICE_CODEC_PCM16, 77,
+                                ctrl, sizeof(ctrl), &cn) == ATN_OK);
+    check("send probe", atn_tun_send(&ta, ctrl, cn) == ATN_OK);
+    drain_voice(&vb, 8);
+    drain_voice(&va, 8);
+    check("still active after probe", atn_voice_state(&va) == ATN_VOICE_ACTIVE);
+    check("peer still active", atn_voice_state(&vb) == ATN_VOICE_ACTIVE);
+
+    check("hold soft", atn_voice_set_hold(&va, 1) == ATN_OK);
+    check("held", atn_voice_state(&va) == ATN_VOICE_HOLD);
+    check("unhold soft", atn_voice_set_hold(&va, 0) == ATN_OK);
+    check("active again", atn_voice_state(&va) == ATN_VOICE_ACTIVE);
+
+    atn_voice_wipe(&va);
+    atn_voice_wipe(&vb);
+    atn_tun_wipe(&ta);
+    atn_tun_wipe(&tb);
+}
+
 int main(void)
 {
     printf("athanor voice  platform=%s\n", atn_platform_id());
@@ -638,6 +689,7 @@ int main(void)
     test_loss_reorder(5);
     test_loss_reorder(10);
     test_rekey_during_call();
+    test_soft_jb_and_probe();
 
     atn_net_fini();
     if (g_fail) {

@@ -1,5 +1,6 @@
 /*
- * Bounded jitter buffer + PLC for DEC-0049 voice (40–120 ms target).
+ * Bounded jitter buffer + PLC (DEC-0049/0053). Soft target 40–480 ms;
+ * depth_max follows slots for hub-bounce WAN.
  */
 #include "atn_voice.h"
 
@@ -27,6 +28,29 @@ void atn_voice_jitter_init(atn_voice_jitter *j)
 void atn_voice_jitter_reset(atn_voice_jitter *j)
 {
     atn_voice_jitter_init(j);
+}
+
+int atn_voice_jitter_set_target_ms(atn_voice_jitter *j, uint32_t target_ms)
+{
+    uint32_t slots;
+    if (j == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    if (target_ms < ATN_VOICE_JB_MIN_MS) {
+        target_ms = ATN_VOICE_JB_MIN_MS;
+    }
+    if (target_ms > ATN_VOICE_JB_MAX_MS) {
+        target_ms = ATN_VOICE_JB_MAX_MS;
+    }
+    slots = target_ms / ATN_VOICE_FRAME_MS;
+    if (slots < 2u) {
+        slots = 2u;
+    }
+    if (slots > j->depth_max) {
+        slots = j->depth_max;
+    }
+    j->depth_target = slots;
+    return ATN_OK;
 }
 
 static uint32_t jb_count(const atn_voice_jitter *j)

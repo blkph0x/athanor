@@ -66,10 +66,10 @@ same commit.
 | `include/atn_policy.h` / `src/policy/atn_policy.c` | REQ-2.2/4.1 | DEC-0045/0046 | org policy encode/parse + wire `P` |
 | `include/atn_compromise.h` / `src/compromise/atn_compromise.c` | REQ-2.2/4.1 | DEC-0047 | compromise vote + wire `C` |
 | `include/atn_update.h` / `src/update/atn_update.c` | REQ-2.2/4.1 | DEC-0048 | mesh update announce/chunks wire `U` |
-| `include/atn_voice.h` / `src/voice/atn_voice*.c` | REQ-1.2/4.1 | DEC-0050 | P2P E2E + `'A''S'` sealed relay; roster; latency rank |
-| `tests/test_voice.c` | REQ-1.2 | DEC-0050 | direct E2E, opaque hub (no PCM), latency, roster |
-| `docs/VOICE.md` | REQ-1.2 | DEC-0050 | trust model P2P vs opaque fallback |
-| `android/java/.../AtnVoice.java` | REQ-4.1 | DEC-0050 | lab call + ring + jitter over tunSend/Recv |
+| `include/atn_voice.h` / `src/voice/atn_voice*.c` | REQ-1.2/4.1 | DEC-0050/0053 | P2P E2E + `'A''S'` sealed relay; roster; latency rank; soft JB |
+| `tests/test_voice.c` | REQ-1.2 | DEC-0050/0053 | direct E2E, opaque hub, latency, roster, soft JB/PROBE |
+| `docs/VOICE.md` | REQ-1.2 | DEC-0050/0053 | trust model; mid-call bounce / soft cadence |
+| `android/java/.../AtnVoice.java` | REQ-4.1 | DEC-0050/0053 | lab call + PROBE JB + transport hold/restore |
 | `android/java/.../AtnContacts.java` | REQ-4.1 | DEC-0050 | lab contact roster filesDir |
 | `tests/test_cfg.c` | REQ-4.1 | gates | parse/ready/hubs/diag/outage/cap16/policy/compromise/update |
 | `include/atn_sign.h` / `src/sign/atn_sign.c` | REQ-5.1 | DEC-0019/0021/0027 | Manifest + report `diag=` |

@@ -16,8 +16,10 @@ import android.util.Log;
 import java.util.Arrays;
 
 /**
- * Lab secure voice (DEC-0050). Family 'A'. P2P E2E primary; hub path must
- * use nested seal (native). Lab hub-loop still echoes for self-test.
+ * Lab secure voice (DEC-0050/0053). Family 'A'. P2P E2E primary; hub path
+ * must use nested seal (native). Lab hub-loop still echoes for self-test.
+ * Soft JB/cadence from PROBE RTT + loss. Hub drop → HOLD + reconnect
+ * (dmon hub bounce / single-up fallback) without ending the call; warn UI.
  * Mute = stop sending frames. No recordings stored.
  */
 public final class AtnVoice {
@@ -34,6 +36,8 @@ public final class AtnVoice {
     public static final int OP_BUSY = 5;
     public static final int OP_KEEPALIVE = 6;
     public static final int OP_CODEC = 7;
+    public static final int OP_PROBE = 10;
+    public static final int OP_PROBE_ACK = 11;
 
     public static final int CODEC_PCM16 = 0;
 
@@ -50,8 +54,11 @@ public final class AtnVoice {
     public static final int FRAME_MS = 20;
     public static final int AUDIO_HDR = 15;
     public static final int CTRL_LEN = 12;
-    public static final int JB_SLOTS = 48; /* ~960ms — WAN hub-loop RTT */
-    public static final int JB_TARGET = 12; /* ~240ms playout delay */
+    public static final int JB_SLOTS = 48; /* capacity for WAN bounce */
+    public static final int JB_TARGET_MIN = 2;  /* 40ms */
+    public static final int JB_TARGET_MAX = 24; /* 480ms */
+    public static final int JB_TARGET_DEFAULT = 6; /* 120ms start */
+    private static final int PROBE_EVERY_FRAMES = 100; /* ~2s @ 20ms */
 
     private static final Object LOCK = new Object();
     private static int state = IDLE;
@@ -66,6 +73,12 @@ public final class AtnVoice {
     private static int framesDropped;
     private static int framesLost;
     private static int jitterMs;
+    private static int jbTarget = JB_TARGET_DEFAULT;
+    private static int lastRttMs = -1;
+    private static long probeSentMs;
+    private static int probeSeq;
+    private static boolean transportHold;
+    private static String qualityWarn = "";
 
     private static final JbSlot[] jb = new JbSlot[JB_SLOTS];
     private static int playSeq;
@@ -201,11 +214,84 @@ public final class AtnVoice {
                     + " loss=" + framesLost
                     + " drop=" + framesDropped
                     + " jitterMs=" + jitterMs
+                    + " jb=" + (jbTarget * FRAME_MS) + "ms"
+                    + " rtt=" + (lastRttMs < 0 ? "?" : (lastRttMs + "ms"))
                     + " sent=" + framesSent
                     + " recv=" + framesRecv
                     + " mute=" + (mute ? 1 : 0)
                     + " spk=" + (speakerOn ? 1 : 0);
         }
+    }
+
+    /** Soft-quality / reroute banner (empty when clear). */
+    public static String qualityWarn() {
+        synchronized (LOCK) {
+            return qualityWarn;
+        }
+    }
+
+    public static int lastRttMs() {
+        synchronized (LOCK) {
+            return lastRttMs;
+        }
+    }
+
+    public static int jbTargetMs() {
+        synchronized (LOCK) {
+            return jbTarget * FRAME_MS;
+        }
+    }
+
+    /**
+     * Hub / tunnel dropped mid-call. Do not hang up — HOLD + PLC while
+     * dmon reconnects / hub-bounces / falls back to single-up.
+     */
+    public static void onTransportLost(String reason) {
+        synchronized (LOCK) {
+            if (state == IDLE || state == TERMINATING || state == RINGING) {
+                return;
+            }
+            transportHold = true;
+            qualityWarn = (reason != null && reason.length() > 0)
+                    ? reason
+                    : "Hub path lost — reconnecting (call held)";
+            if (state == ACTIVE || state == OUTGOING || state == CONNECTING) {
+                setStateLocked(HOLD, "transport lost");
+            }
+            Log.w(TAG, "transport lost: " + qualityWarn);
+        }
+    }
+
+    /**
+     * Tunnel back ESTABLISHED after bounce/failover. Resume media; soft
+     * bump JB for new path latency; warn user that route changed.
+     */
+    public static void onTransportRestored(String reason) {
+        synchronized (LOCK) {
+            if (state == IDLE || state == TERMINATING) {
+                return;
+            }
+            boolean wasHold = transportHold || state == HOLD;
+            transportHold = false;
+            if (wasHold && state == HOLD) {
+                setStateLocked(ACTIVE, "transport restored");
+            }
+            /* Soft bump playout for unknown new-path RTT; PROBE retunes. */
+            setJbTargetLocked(Math.min(JB_TARGET_MAX,
+                    Math.max(jbTarget + 2, JB_TARGET_DEFAULT + 2)));
+            if ("LOOP".equals(routeLabel)) {
+                routeLabel = "LOOP (restored)";
+            } else if (routeLabel.indexOf("bounce") < 0) {
+                routeLabel = routeLabel + " · bounce";
+            }
+            qualityWarn = (reason != null && reason.length() > 0)
+                    ? reason
+                    : "Mesh restored — call continuing (cadence retuned)";
+            probeSentMs = 0L;
+            Log.i(TAG, "transport restored: " + qualityWarn
+                    + " jb=" + (jbTarget * FRAME_MS) + "ms");
+        }
+        maybeSendProbe();
     }
 
     public static boolean isMute() {
@@ -270,6 +356,11 @@ public final class AtnVoice {
             sampleTs = 0;
             peerMaxSeq = 0;
             framesSent = framesRecv = framesDropped = framesLost = 0;
+            lastRttMs = -1;
+            probeSentMs = 0L;
+            transportHold = false;
+            qualityWarn = "";
+            jbTarget = JB_TARGET_DEFAULT;
             resetJbLocked();
             setStateLocked(OUTGOING, "callHubLoop");
             byte[] offer = encodeCtrl(OP_OFFER, codec, callId);
@@ -442,6 +533,26 @@ public final class AtnVoice {
                 case OP_KEEPALIVE:
                 case OP_CODEC:
                     break;
+                case OP_PROBE:
+                    if (id == callId && probeSentMs != 0L
+                            && (state == ACTIVE || state == HOLD
+                            || state == OUTGOING || state == CONNECTING)) {
+                        /* Hub-loop echo of our PROBE = RTT sample. */
+                        applyRttLocked(System.currentTimeMillis() - probeSentMs);
+                        probeSentMs = 0L;
+                    } else if (id == callId && (state == ACTIVE
+                            || state == HOLD || state == CONNECTING)) {
+                        int rc = AtnNative.tunSend(
+                                encodeCtrl(OP_PROBE_ACK, codec, callId));
+                        Log.i(TAG, "send ctrl PROBE_ACK rc=" + rc);
+                    }
+                    break;
+                case OP_PROBE_ACK:
+                    if (id == callId && probeSentMs != 0L) {
+                        applyRttLocked(System.currentTimeMillis() - probeSentMs);
+                        probeSentMs = 0L;
+                    }
+                    break;
                 default:
                     framesDropped++;
                     break;
@@ -509,7 +620,7 @@ public final class AtnVoice {
                 peerMaxSeq = seq;
             }
             framesRecv++;
-            if (!playArmed && jbCountLocked() >= JB_TARGET) {
+            if (!playArmed && jbCountLocked() >= jbTarget) {
                 int min = Integer.MAX_VALUE;
                 for (int i = 0; i < JB_SLOTS; i++) {
                     if (jb[i].used && jb[i].seq < min) {
@@ -520,6 +631,7 @@ public final class AtnVoice {
                 playArmed = true;
             }
             jitterMs = jbCountLocked() * FRAME_MS;
+            maybeAdaptFromLossLocked();
         }
         return true;
     }
@@ -615,6 +727,9 @@ public final class AtnVoice {
                     }
                     sendPcmFrame(buf);
                     frames++;
+                    if ((frames % PROBE_EVERY_FRAMES) == 0) {
+                        maybeSendProbe();
+                    }
                     if ((frames % 50) == 0) {
                         Log.i(TAG, "capture alive frames=" + frames
                                 + " " + statsText());
@@ -807,7 +922,7 @@ public final class AtnVoice {
             if (state != ACTIVE && state != OUTGOING && state != CONNECTING) {
                 return;
             }
-            if (mute || state == HOLD) {
+            if (mute || state == HOLD || transportHold) {
                 return;
             }
             if (AtnNative.tunState() != AtnNative.TUN_ESTABLISHED) {
@@ -828,6 +943,100 @@ public final class AtnVoice {
             }
             Arrays.fill(wire, (byte) 0);
         }
+    }
+
+    /** Periodic latency probe; soft-retargets JB from RTT (DEC-0053). */
+    public static void maybeSendProbe() {
+        synchronized (LOCK) {
+            if (state != ACTIVE && state != HOLD && state != CONNECTING
+                    && state != OUTGOING) {
+                return;
+            }
+            if (AtnNative.tunState() != AtnNative.TUN_ESTABLISHED) {
+                return;
+            }
+            if (probeSentMs != 0L
+                    && (System.currentTimeMillis() - probeSentMs) < 1500L) {
+                return; /* one outstanding */
+            }
+            int rc = AtnNative.tunSend(encodeCtrl(OP_PROBE, codec, callId));
+            if (rc == 0) {
+                probeSentMs = System.currentTimeMillis();
+                probeSeq++;
+                if ((probeSeq & 0x7) == 1) {
+                    Log.i(TAG, "send ctrl PROBE id=" + callId
+                            + " jb=" + (jbTarget * FRAME_MS) + "ms");
+                }
+            }
+        }
+    }
+
+    private static void applyRttLocked(long rtt) {
+        if (rtt < 0L) {
+            rtt = 0L;
+        }
+        if (rtt > 5000L) {
+            rtt = 5000L;
+        }
+        lastRttMs = (int) rtt;
+        int want;
+        if (rtt < 80L) {
+            want = 4; /* 80ms */
+        } else if (rtt < 150L) {
+            want = 6; /* 120ms */
+        } else if (rtt < 250L) {
+            want = 8; /* 160ms */
+        } else if (rtt < 400L) {
+            want = 12; /* 240ms */
+        } else if (rtt < 700L) {
+            want = 16; /* 320ms */
+        } else {
+            want = 24; /* 480ms ceiling */
+        }
+        setJbTargetLocked(want);
+        if (rtt >= 400L) {
+            qualityWarn = "High latency " + lastRttMs
+                    + "ms — playout " + (jbTarget * FRAME_MS) + "ms";
+        } else if (qualityWarn.startsWith("High latency")
+                || qualityWarn.startsWith("Mesh restored")
+                || qualityWarn.startsWith("Hub path")) {
+            /* Clear transient path warns once RTT looks healthy. */
+            if (rtt < 250L && !transportHold) {
+                qualityWarn = "";
+            }
+        }
+        Log.i(TAG, "rtt=" + lastRttMs + "ms → jb target "
+                + (jbTarget * FRAME_MS) + "ms");
+    }
+
+    private static void maybeAdaptFromLossLocked() {
+        int total = framesRecv + framesLost;
+        if (total < 40 || (total & 0x1f) != 0) {
+            return;
+        }
+        int lossPct = (framesLost * 100) / total;
+        if (lossPct >= 8 && jbTarget < JB_TARGET_MAX) {
+            setJbTargetLocked(jbTarget + 2);
+            qualityWarn = "Packet loss " + lossPct
+                    + "% — widening playout to " + (jbTarget * FRAME_MS) + "ms";
+            Log.w(TAG, qualityWarn);
+        } else if (lossPct <= 1 && jbTarget > JB_TARGET_DEFAULT
+                && lastRttMs >= 0 && lastRttMs < 200) {
+            setJbTargetLocked(jbTarget - 1);
+        }
+    }
+
+    private static void setJbTargetLocked(int slots) {
+        if (slots < JB_TARGET_MIN) {
+            slots = JB_TARGET_MIN;
+        }
+        if (slots > JB_TARGET_MAX) {
+            slots = JB_TARGET_MAX;
+        }
+        if (slots > JB_SLOTS) {
+            slots = JB_SLOTS;
+        }
+        jbTarget = slots;
     }
 
     public static byte[] encodeCtrl(int op, int codec, int callId) {
@@ -887,6 +1096,11 @@ public final class AtnVoice {
         peerLabel = "";
         routeLabel = "—";
         activeSinceMs = 0L;
+        lastRttMs = -1;
+        probeSentMs = 0L;
+        transportHold = false;
+        qualityWarn = "";
+        jbTarget = JB_TARGET_DEFAULT;
     }
 
     private static void resetJbLocked() {

@@ -41,6 +41,7 @@ public class AtnLabActivity extends Activity {
     private TextView logBox;
     private TextView voiceStats;
     private TextView ringBanner;
+    private TextView qualityBanner;
     private TextView contactsBox;
     private TextView callMeshBanner;
     private TextView callPeer;
@@ -289,6 +290,13 @@ public class AtnLabActivity extends Activity {
         ringBanner.setVisibility(View.GONE);
         p.addView(ringBanner);
 
+        qualityBanner = new TextView(this);
+        qualityBanner.setTextSize(14f);
+        qualityBanner.setTypeface(Typeface.SANS_SERIF, Typeface.BOLD);
+        qualityBanner.setTextColor(Color.rgb(160, 90, 20));
+        qualityBanner.setVisibility(View.GONE);
+        p.addView(qualityBanner);
+
         callPeer = monoLine();
         callState = monoLine();
         callDuration = monoLine();
@@ -304,8 +312,9 @@ public class AtnLabActivity extends Activity {
         p.addView(voiceStats);
 
         TextView voiceNote = new TextView(this);
-        voiceNote.setText("Voice (DEC-0050): P2P E2E primary; hub relay opaque."
-                + " Call hub-loop = echo self-test. Needs MESH ESTABLISHED.");
+        voiceNote.setText("Voice (DEC-0050/0053): P2P E2E primary; hub relay"
+                + " opaque. PROBE retunes playout. Hub drop holds call and"
+                + " bounces (hub2+) or single-up — does not hang up.");
         p.addView(voiceNote);
 
         LinearLayout row1 = new LinearLayout(this);
@@ -701,9 +710,15 @@ public class AtnLabActivity extends Activity {
             updateStatus.setText(AtnUpdate.statusLine());
         }
         if (callMeshBanner != null) {
+            int vst = AtnVoice.state();
+            boolean inCall = vst != AtnVoice.IDLE && vst != AtnVoice.TERMINATING;
             if (st == AtnNative.TUN_ESTABLISHED) {
                 callMeshBanner.setTextColor(Color.rgb(20, 120, 40));
                 callMeshBanner.setText("mesh: ESTABLISHED — calls allowed");
+            } else if (inCall) {
+                callMeshBanner.setTextColor(Color.rgb(160, 90, 20));
+                callMeshBanner.setText("mesh: " + stateName(st)
+                        + " — call held, bouncing / reconnecting");
             } else {
                 callMeshBanner.setTextColor(Color.rgb(180, 40, 40));
                 callMeshBanner.setText("mesh: " + stateName(st)
@@ -737,6 +752,16 @@ public class AtnLabActivity extends Activity {
                         + " — Answer / Reject");
             } else {
                 ringBanner.setVisibility(View.GONE);
+            }
+        }
+        if (qualityBanner != null) {
+            String qw = AtnVoice.qualityWarn();
+            if (qw != null && qw.length() > 0
+                    && AtnVoice.state() != AtnVoice.IDLE) {
+                qualityBanner.setVisibility(View.VISIBLE);
+                qualityBanner.setText(qw);
+            } else {
+                qualityBanner.setVisibility(View.GONE);
             }
         }
     }

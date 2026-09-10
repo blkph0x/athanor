@@ -4,6 +4,17 @@ Newest at the top.
 
 ---
 
+## 2026-09-10 — Voice soft latency + hub-drop hold (DEC-0053)
+
+- Native: JB soft retarget 40–480 ms (`atn_voice_jb_set_target_ms`); PROBE →
+  PROBE_ACK in SM; `test_soft_jb_and_probe`.
+- Android: periodic PROBE RTT + loss-adaptive playout; TUN CLOSED/HANDSHAKE
+  mid-call → HOLD + quality warn (no hangup); ESTABLISHED → restore + retune.
+- Lab Call tab quality banner; mesh banner shows “held / bouncing” in-call.
+- Docs: DEC-0053, VOICE mid-call section.
+
+---
+
 ## 2026-09-10 — Peer hub join UI (DEC-0052)
 
 - Enroll console **Peer hubs**: `POST /peers` add/remove → gitignored

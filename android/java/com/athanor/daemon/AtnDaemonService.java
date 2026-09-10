@@ -130,6 +130,13 @@ public class AtnDaemonService extends Service {
                                 + tunStateName(prevTunState) + ")");
                         /* DEC-0045: ask hub for current network-wide policy. */
                         AtnNative.tunSend(new byte[] { 'P', '?' });
+                        /* DEC-0053: mid-call hub bounce — resume without hangup. */
+                        if (AtnVoice.state() != AtnVoice.IDLE
+                                && AtnVoice.state() != AtnVoice.TERMINATING) {
+                            AtnVoice.onTransportRestored(
+                                    "Hub path restored — call continuing"
+                                            + " (latency retune)");
+                        }
                     }
                     kaTicks++;
                     if (kaTicks >= KA_TICKS) {
@@ -206,6 +213,14 @@ public class AtnDaemonService extends Service {
                         Log.w(TAG, "tun state → CLOSED (was "
                                 + tunStateName(prevTunState)
                                 + ") — auto-reconnect");
+                        /* DEC-0053: keep call up; HOLD + warn while bounce. */
+                        if (AtnVoice.state() != AtnVoice.IDLE
+                                && AtnVoice.state() != AtnVoice.TERMINATING
+                                && AtnVoice.state() != AtnVoice.RINGING) {
+                            AtnVoice.onTransportLost(
+                                    "Hub dropped — holding call, bouncing"
+                                            + " to next hub / single-up");
+                        }
                     } else {
                         Log.w(TAG, "TUN_CLOSED — auto-reconnect");
                     }
@@ -214,6 +229,12 @@ public class AtnDaemonService extends Service {
                         && prevTunState != AtnNative.TUN_HANDSHAKE) {
                     Log.i(TAG, "tun state → HANDSHAKE (was "
                             + tunStateName(prevTunState) + ")");
+                    if (AtnVoice.state() != AtnVoice.IDLE
+                            && AtnVoice.state() != AtnVoice.TERMINATING
+                            && AtnVoice.state() != AtnVoice.RINGING) {
+                        AtnVoice.onTransportLost(
+                                "Reconnecting hub — call held");
+                    }
                 }
                 /*
                  * Skip silence BOOM while reconnecting, handshaking, or

@@ -12,11 +12,20 @@ No plaintext / classical / WebRTC fallback. Family `'A'` only (not `'V'`).
 
 ## Dial order
 
-1. Latency-probe hubs; pick lowest RTT for signaling / fallback.
+1. Latency-probe hubs; pick lowest RTT for signaling / fallback (`atn_voice_rank_hubs`).
 2. Exchange dial_info; attempt direct `atn_tun` HS to peer.
 3. On P2P ESTABLISHED → media on that tunnel (`'A''F'`).
 4. Else encaps to peer_ek, chunk CT over hub, seal media as `'A''S'`, hub forwards opaque frames.
 5. If peer becomes reachable, hand off to P2P.
+
+## Mid-call latency + hub bounce (DEC-0053)
+
+- **PROBE / PROBE_ACK** measure path RTT; soft-retarget jitter buffer **40–480 ms**
+  (and widen on loss) without ending the call.
+- If the hub / tunnel drops: **HOLD** + user warn; dmon reconnects via
+  `hub2..hub16` bounce or single-up. Call stays up.
+- On fresh ESTABLISHED: unhold, soft bump playout, warn “continuing”, PROBE
+  retunes. Do **not** auto-hangup on transport loss.
 
 ## Wire (family `'A'`)
 

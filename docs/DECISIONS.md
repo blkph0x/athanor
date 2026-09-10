@@ -1485,3 +1485,30 @@ A decision is recorded **before** code that depends on it is written.
   phone enroll (OOB `peer_ek` + PQ tunnel). Org IPs/eks stay scrubbed.
 
 ---
+
+## DEC-0053 — Voice soft latency / hub-bounce mid-call (no hangup)
+
+- **Date:** 2026-09-10
+- **Status:** accepted
+- **Evidence:** Hub bounce (`hub2..hub16` tunnel failover) and WAN RTT
+  variance must not tear down an active call. Operators need automatic
+  playout/cadence retune and a clear user warn when the path drops or
+  recovers — without plaintext voice or weakening the DEC-0050 floor.
+- **Decision:**
+  - **Measure:** `'A''C'` `PROBE` / `PROBE_ACK` (hub-loop echo of PROBE
+    counts as RTT). Phone samples RTT ~2s; loss% also soft-widens JB.
+  - **Soft config:** `atn_voice_jb_set_target_ms` / Android `jbTarget`
+    retarget playout in **[40, 480] ms** on the fly per call (no reconnect).
+  - **Hub drop:** TUN `CLOSED` / mid-call `HANDSHAKE` → voice **HOLD** +
+    quality warn; dmon auto-reconnect / hub bounce / single-up continues.
+    Call **must not** hang up. Fresh `ESTABLISHED` → unhold + soft JB bump
+    + warn ("call continuing"); PROBE retunes cadence.
+  - **Dial ranking:** native `atn_voice_rank_hubs` remains SoT for lowest
+    RTT when multi-hub sealed dial is wired; phone media rides the active
+    tunnel after bounce.
+  - **Honest limits:** lab clear `'A''F'` hub-loop still self-test only;
+    product hub media stays `'A''S'`. Multi-session hub listen still deferred.
+- **Consequences:** Mid-call hub loss is a hold/reroute event with UI warn,
+  not a hangup. Latency and playout adapt without hard config or re-dial.
+
+---

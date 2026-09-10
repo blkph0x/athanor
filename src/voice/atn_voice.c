@@ -351,6 +351,22 @@ int atn_voice_set_hold(atn_voice *v, int hold)
     return ATN_OK;
 }
 
+int atn_voice_jb_set_target_ms(atn_voice *v, uint32_t target_ms)
+{
+    if (v == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    return atn_voice_jitter_set_target_ms(&v->jb, target_ms);
+}
+
+int atn_voice_jb_target_ms(const atn_voice *v)
+{
+    if (v == NULL) {
+        return 0;
+    }
+    return (int)(v->jb.depth_target * ATN_VOICE_FRAME_MS);
+}
+
 int atn_voice_send_pcm(atn_voice *v, const int16_t *pcm, size_t nsamples)
 {
     uint8_t payload[ATN_VOICE_PCM_BYTES];
@@ -463,6 +479,19 @@ static int handle_ctrl(atn_voice *v, uint8_t op, uint8_t codec, uint32_t call_id
         enter_idle(v);
         return ATN_OK;
     case ATN_VOICE_OP_KEEPALIVE:
+        return ATN_OK;
+    case ATN_VOICE_OP_PROBE:
+        /* Latency probe: answer with ACK so peer can measure RTT (DEC-0053). */
+        if (v->state == ATN_VOICE_ACTIVE || v->state == ATN_VOICE_HOLD ||
+            v->state == ATN_VOICE_CONNECTING || v->state == ATN_VOICE_OUTGOING) {
+            if (call_id == 0 || call_id == v->call_id) {
+                (void)send_ctrl(v, ATN_VOICE_OP_PROBE_ACK);
+            }
+            return ATN_OK;
+        }
+        return ATN_ERR_STATE;
+    case ATN_VOICE_OP_PROBE_ACK:
+        /* Caller samples RTT; voice SM does not store clocks (platform does). */
         return ATN_OK;
     case ATN_VOICE_OP_CODEC:
         if ((v->state == ATN_VOICE_OUTGOING || v->state == ATN_VOICE_RINGING ||
