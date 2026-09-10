@@ -81,11 +81,18 @@ static int scan_file(const char *path)
     FILE *f;
     char buf[4096];
     int bad = 0;
+    size_t plen;
 
     f = fopen(path, "rb");
     if (f == NULL) {
         printf("FAIL open %s\n", path);
         return 1;
+    }
+    plen = strlen(path);
+    /* Binary assets: existence only (hashes can false-match token search). */
+    if (plen >= 4u && strcmp(path + (plen - 4u), ".bin") == 0) {
+        fclose(f);
+        return 0;
     }
     while (fgets(buf, (int)sizeof(buf), f) != NULL) {
         if (has_fetch(buf)) {
