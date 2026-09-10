@@ -6,6 +6,9 @@ import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.AudioTrack;
 import android.media.MediaRecorder;
+import android.media.audiofx.AcousticEchoCanceler;
+import android.media.audiofx.AutomaticGainControl;
+import android.media.audiofx.NoiseSuppressor;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -71,6 +74,9 @@ public final class AtnVoice {
 
     private static AudioRecord recorder;
     private static AudioTrack track;
+    private static AcousticEchoCanceler aec;
+    private static NoiseSuppressor ns;
+    private static AutomaticGainControl agc;
     private static Thread captureThread;
     private static Thread playThread;
     private static volatile boolean mediaRun;
@@ -556,12 +562,14 @@ public final class AtnVoice {
                 AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
         try {
             /*
-             * Hub-loop echoes our own mic: VOICE_COMMUNICATION AEC cancels the
-             * return path → silence. Keep MIC for LOOP; use STREAM_VOICE_CALL
-             * so playout stays on the earpiece (MUSIC often forces loudspeaker).
+             * Cell-style path: VOICE_COMMUNICATION + STREAM_VOICE_CALL so the
+             * platform can couple playback into AEC. Then attach
+             * AcousticEchoCanceler on the record session to strip speaker
+             * output from the mic (local howl), while WAN-delayed remote /
+             * hub-loop echo still plays through. NS + AGC match typical
+             * handset DSP.
              */
-            int src = loop ? MediaRecorder.AudioSource.MIC
-                    : MediaRecorder.AudioSource.VOICE_COMMUNICATION;
+            int src = MediaRecorder.AudioSource.VOICE_COMMUNICATION;
             int stream = AudioManager.STREAM_VOICE_CALL;
             recorder = new AudioRecord(src, RATE_HZ, AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT,
@@ -576,12 +584,17 @@ public final class AtnVoice {
             if (track.getState() != AudioTrack.STATE_INITIALIZED) {
                 throw new IllegalStateException("AudioTrack not initialized");
             }
+            attachVoiceFx(recorder.getAudioSessionId());
             recorder.startRecording();
             track.play();
-            Log.i(TAG, "media started rec+track src=" + src + " stream=" + stream);
+            Log.i(TAG, "media started rec+track src=" + src + " stream=" + stream
+                    + " aec=" + (aec != null ? 1 : 0)
+                    + " ns=" + (ns != null ? 1 : 0)
+                    + " agc=" + (agc != null ? 1 : 0));
         } catch (Exception e) {
             Log.w(TAG, "media start failed: " + e.getMessage());
             mediaRun = false;
+            releaseVoiceFx();
             return;
         }
         captureThread = new Thread(new Runnable() {
@@ -647,6 +660,92 @@ public final class AtnVoice {
         playThread.start();
     }
 
+    /**
+     * Attach platform AEC / NS / AGC to the capture session (cellphone DSP).
+     * Failures are non-fatal — call still runs without them.
+     */
+    private static void attachVoiceFx(int sessionId) {
+        releaseVoiceFx();
+        if (sessionId == 0) {
+            Log.w(TAG, "voice fx: sessionId=0");
+            return;
+        }
+        try {
+            if (AcousticEchoCanceler.isAvailable()) {
+                aec = AcousticEchoCanceler.create(sessionId);
+                if (aec != null) {
+                    aec.setEnabled(true);
+                    Log.i(TAG, "AEC enabled session=" + sessionId);
+                }
+            } else {
+                Log.w(TAG, "AEC not available on this device");
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "AEC attach: " + e.getMessage());
+            aec = null;
+        }
+        try {
+            if (NoiseSuppressor.isAvailable()) {
+                ns = NoiseSuppressor.create(sessionId);
+                if (ns != null) {
+                    ns.setEnabled(true);
+                    Log.i(TAG, "NS enabled");
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "NS attach: " + e.getMessage());
+            ns = null;
+        }
+        try {
+            if (AutomaticGainControl.isAvailable()) {
+                agc = AutomaticGainControl.create(sessionId);
+                if (agc != null) {
+                    agc.setEnabled(true);
+                    Log.i(TAG, "AGC enabled");
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "AGC attach: " + e.getMessage());
+            agc = null;
+        }
+    }
+
+    private static void releaseVoiceFx() {
+        if (aec != null) {
+            try {
+                aec.setEnabled(false);
+            } catch (Exception ignored) {
+            }
+            try {
+                aec.release();
+            } catch (Exception ignored) {
+            }
+            aec = null;
+        }
+        if (ns != null) {
+            try {
+                ns.setEnabled(false);
+            } catch (Exception ignored) {
+            }
+            try {
+                ns.release();
+            } catch (Exception ignored) {
+            }
+            ns = null;
+        }
+        if (agc != null) {
+            try {
+                agc.setEnabled(false);
+            } catch (Exception ignored) {
+            }
+            try {
+                agc.release();
+            } catch (Exception ignored) {
+            }
+            agc = null;
+        }
+    }
+
     private static void stopMedia() {
         if (mediaRun) {
             Log.i(TAG, "media stop");
@@ -666,6 +765,7 @@ public final class AtnVoice {
             }
             playThread = null;
         }
+        releaseVoiceFx();
         if (recorder != null) {
             try {
                 recorder.stop();
