@@ -277,6 +277,196 @@ def publish_update(form):
     )
 
 
+def hub_peers_path():
+    return ROOT / "lab" / "hub-peers.conf"
+
+
+def truncate_ek(ek: str) -> str:
+    if not ek:
+        return ""
+    if len(ek) <= 28:
+        return ek
+    return ek[:16] + "..." + ek[-8:]
+
+
+def load_hub_join_card():
+    d = {"peer_port": "", "peer_ek": "", "ek_preview": "", "ready": False}
+    log = ROOT / "lab" / "hub-listen.log"
+    if not log.is_file():
+        return d
+    try:
+        for line in log.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if line.startswith("peer_port="):
+                d["peer_port"] = line.split("=", 1)[1].strip()
+            elif line.startswith("peer_ek="):
+                ek = line.split("=", 1)[1].strip()
+                d["peer_ek"] = ek
+                d["ek_preview"] = truncate_ek(ek)
+    except OSError:
+        pass
+    if d["peer_port"] and len(d["peer_ek"]) == 3136:
+        d["ready"] = True
+    return d
+
+
+def load_hub_peers():
+    path = hub_peers_path()
+    out = []
+    if not path.is_file():
+        return out
+    try:
+        for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(None, 2)
+            if len(parts) < 3:
+                continue
+            ip, port, ek = parts[0].strip(), parts[1].strip(), re.sub(r"\s+", "", parts[2])
+            if not re.match(r"^\d{1,3}(\.\d{1,3}){3}$", ip):
+                continue
+            if not re.match(r"^\d{1,5}$", port):
+                continue
+            out.append(
+                {
+                    "ipv4": ip,
+                    "port": port,
+                    "ek": ek,
+                    "preview": truncate_ek(ek),
+                    "key": "%s:%s" % (ip, port),
+                }
+            )
+    except OSError:
+        pass
+    return out
+
+
+def save_hub_peers_file(peers):
+    path = hub_peers_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        "# DEC-0052 / DEC-0048 hub peers (gitignored). Line: ipv4 port ek_hex",
+        "# ML-KEM-1024 peer_ek = 3136 hex. Tunnel-only fan-out; no HTTP.",
+    ]
+    for p in peers:
+        lines.append("%s %s %s" % (p["ipv4"], p["port"], p["ek"]))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def do_peers(form):
+    action = form.get("peers_action", ["add"])[0].strip().lower() or "add"
+    peers = load_hub_peers()
+    if action == "remove":
+        ip = form.get("peer_ipv4", [""])[0].strip()
+        port = form.get("peer_port", [""])[0].strip()
+        if not re.match(r"^\d{1,3}(\.\d{1,3}){3}$", ip):
+            return False, "ERR: bad peer_ipv4", ""
+        if not re.match(r"^\d{1,5}$", port) or not (1 <= int(port) <= 65535):
+            return False, "ERR: bad peer_port", ""
+        key = "%s:%s" % (ip, port)
+        kept = [p for p in peers if p["key"] != key]
+        if len(kept) == len(peers):
+            return False, "ERR: peer not found %s" % key, ""
+        save_hub_peers_file(kept)
+        return True, "OK: removed peer hub %s (DEC-0052)" % key, "peers=%d" % len(kept)
+    if action != "add":
+        return False, "ERR: peers_action add|remove", ""
+    ip = form.get("peer_ipv4", [""])[0].strip()
+    port = form.get("peer_port", [""])[0].strip()
+    ek = re.sub(r"\s+", "", form.get("peer_ek", [""])[0].strip())
+    if not re.match(r"^\d{1,3}(\.\d{1,3}){3}$", ip):
+        return False, "ERR: bad peer_ipv4", ""
+    if not re.match(r"^\d{1,5}$", port) or not (1 <= int(port) <= 65535):
+        return False, "ERR: bad peer_port", ""
+    if len(ek) != 3136 or not re.match(r"^[0-9a-fA-F]+$", ek):
+        return False, "ERR: peer_ek must be 3136 hex chars (ML-KEM-1024)", ""
+    key = "%s:%s" % (ip, port)
+    others = [p for p in peers if p["key"] != key]
+    entry = {
+        "ipv4": ip,
+        "port": port,
+        "ek": ek.lower(),
+        "preview": truncate_ek(ek),
+        "key": key,
+    }
+    all_peers = others + [entry]
+    save_hub_peers_file(all_peers)
+    prev = truncate_ek(ek)
+    return (
+        True,
+        "OK: peer hub %s saved (ek %s). Publish an update to fan-out "
+        "over the tunnel (DEC-0052/0048)." % (key, prev),
+        "peers=%d" % len(all_peers),
+    )
+
+
+def peers_section_html():
+    card = load_hub_join_card()
+    peers = load_hub_peers()
+    if card["ready"]:
+        join_html = (
+            '<p class="meta"><strong>This hub join card</strong> (share out-of-band; never commit): '
+            "port=<code>%s</code> ek=<code>%s</code></p>"
+            '<details class="meta"><summary>Full peer_ek (copy for peer admin)</summary>'
+            '<textarea readonly rows="4">%s</textarea>'
+            "<label>peer_port</label>"
+            '<input readonly value="%s"/>'
+            "</details>"
+        ) % (
+            html_escape(card["peer_port"]),
+            html_escape(card["ek_preview"]),
+            html_escape(card["peer_ek"]),
+            html_escape(card["peer_port"]),
+        )
+    else:
+        join_html = (
+            '<p class="meta"><strong>This hub join card:</strong> start '
+            "<code>atnnode listen</code> (or hub-watchdog) so "
+            "<code>lab/hub-listen.log</code> has peer_port + peer_ek.</p>"
+        )
+    if not peers:
+        list_html = '<p class="meta">No peer hubs yet.</p>'
+    else:
+        items = []
+        for p in peers:
+            items.append(
+                "<li><code>%s</code> ek=<code>%s</code>"
+                '<form method="POST" action="/peers" style="display:inline;margin-left:0.5rem">'
+                '<input type="hidden" name="peers_action" value="remove"/>'
+                '<input type="hidden" name="peer_ipv4" value="%s"/>'
+                '<input type="hidden" name="peer_port" value="%s"/>'
+                '<button type="submit" style="width:auto;padding:0.25rem 0.75rem;margin:0;'
+                'font-size:0.85rem">Remove</button></form></li>'
+                % (
+                    html_escape(p["key"]),
+                    html_escape(p["preview"]),
+                    html_escape(p["ipv4"]),
+                    html_escape(p["port"]),
+                )
+            )
+        list_html = '<ul class="meta">' + "".join(items) + "</ul>"
+    return (
+        "<h2>Peer hubs (join network)</h2>"
+        "<p class=\"meta\">DEC-0052. Paste another hub's public IPv4, listen port, and "
+        "ML-KEM-1024 <code>peer_ek</code> (from its join card). Stored in gitignored "
+        "<code>lab/hub-peers.conf</code>. Security: OOB identity + DEC-0048 tunnel "
+        "fan-out only. Single-session listen still applies (honest limit).</p>"
+        + join_html
+        + list_html
+        + '<form method="POST" action="/peers" id="peersForm">'
+        '<input type="hidden" name="peers_action" value="add"/>'
+        "<label>Peer hub IPv4</label>"
+        '<input name="peer_ipv4" required placeholder="dotted IPv4"/>'
+        "<label>Peer hub port</label>"
+        '<input name="peer_port" value="47000" required/>'
+        "<label>Peer hub peer_ek (3136 hex)</label>"
+        '<textarea name="peer_ek" rows="4" required placeholder="paste peer_ek hex"></textarea>'
+        '<button type="submit">Add peer hub</button>'
+        "</form>"
+    )
+
+
 def load_compromise():
     d = {
         "vote_id": "0",
@@ -511,6 +701,7 @@ ESTABLISHED phone and peer hubs in <code>lab/hub-peers.conf</code>. No HTTP/URL 
 <input name="source_path" value="android/athanor-lab.apk" required/>
 <button type="submit">Publish update</button>
 </form>
+{peers_section_html()}
 <h2>Network-wide policy</h2>
 <p class="meta">Writes <code>lab/org-policy.conf</code> (ver {pol_ver}). Keep
 <code>atnnode listen</code> running so ESTABLISHED phones receive pushes.</p>
@@ -762,14 +953,14 @@ class Handler(BaseHTTPRequestHandler):
             body = json.dumps(status_json()).encode("utf-8")
             self._send(200, "application/json; charset=utf-8", body)
             return
-        if self.path in ("/", "/enroll", "/policy", "/compromise", "/update"):
+        if self.path in ("/", "/enroll", "/policy", "/compromise", "/update", "/peers"):
             body = page("", "").encode("utf-8")
             self._send(200, "text/html; charset=utf-8", body)
             return
         self._send(404, "text/plain", b"not found")
 
     def do_POST(self):
-        if self.path not in ("/enroll", "/policy", "/compromise", "/update"):
+        if self.path not in ("/enroll", "/policy", "/compromise", "/update", "/peers"):
             self._send(404, "text/plain", b"not found")
             return
         n = int(self.headers.get("Content-Length", "0"))
@@ -781,14 +972,16 @@ class Handler(BaseHTTPRequestHandler):
             ok, msg, detail = publish_update(form)
         elif self.path == "/compromise":
             ok, msg, detail = do_compromise(form)
+        elif self.path == "/peers":
+            ok, msg, detail = do_peers(form)
         else:
             ok, msg, detail = do_enroll(form)
         body = page(msg, detail).encode("utf-8")
         self._send(200 if ok else 500, "text/html; charset=utf-8", body)
 
 
-print(f"ATN admin (DEC-0042/0045/0047/0048) at 127.0.0.1:{PORT}/", flush=True)
-print("Network policy + update publish + compromise vote + USB enroll. Ctrl+C to stop.", flush=True)
+print(f"ATN admin (DEC-0042/0045/0047/0048/0052) at 127.0.0.1:{PORT}/", flush=True)
+print("Network policy + update + peers + compromise + USB enroll. Ctrl+C to stop.", flush=True)
 print("Ctrl+C to stop.", flush=True)
 HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
 PY

@@ -1456,3 +1456,32 @@ A decision is recorded **before** code that depends on it is written.
   the relay path.
 
 ---
+
+## DEC-0052 — Peer hub join via admin roster (OOB ek + tunnel fan-out)
+
+- **Date:** 2026-09-10
+- **Status:** accepted
+- **Evidence:** Operators need an easy way for a second site hub to join
+  the mesh for DEC-0048 update fan-out without inventing a new crypto
+  channel or committing hub IPs/`peer_ek` to git. Manual editing of
+  `lab/hub-peers.conf` was the only path.
+- **Decision:**
+  - **SoT edit path:** loopback enroll console **Peer hubs** section
+    (`POST /peers` add|remove) writes gitignored `lab/hub-peers.conf`
+    lines `ipv4 port ek_hex` (same format as DEC-0048).
+  - **Identity:** peer hub's ML-KEM-1024 `peer_ek` (3136 hex) + listen
+    port, shared **out-of-band**. UI shows **This hub join card** from
+    `lab/hub-listen.log` (`peer_port` / `peer_ek`) for copy; never log
+    full ek in flash beyond truncated preview.
+  - **Validation:** dotted IPv4, port 1–65535, ek length/charset same as
+    USB enroll. Dedupe by `ipv4:port`.
+  - **Delivery unchanged:** publish update → `hub_fanout_update_peers`
+    initiator HS + tunnel `U`/`UC` only. No HTTP peer sync, no cleartext
+    binary side channel.
+  - **Honest limits:** single-session `listen` remains; mutual publish
+    requires each hub to list the other; phone `hub2..hub16` roster push
+    and multi-session listen stay deferred.
+- **Consequences:** Second hubs can join with the same security floor as
+  phone enroll (OOB `peer_ek` + PQ tunnel). Org IPs/eks stay scrubbed.
+
+---

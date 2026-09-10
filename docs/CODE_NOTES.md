@@ -46,6 +46,8 @@ same commit.
 | `docs/LAB.md` | REQ-4.1 | DEC-0038 | Phone↔hub USB lab recipe |
 | `tools/android-apk.ps1` | REQ-4.1 | DEC-0038 | aapt2/d8/apksigner pack (no Gradle); versionCode bump |
 | `tools/hub-push-apk.ps1` | REQ-4.1 | DEC-0048 | hub→phone APK via tunnel (no adb install) |
+| `tools/enroll-console.ps1` / `.sh` | REQ-4.1 | DEC-0042/0045/0047/0048/0052 | loopback admin: enroll, policy, update, peers, compromise |
+| `tools/hub-watchdog.ps1` | REQ-4.1 | ops | restart `atnnode listen` keeping hub-mlkem.keys |
 | `vendor/knox/README.md` | REQ-4.1 | DEC-0015/0030 | Drop-in path for knoxsdk.jar |
 | `android/stubs/**` | REQ-4.1 | DEC-0019/0030 | Same packages as Samsung; ATN_STUB |
 | `android/java/.../AtnKnoxBuild.java` | REQ-4.1 | DEC-0019/0030 | `isStub()` via ATN_STUB field |

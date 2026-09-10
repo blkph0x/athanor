@@ -4,6 +4,16 @@ Newest at the top.
 
 ---
 
+## 2026-09-10 — Peer hub join UI (DEC-0052)
+
+- Enroll console **Peer hubs**: `POST /peers` add/remove → gitignored
+  `lab/hub-peers.conf` (`ipv4 port ek_hex`). Join card from
+  `hub-listen.log`. Same ML-KEM-1024 ek rules as USB enroll.
+- Delivery still DEC-0048 tunnel fan-out only. Docs: DECISIONS DEC-0052,
+  ENROLL join steps.
+
+---
+
 ## 2026-09-09 — Lab UI tabs + hub listen harden (voice flood)
 
 - Hub `listen` ESTABLISHED loop: AUTH/NONCE/LEN/PARAM recv failures log to

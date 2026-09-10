@@ -36,6 +36,15 @@ only** (chicken-egg: one installer-capable build), then all further bumps
 use `tools/hub-push-apk.ps1` (no `adb install`). USB debug may remain for
 logcat. Knox silent install still waits **T-0400**.
 
+**Peer hubs (DEC-0052):** **Peer hubs** on the admin UI adds/removes lines
+in gitignored `lab/hub-peers.conf`. Paste the other hub’s public IPv4,
+listen port, and ML-KEM-1024 `peer_ek` (3136 hex) from its **join card**
+(shown when `atnnode listen` has printed `peer_port` / `peer_ek` into
+`lab/hub-listen.log`). Security = OOB identity + tunnel fan-out only.
+Optionally reverse-add so both hubs can publish toward each other. Then
+**Publish update** and confirm `update_fanout` / peer stream in the hub
+log. Do not commit `hub-peers.conf` or org IPs.
+
 This is **not** mesh `atnhttp` (browsers cannot speak DEC-0009 tunnel HTTP —
 ISS-0009). Air-gapped signing is **release beta**. Real Knox Device Owner /
 USB charge-only waits on **T-0400** (`knoxsdk.jar`).
@@ -77,6 +86,7 @@ device status refreshes; **Connect & Enroll** stays available for each phone.
 |---|---|
 | Phone number | Local roster label only (E.164-ish). Never dialed / SMS (ISS-0020). |
 | peer_ipv4 / peer_port / peer_ek | Hub from `atnnode listen` (PC LAN IP, not 127.0.0.1). |
+| Peer hub IPv4 / port / peer_ek | DEC-0052: other hub join identity → `lab/hub-peers.conf`. |
 | diag / flush_mode / outage_class | Lab policy written into `atn-node.conf`. |
 
 ## What Connect & Enroll does

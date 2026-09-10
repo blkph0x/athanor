@@ -366,6 +366,184 @@ payload_path=lab/updates/payload.bin
     return @{ Ok=$true; Msg=("OK: published update_id={0} kind={1} size={2} (DEC-0048). Hub streams over encrypted tunnel DATA only - no HTTP download. Keep atnnode listen running." -f $uid, $kind, $size); Detail=$text }
 }
 
+function Hub-Peers-Path {
+    return (Join-Path $Root "lab\hub-peers.conf")
+}
+
+function Truncate-Ek([string]$ek) {
+    if ([string]::IsNullOrEmpty($ek)) { return "" }
+    if ($ek.Length -le 28) { return $ek }
+    return ($ek.Substring(0, 16) + "..." + $ek.Substring($ek.Length - 8))
+}
+
+function Load-HubJoinCard {
+    $d = @{ peer_port = ""; peer_ek = ""; ek_preview = ""; ready = $false }
+    $log = Join-Path $Root "lab\hub-listen.log"
+    if (-not (Test-Path $log)) { return $d }
+    try {
+        Get-Content $log -ErrorAction SilentlyContinue | ForEach-Object {
+            if ($_ -match '^peer_port=(\d{1,5})\s*$') { $d.peer_port = $Matches[1] }
+            elseif ($_ -match '^peer_ek=([0-9a-fA-F]+)\s*$') {
+                $d.peer_ek = $Matches[1]
+                $d.ek_preview = Truncate-Ek $Matches[1]
+            }
+        }
+    } catch { }
+    if ($d.peer_port -and $d.peer_ek.Length -eq 3136) { $d.ready = $true }
+    return $d
+}
+
+function Load-HubPeers {
+    $list = New-Object System.Collections.Generic.List[object]
+    $path = Hub-Peers-Path
+    if (-not (Test-Path $path)) { return @($list) }
+    try {
+        Get-Content $path -ErrorAction SilentlyContinue | ForEach-Object {
+            $line = $_.Trim()
+            if ($line -eq "" -or $line.StartsWith("#")) { return }
+            $parts = $line -split '\s+', 3
+            if ($parts.Count -lt 3) { return }
+            $ip = $parts[0].Trim()
+            $port = $parts[1].Trim()
+            $ek = ($parts[2].Trim() -replace '\s', '')
+            if ($ip -notmatch '^\d{1,3}(\.\d{1,3}){3}$') { return }
+            if ($port -notmatch '^\d{1,5}$') { return }
+            $list.Add([pscustomobject]@{
+                ipv4 = $ip
+                port = $port
+                ek   = $ek
+                preview = (Truncate-Ek $ek)
+                key  = ("{0}:{1}" -f $ip, $port)
+            }) | Out-Null
+        }
+    } catch { }
+    return @($list)
+}
+
+function Save-HubPeersFile([object[]]$peers) {
+    $path = Hub-Peers-Path
+    $dir = Split-Path $path -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add("# DEC-0052 / DEC-0048 hub peers (gitignored). Line: ipv4 port ek_hex") | Out-Null
+    $lines.Add("# ML-KEM-1024 peer_ek = 3136 hex. Tunnel-only fan-out; no HTTP.") | Out-Null
+    foreach ($p in @($peers)) {
+        if ($null -eq $p) { continue }
+        $lines.Add(("{0} {1} {2}" -f $p.ipv4, $p.port, $p.ek)) | Out-Null
+    }
+    [System.IO.File]::WriteAllText($path, (($lines -join "`n") + "`n"))
+}
+
+function Do-Peers([hashtable]$form) {
+    $action = ([string]$form["peers_action"]).Trim().ToLowerInvariant()
+    if ($action -eq "") { $action = "add" }
+    $peers = @(Load-HubPeers)
+    if ($action -eq "remove") {
+        $ip = ([string]$form["peer_ipv4"]).Trim()
+        $port = ([string]$form["peer_port"]).Trim()
+        if ($ip -notmatch '^\d{1,3}(\.\d{1,3}){3}$') {
+            return @{ Ok=$false; Msg="ERR: bad peer_ipv4"; Detail="" }
+        }
+        if ($port -notmatch '^\d{1,5}$' -or [int]$port -lt 1 -or [int]$port -gt 65535) {
+            return @{ Ok=$false; Msg="ERR: bad peer_port"; Detail="" }
+        }
+        $key = "{0}:{1}" -f $ip, $port
+        $kept = @($peers | Where-Object { $_.key -ne $key })
+        if ($kept.Count -eq $peers.Count) {
+            return @{ Ok=$false; Msg=("ERR: peer not found {0}" -f $key); Detail="" }
+        }
+        Save-HubPeersFile $kept
+        return @{ Ok=$true; Msg=("OK: removed peer hub {0} (DEC-0052)" -f $key); Detail=("peers={0}" -f $kept.Count) }
+    }
+    if ($action -ne "add") {
+        return @{ Ok=$false; Msg="ERR: peers_action add|remove"; Detail="" }
+    }
+    $ip = ([string]$form["peer_ipv4"]).Trim()
+    $port = ([string]$form["peer_port"]).Trim()
+    $ek = ([string]$form["peer_ek"]).Trim() -replace '\s', ''
+    if ($ip -notmatch '^\d{1,3}(\.\d{1,3}){3}$') {
+        return @{ Ok=$false; Msg="ERR: bad peer_ipv4"; Detail="" }
+    }
+    if ($port -notmatch '^\d{1,5}$' -or [int]$port -lt 1 -or [int]$port -gt 65535) {
+        return @{ Ok=$false; Msg="ERR: bad peer_port"; Detail="" }
+    }
+    if ($ek.Length -ne 3136 -or $ek -notmatch '^[0-9a-fA-F]+$') {
+        return @{ Ok=$false; Msg="ERR: peer_ek must be 3136 hex chars (ML-KEM-1024)"; Detail="" }
+    }
+    $key = "{0}:{1}" -f $ip, $port
+    $others = @($peers | Where-Object { $_.key -ne $key })
+    $entry = [pscustomobject]@{
+        ipv4 = $ip
+        port = $port
+        ek   = $ek.ToLowerInvariant()
+        preview = (Truncate-Ek $ek)
+        key  = $key
+    }
+    $all = @($others + $entry)
+    Save-HubPeersFile $all
+    $prev = Truncate-Ek $ek
+    return @{
+        Ok = $true
+        Msg = ("OK: peer hub {0} saved (ek {1}). Publish an update to fan-out over the tunnel (DEC-0052/0048)." -f $key, $prev)
+        Detail = ("peers={0}" -f $all.Count)
+    }
+}
+
+function Html-Peers-Section {
+    $card = Load-HubJoinCard
+    $peers = @(Load-HubPeers)
+    $joinHtml = ""
+    if ($card.ready) {
+        $joinHtml = @"
+<p class="meta"><strong>This hub join card</strong> (share out-of-band; never commit):
+port=<code>$(Html-Encode $card.peer_port)</code>
+ek=<code>$(Html-Encode $card.ek_preview)</code></p>
+<details class="meta"><summary>Full peer_ek (copy for peer admin)</summary>
+<textarea readonly rows="4">$(Html-Encode $card.peer_ek)</textarea>
+<label>peer_port</label>
+<input readonly value="$(Html-Encode $card.peer_port)"/>
+</details>
+"@
+    } else {
+        $joinHtml = '<p class="meta"><strong>This hub join card:</strong> start <code>atnnode listen</code> (or hub-watchdog) so <code>lab/hub-listen.log</code> has peer_port + peer_ek.</p>'
+    }
+    $listHtml = ""
+    if ($peers.Count -eq 0) {
+        $listHtml = '<p class="meta">No peer hubs yet.</p>'
+    } else {
+        $listHtml = '<ul class="meta">'
+        foreach ($p in $peers) {
+            $listHtml += ('<li><code>{0}</code> ek=<code>{1}</code>' -f (Html-Encode $p.key), (Html-Encode $p.preview))
+            $listHtml += ('<form method="POST" action="/peers" style="display:inline;margin-left:0.5rem">' +
+                '<input type="hidden" name="peers_action" value="remove"/>' +
+                '<input type="hidden" name="peer_ipv4" value="{0}"/>' +
+                '<input type="hidden" name="peer_port" value="{1}"/>' +
+                '<button type="submit" style="width:auto;padding:0.25rem 0.75rem;margin:0;font-size:0.85rem">Remove</button></form></li>') -f `
+                (Html-Encode $p.ipv4), (Html-Encode $p.port)
+        }
+        $listHtml += '</ul>'
+    }
+    return @"
+<h2>Peer hubs (join network)</h2>
+<p class="meta">DEC-0052. Paste another hub's public IPv4, listen port, and ML-KEM-1024
+<code>peer_ek</code> (from its join card). Stored in gitignored
+<code>lab/hub-peers.conf</code>. Security: OOB identity + DEC-0048 tunnel fan-out only.
+Single-session listen still applies (honest limit).</p>
+$joinHtml
+$listHtml
+<form method="POST" action="/peers" id="peersForm">
+<input type="hidden" name="peers_action" value="add"/>
+<label>Peer hub IPv4</label>
+<input name="peer_ipv4" required placeholder="dotted IPv4"/>
+<label>Peer hub port</label>
+<input name="peer_port" value="47000" required/>
+<label>Peer hub peer_ek (3136 hex)</label>
+<textarea name="peer_ek" rows="4" required placeholder="paste peer_ek hex"></textarea>
+<button type="submit">Add peer hub</button>
+</form>
+"@
+}
+
 function Page-Html([string]$flash, [string]$detail) {
     $dev = Find-AdbDevice
     $devLine = if ($dev) { "USB device: $dev (ready)" } else { "USB device: none (plug in with USB debugging)" }
@@ -438,6 +616,7 @@ Hub pushes announce+chunks over the <strong>encrypted tunnel only</strong> (DATA
 <input name="source_path" value="android/athanor-lab.apk" required/>
 <button type="submit">Publish update</button>
 </form>
+__PEERS_SECTION__
 <h2>Network-wide policy</h2>
 <p class="meta">Writes <code>lab/org-policy.conf</code> (ver __POLVER__). Keep
 <code>atnnode listen</code> running so ESTABLISHED phones receive pushes.</p>
@@ -553,6 +732,7 @@ Receipts land under <code>lab/enrollments/</code> (gitignored).</p>
     $html = $html.Replace('__UPD_SIZE__', (Html-Encode $upd.size))
     $html = $html.Replace('__UPD_VER__', (Html-Encode $upd.version))
     $html = $html.Replace('__KIND_OPTS__', ((Opt $upd.kind "apk" "apk") + (Opt $upd.kind "site" "site") + (Opt $upd.kind "hub" "hub")))
+    $html = $html.Replace('__PEERS_SECTION__', (Html-Peers-Section))
     $diagOpts = (Opt $pol.diag "1" "1 (lab)") + (Opt $pol.diag "0" "0 (prod)")
     $flushOpts = (Opt $pol.flush_mode "log_only" "log_only") + (Opt $pol.flush_mode "zeroize" "zeroize")
     $wipeOpts = (Opt $pol.wipe_armed "0" "0") + (Opt $pol.wipe_armed "1" "1")
@@ -779,8 +959,8 @@ try {
     Write-Error "Bind failed on $prefix - is the port free? $_"
     exit 1
 }
-Write-Host "ATN admin (DEC-0042/0045/0047/0048) at $prefix"
-Write-Host "Network policy + update publish + compromise vote + USB enroll. Ctrl+C to stop."
+Write-Host "ATN admin (DEC-0042/0045/0047/0048/0052) at $prefix"
+Write-Host "Policy + update + peer hubs + compromise + USB enroll. Ctrl+C to stop."
 
 while ($listener.IsListening) {
     $ctx = $listener.GetContext()
@@ -824,6 +1004,14 @@ while ($listener.IsListening) {
             $result = Do-Compromise $form
             $flash = $result.Msg
             if ($result.Detail) { $detail = $result.Detail }
+        } elseif ($req.HttpMethod -eq "POST" -and $path -eq "/peers") {
+            $reader = New-Object System.IO.StreamReader($req.InputStream, $req.ContentEncoding)
+            $body = $reader.ReadToEnd()
+            $reader.Close()
+            $form = Get-Form $body
+            $result = Do-Peers $form
+            $flash = $result.Msg
+            if ($result.Detail) { $detail = $result.Detail }
         } elseif ($req.HttpMethod -eq "POST" -and $path -eq "/enroll") {
             $reader = New-Object System.IO.StreamReader($req.InputStream, $req.ContentEncoding)
             $body = $reader.ReadToEnd()
@@ -832,7 +1020,7 @@ while ($listener.IsListening) {
             $result = Do-Enroll $form
             $flash = $result.Msg
             if ($result.Detail) { $detail = $result.Detail }
-        } elseif ($path -ne "/" -and $path -ne "/enroll" -and $path -ne "/policy" -and $path -ne "/compromise" -and $path -ne "/update") {
+        } elseif ($path -ne "/" -and $path -ne "/enroll" -and $path -ne "/policy" -and $path -ne "/compromise" -and $path -ne "/update" -and $path -ne "/peers") {
             $res.StatusCode = 404
             $bytes = [Text.Encoding]::ASCII.GetBytes("not found")
             $res.ContentLength64 = $bytes.Length
