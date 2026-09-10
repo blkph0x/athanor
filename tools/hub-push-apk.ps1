@@ -83,6 +83,11 @@ function Wait-MeshEstablished([int]$timeoutSec) {
 }
 
 function Wait-LogcatMatch([string]$pattern, [int]$timeoutSec) {
+    $devs = & $Adb devices 2>$null | Out-String
+    if ($devs -notmatch '(?m)^\S+\s+device\b') {
+        Write-Host "WARN: no adb device - skip logcat wait (hub stream is SoT)" -ForegroundColor Yellow
+        return $null
+    }
     $deadline = (Get-Date).AddSeconds($timeoutSec)
     while ((Get-Date) -lt $deadline) {
         $out = & $Adb logcat -d 2>$null | Out-String
@@ -227,6 +232,13 @@ function Publish-And-Wait([string]$versionLabel, [int]$expectCode) {
         return @{ Ok = $false; Detail = "no fresh update_stream_done id=$uid after POST" }
     }
 
+    $devs = & $Adb devices 2>$null | Out-String
+    $haveAdb = $devs -match '(?m)^\S+\s+device\b'
+    if (-not $haveAdb) {
+        # Tunnel delivered; phone install confirmed next USB/logcat.
+        return @{ Ok = $true; Detail = ("uid={0} ver={1} built={2} hub={3} HUB_STREAM_OK (no adb verify)" -f $uid, $versionLabel, $expectCode, $hubLine.Trim()) }
+    }
+
     $stagedPat = "update staged id=$uid|announce id=$uid|install start"
     $staged = Wait-LogcatMatch $stagedPat 180
     if (-not $staged) {
@@ -317,6 +329,16 @@ Write-Step "2. Ensure mesh ESTABLISHED (reconnect if needed)"
 Invoke-PhoneReconnect
 $meshOk = Wait-MeshEstablished 45
 $meshDetail = if ($meshOk) { "hub policy_push/ESTABLISHED after reconnect" } else { "mesh not confirmed" }
+if (-not $meshOk -and $hubOk) {
+    # Phone may be on WAN without USB; hub recv / recent ESTABLISHED counts.
+    $tail = if (Test-Path $HubLog) {
+        Get-Content $HubLog -Tail 80 -ErrorAction SilentlyContinue | Out-String
+    } else { "" }
+    if ($tail -match 'ESTABLISHED|policy_push|recv ') {
+        $meshOk = $true
+        $meshDetail = "hub live (no adb); stream wait will prove"
+    }
+}
 if (-not $meshOk -and $hubOk -and $devOk) {
     $meshOk = $true
     $meshDetail = "hub+device up (soft); stream wait will prove"
