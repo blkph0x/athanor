@@ -14,6 +14,8 @@ Newest at the top.
   LOOP-only PROBE-echo RTT; peer path uses PROBE_ACK.
 - Lab Call tab quality banner; mesh banner shows “held / bouncing” in-call.
 - Docs: DEC-0053, VOICE mid-call section.
+- `hub-push-apk.ps1`: no-adb path — hub `update_stream_done` is success SoT
+  (do not hang on logcat); mesh soft-OK when hub live without USB.
 
 ---
 
