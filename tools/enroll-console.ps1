@@ -396,7 +396,7 @@ function Load-HubJoinCard {
 function Load-HubPeers {
     $list = New-Object System.Collections.Generic.List[object]
     $path = Hub-Peers-Path
-    if (-not (Test-Path $path)) { return @($list) }
+    if (-not (Test-Path $path)) { return @() }
     try {
         Get-Content $path -ErrorAction SilentlyContinue | ForEach-Object {
             $line = $_.Trim()
@@ -417,7 +417,8 @@ function Load-HubPeers {
             }) | Out-Null
         }
     } catch { }
-    return @($list)
+    if ($list.Count -eq 0) { return @() }
+    return @($list.ToArray())
 }
 
 function Save-HubPeersFile([object[]]$peers) {
