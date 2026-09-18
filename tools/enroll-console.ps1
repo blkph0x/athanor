@@ -1,4 +1,4 @@
-# DEC-0042: Lab enroll console - loopback plain HTTP only (127.0.0.1).
+﻿# DEC-0042: Lab enroll console - loopback plain HTTP only (127.0.0.1).
 # Usage: .\atnenroll.exe serve [port]
 #    or: powershell -NoProfile -File tools/enroll-console.ps1 [-Port 8799]
 # Browser: loopback port 8799 (plain HTTP, 127.0.0.1 only)
@@ -352,7 +352,7 @@ function Test-EnrollUsbGate([string]$serial) {
         return @{ Ok=$false; Msg="ERR: kill policy require_adb_off=1 blocks USB enroll (adb is required for Connect & Enroll). Arm USB gates after first join, or set require_adb_off=0 / enroll_block_on_usb=0." }
     }
     if ($pol.require_usb_charge_only -eq "1") {
-        # Best-effort: if ADB is up, USB data path is active — fail closed when kill armed.
+        # Best-effort: if ADB is up, USB data path is active - fail closed when kill armed.
         return @{ Ok=$false; Msg="ERR: kill policy require_usb_charge_only=1 blocks USB enroll while debugging is active. Bootstrap with flags off, then arm after mesh join." }
     }
     return @{ Ok=$true; Msg="" }
@@ -671,7 +671,7 @@ table.roster th{color:var(--muted);font-weight:600}
 <h1>Athanor admin</h1>
 <p class="sub">Loopback only (DEC-0042 / DEC-0056). Policy pushes over PQ/AEAD tunnel to
 nodes and peer hubs. Offline devices catch up on rejoin. Phone numbers are roster
-labels — never SMS.</p>
+labels - never SMS.</p>
 <div class="meta" id="status">
 <span class="live" id="devLine">__DEVLINE__</span><br/>
 <span id="apkLine">__APKLINE__</span><br/>
@@ -701,7 +701,7 @@ listed under Peers receive policy fan-out over tunnel AEAD.</p>
 <section class="panel" id="tab-devices">
 <h2>Devices</h2>
 <p class="meta">From <code>lab/enrollments/</code> (USB bootstrap receipts). Not a live
-presence feed — reconnect after policy change to confirm apply.</p>
+presence feed - reconnect after policy change to confirm apply.</p>
 __DEVICE_ROSTER__
 </section>
 
@@ -755,7 +755,7 @@ __PEERS_SECTION__
 <section class="panel" id="tab-enroll">
 <h2>USB enroll (bootstrap)</h2>
 <p class="meta">Lab path uses USB debugging. Kill-mode USB gates refuse enroll when
-armed — join first, then enable postures under Security.</p>
+armed - join first, then enable postures under Security.</p>
 <form method="POST" action="/enroll" id="enrollForm">
 <label>Phone number (roster label)</label>
 <input name="phone_number" required placeholder="+61..." pattern="\+?[0-9][0-9 \-]{5,30}[0-9]"/>
@@ -852,9 +852,9 @@ kind=__UPD_KIND__ size=__UPD_SIZE__.</p>
 "@
     $bind = ("http" + "://" + "127.0.0.1:$Port/")
     $killBanner = if ($pol.wipe_armed -eq "1") {
-        "<div class='banner kill'><strong>KILL MODE ARMED</strong> — wipe_armed=1. USB/ADB gates and crypto-shred BOOM are live when their flags are on.</div>"
+        '<div class="banner kill"><strong>KILL MODE ARMED</strong> - wipe_armed=1. USB/ADB gates and crypto-shred BOOM are live when their flags are on.</div>'
     } else {
-        "<div class='banner ok'>Test boom mode (wipe_armed=0). Arm kill only when ready for production posture.</div>"
+        '<div class="banner ok">Test boom mode (wipe_armed=0). Arm kill only when ready for production posture.</div>'
     }
     $html = $html.Replace('__DEVLINE__', (Html-Encode $devLine))
     $html = $html.Replace('__APKLINE__', (Html-Encode $apkLine))
