@@ -954,6 +954,19 @@ static int cmd_listen(uint16_t port)
                         fflush(stdout);
                     }
                     (void)atn_tun_send(&t, pt, n);
+                } else if (n >= 1 && pt[0] == 0x4Du /* 'M' DEC-0055 mesh */) {
+                    /*
+                     * Opaque echo/forward of messaging + file share.
+                     * Confidentiality = tunnel AEAD only; hub does not
+                     * interpret body. Multi-peer fan-out deferred.
+                     */
+                    {
+                        unsigned subtype = (n >= 2) ? (unsigned)pt[1] : 0u;
+                        printf("mesh_frame n=%u subtype=%u\n",
+                               (unsigned)n, subtype);
+                        fflush(stdout);
+                    }
+                    (void)atn_tun_send(&t, pt, n);
                 } else {
                     (void)atn_tun_send(&t, pt, n); /* LAB echo / other */
                 }

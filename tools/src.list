@@ -25,7 +25,11 @@ android/java/com/athanor/daemon/AtnPowerReceiver.java
 android/java/com/athanor/daemon/AtnPwdDeny.java
 android/java/com/athanor/daemon/AtnUpdate.java
 android/java/com/athanor/daemon/AtnVoice.java
+android/java/com/athanor/daemon/AtnMesh.java
 android/java/com/athanor/daemon/AtnContacts.java
+include/atn_mesh.h
+src/mesh/atn_mesh.c
+tests/test_mesh.c
 android/jni/atn_jni.c
 android/assets/atn_pwd_deny.bin
 android/res/xml/device_admin.xml

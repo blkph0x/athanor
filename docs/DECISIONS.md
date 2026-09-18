@@ -1506,8 +1506,8 @@ A decision is recorded **before** code that depends on it is written.
     sensitive files, destroy Keystore alias, optional Knox `wipeData`.
     All boom triggers share this gate.
   - **Messaging:** Call/media already ride PQ/AEAD tunnels (DEC-0050).
-    No parallel cleartext messenger. Future sealed chat blobs use the
-    vault + same tunnel floor.
+    Chat + file share use family `'M'` (DEC-0055) on the same floor —
+    vault at rest, no parallel cleartext messenger.
   - **Honest limits:** App sandbox shred ≠ TIMA/Knox factory brick.
     Forensic recovery of overwritten flash is out of scope; destroying
     the Keystore key is the cryptographic SoT for vault ciphertext.
@@ -1543,5 +1543,28 @@ A decision is recorded **before** code that depends on it is written.
     product hub media stays `'A''S'`. Multi-session hub listen still deferred.
 - **Consequences:** Mid-call hub loss is a hold/reroute event with UI warn,
   not a hangup. Latency and playout adapt without hard config or re-dial.
+
+---
+
+## DEC-0055 — Mesh messaging + file share on tunnel AEAD
+
+- **Date:** 2026-09-18
+- **Status:** accepted
+- **Evidence:** Operators need chat and small file exchange between enrolled
+  Athanor peers without introducing HTTP/cleartext or classical crypto.
+  Scope is same-network / same-app mesh only (ESTABLISHED PQ tunnel).
+- **Decision:**
+  - **Wire:** Tunnel DATA family `'M'`: `'T'` text, `'F'` file announce
+    (id/size/name/SHA-256), `'C'` chunks (≤900 B). Fits `ATN_TUN_MAX_PT`.
+    Native encode/parse in `atn_mesh.*`; Android `AtnMesh` mirrors wire.
+  - **Transport:** Only over existing ML-KEM + ChaCha20-Poly1305 tunnel.
+    Hub `listen` opaque-echoes `'M'` like `'A'` (lab loopback). Multi-peer
+    fan-out deferred (same as voice).
+  - **At rest:** Inbox transcript + received files sealed in `AtnVault`
+    (Keystore AES-GCM). Lab share cap ~200 KiB. BOOM shreds vault (DEC-0054).
+  - **Honest limits:** No internet relay; no non-Athanor clients; SHA
+    mismatch discards; hub does not interpret body.
+- **Consequences:** Lab Mesh tab Send msg / Send demo file; daemon drains
+  `'M'`; `tests/test_mesh` gates wire. Same security floor as voice/update.
 
 ---

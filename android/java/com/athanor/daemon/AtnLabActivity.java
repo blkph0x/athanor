@@ -23,7 +23,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 /**
- * Lab launcher (DEC-0038/0039/0040/0050). Mesh / Call / Logs tabs.
+ * Lab launcher (DEC-0038/0039/0040/0050/0055). Mesh / Call / Logs tabs.
  * Not a production UI.
  */
 public class AtnLabActivity extends Activity {
@@ -38,6 +38,9 @@ public class AtnLabActivity extends Activity {
     private TextView status;
     private TextView boomBanner;
     private TextView updateStatus;
+    private TextView meshMsgStatus;
+    private TextView meshInbox;
+    private EditText meshMsgBox;
     private TextView logBox;
     private TextView voiceStats;
     private TextView ringBanner;
@@ -80,6 +83,7 @@ public class AtnLabActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         AtnVoice.setContext(this);
+        AtnMesh.setContext(this);
         boolean stub = AtnKnoxBuild.isStub();
         float dens = getResources().getDisplayMetrics().density;
         int pad = (int) (12 * dens);
@@ -204,10 +208,62 @@ public class AtnLabActivity extends Activity {
         updateStatus.setText("update: idle");
         p.addView(updateStatus);
 
+        meshMsgStatus = new TextView(this);
+        meshMsgStatus.setTextSize(13f);
+        meshMsgStatus.setTypeface(Typeface.MONOSPACE);
+        meshMsgStatus.setText("mesh-msg: idle");
+        p.addView(meshMsgStatus);
+
         TextView note = new TextView(this);
         note.setText("Mesh: Device Admin + wrong PIN x failMax => BOOM."
-                + " Hub silence also BOOMs. Compromise votes when hub opens.");
+                + " Hub silence also BOOMs. Compromise votes when hub opens."
+                + " Chat/files ride the same PQ/AEAD tunnel (DEC-0055) —"
+                + " same-network mesh peers only; sealed in vault at rest.");
         p.addView(note);
+
+        meshInbox = new TextView(this);
+        meshInbox.setTypeface(Typeface.MONOSPACE);
+        meshInbox.setTextSize(12f);
+        meshInbox.setText("(no messages yet)");
+        p.addView(meshInbox);
+
+        meshMsgBox = new EditText(this);
+        meshMsgBox.setHint("mesh message (tunnel AEAD)");
+        meshMsgBox.setSingleLine(true);
+        p.addView(meshMsgBox);
+
+        LinearLayout msgRow = new LinearLayout(this);
+        msgRow.setOrientation(LinearLayout.HORIZONTAL);
+        msgRow.addView(btn("Send msg", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String body = meshMsgBox.getText() != null
+                        ? meshMsgBox.getText().toString().trim() : "";
+                if (body.length() == 0) {
+                    appendLog("empty mesh message ignored");
+                    return;
+                }
+                boolean ok = AtnMesh.sendText(AtnLabActivity.this, body);
+                appendLog(ok ? "mesh text sent" : "mesh text failed: "
+                        + AtnMesh.statusLine());
+                if (ok) {
+                    meshMsgBox.setText("");
+                }
+                refreshMeshInbox();
+                paintStatus();
+            }
+        }), tabLp());
+        msgRow.addView(btn("Send demo file", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean ok = AtnMesh.sendDemoNote(AtnLabActivity.this);
+                appendLog(ok ? "mesh demo file sent (vault-sized note)"
+                        : "mesh file failed: " + AtnMesh.statusLine());
+                refreshMeshInbox();
+                paintStatus();
+            }
+        }), tabLp());
+        p.addView(msgRow);
 
         p.addView(btn("Enable lock-screen watch (Device Admin)", new View.OnClickListener() {
             @Override
@@ -270,7 +326,20 @@ public class AtnLabActivity extends Activity {
                 submitCode();
             }
         }));
+        refreshMeshInbox();
         return p;
+    }
+
+    private void refreshMeshInbox() {
+        if (meshInbox == null) {
+            return;
+        }
+        String t = AtnMesh.loadInbox(this);
+        if (t == null || t.length() == 0) {
+            meshInbox.setText("(no messages yet — ESTABLISHED then Send msg)");
+        } else {
+            meshInbox.setText(t);
+        }
     }
 
     private LinearLayout buildCallPanel() {
@@ -711,6 +780,10 @@ public class AtnLabActivity extends Activity {
         if (updateStatus != null) {
             updateStatus.setText(AtnUpdate.statusLine());
         }
+        if (meshMsgStatus != null) {
+            meshMsgStatus.setText(AtnMesh.statusLine());
+        }
+        refreshMeshInbox();
         if (callMeshBanner != null) {
             int vst = AtnVoice.state();
             boolean inCall = vst != AtnVoice.IDLE && vst != AtnVoice.TERMINATING;

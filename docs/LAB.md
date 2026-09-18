@@ -62,7 +62,8 @@ adb shell am start -n com.athanor.daemon/.AtnLabActivity --ez autostart true
 ```
 
 On screen you should see live `state=ESTABLISHED` and **MESH UP**.
-Buttons: **Start / reconnect mesh**, **Send lab ping**.
+Buttons: **Start / reconnect mesh**, **Send lab ping**, **Send msg** /
+**Send demo file** (DEC-0055 tunnel AEAD chat + vault file share).
 
 ```bat
 adb logcat -s atn-daemon:I atn-lab:I atn-knox:W

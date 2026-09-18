@@ -4,6 +4,14 @@ Newest at the top.
 
 ---
 
+## 2026-09-18 — Mesh messaging + file share (DEC-0055)
+
+- Tunnel family `'M'` (`T`/`F`/`C`): native `atn_mesh` + `test_mesh`; hub
+  opaque echo; Android `AtnMesh` send/recv over tun + vault inbox/files.
+- Lab Mesh tab: Send msg / Send demo file. Same PQ/AEAD floor as voice.
+
+---
+
 ## 2026-09-18 — Standalone vault + crypto-shred BOOM (DEC-0054)
 
 - `AtnVault` + `AtnAppShred`: default **test boom** (UI dead, keys kept).

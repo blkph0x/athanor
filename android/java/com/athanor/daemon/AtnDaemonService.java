@@ -200,6 +200,16 @@ public class AtnDaemonService extends Service {
                             AtnVoice.onFrame(back, n);
                             continue;
                         }
+                        if (n >= 1 && back[0] == (byte) 'M') {
+                            /* DEC-0055 mesh chat / file — tunnel AEAD only. */
+                            Log.i(TAG, "mesh frame n=" + n
+                                    + " subtype="
+                                    + (n >= 2
+                                            ? (char) (back[1] & 0xff)
+                                            : '?'));
+                            AtnMesh.onFrame(AtnDaemonService.this, back, n);
+                            continue;
+                        }
                         if (n < back.length) {
                             byte[] msg = new byte[n];
                             System.arraycopy(back, 0, msg, 0, n);
@@ -295,6 +305,7 @@ public class AtnDaemonService extends Service {
     public void onCreate() {
         super.onCreate();
         AtnVoice.setContext(this);
+        AtnMesh.setContext(this);
         if (Build.VERSION.SDK_INT >= 26) {
             NotificationChannel c = new NotificationChannel(
                     CH, "Athanor mesh", NotificationManager.IMPORTANCE_LOW);

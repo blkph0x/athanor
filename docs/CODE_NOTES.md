@@ -71,6 +71,9 @@ same commit.
 | `tests/test_voice.c` | REQ-1.2 | DEC-0050/0053 | direct E2E, opaque hub, latency, roster, soft JB/PROBE |
 | `docs/VOICE.md` | REQ-1.2 | DEC-0050/0053 | trust model; mid-call bounce / soft cadence |
 | `android/java/.../AtnVoice.java` | REQ-4.1 | DEC-0050/0053 | lab call + PROBE JB + transport hold/restore |
+| `include/atn_mesh.h` / `src/mesh/atn_mesh.c` | REQ-4.1 | DEC-0055 | `'M'` text/file/chunk wire |
+| `tests/test_mesh.c` | REQ-4.1 | DEC-0055 | encode/parse gates |
+| `android/java/.../AtnMesh.java` | REQ-4.1 | DEC-0055 | chat + file share over tun; vault at rest |
 | `android/java/.../AtnVault.java` | REQ-4.1 | DEC-0054 | Keystore AEAD vault under filesDir/vault |
 | `android/java/.../AtnAppShred.java` | REQ-4.1 | DEC-0054 | standalone crypto-shred BOOM (no Knox req) |
 | `tests/test_cfg.c` | REQ-4.1 | gates | parse/ready/hubs/diag/outage/cap16/policy/compromise/update |
@@ -82,7 +85,7 @@ same commit.
 | `android/java/.../AtnBootReceiver.java` | REQ-4.1 | DEC-0015 | Start daemon on BOOT_COMPLETED |
 | `src/sign/atn_sign_cli.c` | REQ-5.1 | DEC-0019 / 0021 | `atnsign` CLI (manifest + report) |
 | `tests/test_sign.c` | REQ-5.1 | gates | sort, sign, verify, tamper; report diag |
-| `src/node/atn_node_cli.c` | REQ-4.1 | DEC-0021 / 0023 / 0031 / 0032 / 0045 / 0047 / 0048 / 0050 | `atnnode` listen; opaque `'A'` echo; AUTH/NONCE continue |
+| `src/node/atn_node_cli.c` | REQ-4.1 | DEC-0021 / 0023 / 0031 / 0032 / 0045 / 0047 / 0048 / 0050 / 0055 | `atnnode` listen; opaque `'A'`/`'M'` echo; AUTH/NONCE continue |
 | `android/java/.../AtnNodeConfig.java` | REQ-4.1 | DEC-0021 | Java mirror of atn_cfg.c |
 | `src/crypto/atn_hmac.c` | REQ-1.1 | RFC 2104 | HMAC-SHA-256 |
 | `src/crypto/atn_hkdf.c` | REQ-1.1 | RFC 5869 §§2.2–2.3 | Extract then expand, SHA-256 |
