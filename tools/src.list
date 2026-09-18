@@ -21,6 +21,7 @@ android/java/com/athanor/daemon/AtnLabBoom.java
 android/java/com/athanor/daemon/AtnNative.java
 android/java/com/athanor/daemon/AtnNodeConfig.java
 android/java/com/athanor/daemon/AtnOrgPolicy.java
+android/java/com/athanor/daemon/AtnUsbPosture.java
 android/java/com/athanor/daemon/AtnPowerReceiver.java
 android/java/com/athanor/daemon/AtnPwdDeny.java
 android/java/com/athanor/daemon/AtnUpdate.java

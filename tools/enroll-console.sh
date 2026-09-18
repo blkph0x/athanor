@@ -115,6 +115,10 @@ def load_org_policy():
         "password_min_len": "12",
         "usb_data_block": "1",
         "pwd_deny_check": "1",
+        "require_adb_off": "0",
+        "require_usb_charge_only": "0",
+        "enroll_block_on_usb": "0",
+        "boom_on_usb_breach": "0",
     }
     path = ROOT / "lab" / "org-policy.conf"
     if not path.is_file():
@@ -149,6 +153,10 @@ def save_org_policy(form):
     min_len = form.get("password_min_len", ["12"])[0]
     usb = form.get("usb_data_block", ["1"])[0]
     deny = form.get("pwd_deny_check", ["1"])[0]
+    adb_off = form.get("require_adb_off", ["0"])[0]
+    chg = form.get("require_usb_charge_only", ["0"])[0]
+    enroll_usb = form.get("enroll_block_on_usb", ["0"])[0]
+    boom_usb = form.get("boom_on_usb_breach", ["0"])[0]
     if diag not in ("0", "1"):
         return False, "ERR: diag", ""
     if flush not in ("log_only", "zeroize"):
@@ -159,8 +167,9 @@ def save_org_policy(form):
         return False, "ERR: outage_class", ""
     if flush == "log_only" and diag != "1":
         return False, "ERR: log_only requires diag=1", ""
-    if bio not in ("0", "1") or usb not in ("0", "1") or deny not in ("0", "1"):
-        return False, "ERR: biometric/usb/deny", ""
+    for bit in (bio, usb, deny, adb_off, chg, enroll_usb, boom_usb):
+        if bit not in ("0", "1"):
+            return False, "ERR: posture bit must be 0|1", ""
     try:
         boom_n = int(boom)
         fail_n = int(fail_k)
@@ -192,11 +201,41 @@ def save_org_policy(form):
         "password_min_len=%d\n"
         "usb_data_block=%s\n"
         "pwd_deny_check=%s\n"
-    ) % (ver, diag, flush, wipe, outage, boom_n, fail_n, bio, min_n, usb, deny)
+        "require_adb_off=%s\n"
+        "require_usb_charge_only=%s\n"
+        "enroll_block_on_usb=%s\n"
+        "boom_on_usb_breach=%s\n"
+    ) % (
+        ver, diag, flush, wipe, outage, boom_n, fail_n, bio, min_n, usb, deny,
+        adb_off, chg, enroll_usb, boom_usb,
+    )
     lab = ROOT / "lab"
     lab.mkdir(parents=True, exist_ok=True)
     (lab / "org-policy.conf").write_text(body, encoding="utf-8")
-    return True, f"OK: network policy ver={ver} saved (DEC-0045/0046) - phones pick up from hub.", body
+    return (
+        True,
+        "OK: network policy ver=%d saved (DEC-0056) - live nodes + peer hubs; offline catch up on rejoin."
+        % ver,
+        body,
+    )
+
+
+def enroll_usb_gate_ok():
+    """DEC-0056: kill-mode enroll block when wipe_armed + enroll_block_on_usb."""
+    pol = load_org_policy()
+    if pol.get("wipe_armed") != "1" or pol.get("enroll_block_on_usb") != "1":
+        return True, ""
+    if pol.get("require_adb_off") == "1":
+        return False, (
+            "ERR: kill policy require_adb_off=1 blocks USB enroll. "
+            "Arm USB gates after first join."
+        )
+    if pol.get("require_usb_charge_only") == "1":
+        return False, (
+            "ERR: kill policy require_usb_charge_only=1 blocks USB enroll "
+            "while debugging is active. Bootstrap with flags off first."
+        )
+    return True, ""
 
 
 def load_update_announce():
@@ -726,6 +765,14 @@ ESTABLISHED phone and peer hubs in <code>lab/hub-peers.conf</code>. No HTTP/URL 
 <select name="usb_data_block">{opt(pol["usb_data_block"], "1", "1 (block)") + opt(pol["usb_data_block"], "0", "0")}</select>
 <label>pwd_deny_check</label>
 <select name="pwd_deny_check">{opt(pol["pwd_deny_check"], "1", "1") + opt(pol["pwd_deny_check"], "0", "0")}</select>
+<label>require_adb_off (DEC-0056; kill only)</label>
+<select name="require_adb_off">{opt(pol["require_adb_off"], "0", "0") + opt(pol["require_adb_off"], "1", "1")}</select>
+<label>require_usb_charge_only</label>
+<select name="require_usb_charge_only">{opt(pol["require_usb_charge_only"], "0", "0") + opt(pol["require_usb_charge_only"], "1", "1")}</select>
+<label>enroll_block_on_usb</label>
+<select name="enroll_block_on_usb">{opt(pol["enroll_block_on_usb"], "0", "0") + opt(pol["enroll_block_on_usb"], "1", "1")}</select>
+<label>boom_on_usb_breach</label>
+<select name="boom_on_usb_breach">{opt(pol["boom_on_usb_breach"], "0", "0") + opt(pol["boom_on_usb_breach"], "1", "1")}</select>
 <button type="submit">Save network policy</button>
 </form>
 <h2>Compromise vote (stolen phone)</h2>
@@ -840,6 +887,9 @@ def do_enroll(form):
     serial = find_adb_device()
     if not serial:
         return False, "ERR: no adb device - enable USB debugging and keep this page open", ""
+    ok_gate, gate_msg = enroll_usb_gate_ok()
+    if not ok_gate:
+        return False, gate_msg, ""
 
     safe = re.sub(r"[^0-9+]", "", phone)
     eid = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + safe

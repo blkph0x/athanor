@@ -98,17 +98,21 @@ function Load-DeployDefaults {
 function Load-OrgPolicy {
     $path = Join-Path $Root "lab\org-policy.conf"
     $d = @{
-        policy_ver         = "1"
-        diag               = "1"
-        flush_mode         = "log_only"
-        wipe_armed         = "0"
-        outage_class       = "normal"
-        boom_silence_s     = "30"
-        password_fail_max  = "5"
-        biometric_allowed  = "0"
-        password_min_len   = "12"
-        usb_data_block     = "1"
-        pwd_deny_check     = "1"
+        policy_ver              = "1"
+        diag                    = "1"
+        flush_mode              = "log_only"
+        wipe_armed              = "0"
+        outage_class            = "normal"
+        boom_silence_s          = "30"
+        password_fail_max       = "5"
+        biometric_allowed       = "0"
+        password_min_len        = "12"
+        usb_data_block          = "1"
+        pwd_deny_check          = "1"
+        require_adb_off         = "0"
+        require_usb_charge_only = "0"
+        enroll_block_on_usb     = "0"
+        boom_on_usb_breach      = "0"
     }
     if (-not (Test-Path $path)) { return $d }
     try {
@@ -256,6 +260,10 @@ function Save-OrgPolicy([hashtable]$form) {
     $minLen = [string]$form["password_min_len"]; if (-not $minLen) { $minLen = "12" }
     $usb = [string]$form["usb_data_block"]; if (-not $usb) { $usb = "1" }
     $deny = [string]$form["pwd_deny_check"]; if (-not $deny) { $deny = "1" }
+    $adbOff = [string]$form["require_adb_off"]; if (-not $adbOff) { $adbOff = "0" }
+    $chgOnly = [string]$form["require_usb_charge_only"]; if (-not $chgOnly) { $chgOnly = "0" }
+    $enrollUsb = [string]$form["enroll_block_on_usb"]; if (-not $enrollUsb) { $enrollUsb = "0" }
+    $boomUsb = [string]$form["boom_on_usb_breach"]; if (-not $boomUsb) { $boomUsb = "0" }
     if ($diag -notin @("0", "1")) { return @{ Ok=$false; Msg="ERR: diag"; Detail="" } }
     if ($flush -notin @("log_only", "zeroize")) { return @{ Ok=$false; Msg="ERR: flush_mode"; Detail="" } }
     if ($wipe -notin @("0", "1")) { return @{ Ok=$false; Msg="ERR: wipe_armed"; Detail="" } }
@@ -265,8 +273,10 @@ function Save-OrgPolicy([hashtable]$form) {
     if ($flush -eq "log_only" -and $diag -ne "1") {
         return @{ Ok=$false; Msg="ERR: log_only requires diag=1"; Detail="" }
     }
-    if ($bio -notin @("0", "1") -or $usb -notin @("0", "1") -or $deny -notin @("0", "1")) {
-        return @{ Ok=$false; Msg="ERR: biometric/usb/deny bit"; Detail="" }
+    foreach ($bit in @($bio, $usb, $deny, $adbOff, $chgOnly, $enrollUsb, $boomUsb)) {
+        if ($bit -notin @("0", "1")) {
+            return @{ Ok=$false; Msg="ERR: posture bit must be 0|1"; Detail="" }
+        }
     }
     $boomN = 0; $failN = 0; $minN = 0
     if (-not [int]::TryParse($boom, [ref]$boomN) -or $boomN -lt 5 -or $boomN -gt 86400) {
@@ -296,9 +306,56 @@ biometric_allowed=$bio
 password_min_len=$minN
 usb_data_block=$usb
 pwd_deny_check=$deny
+require_adb_off=$adbOff
+require_usb_charge_only=$chgOnly
+enroll_block_on_usb=$enrollUsb
+boom_on_usb_breach=$boomUsb
 "@
     [System.IO.File]::WriteAllText((Join-Path $dir "org-policy.conf"), ($text.Trim() + "`n"))
-    return @{ Ok=$true; Msg=("OK: network policy ver={0} saved (DEC-0045/0046) - phones pick up from hub." -f $ver); Detail=$text }
+    return @{ Ok=$true; Msg=("OK: network policy ver={0} saved (DEC-0056) - live nodes + peer hubs update immediately; offline catch up on rejoin." -f $ver); Detail=$text }
+}
+
+function List-DeviceRoster {
+    $dir = Join-Path $Root "lab\enrollments"
+    $rows = New-Object System.Collections.Generic.List[string]
+    if (-not (Test-Path $dir)) { return "" }
+    Get-ChildItem -Path $dir -Directory -ErrorAction SilentlyContinue |
+        Sort-Object Name -Descending |
+        Select-Object -First 40 |
+        ForEach-Object {
+            $rec = Join-Path $_.FullName "enrollment.txt"
+            if (-not (Test-Path $rec)) { return }
+            $label = ""; $serial = ""; $when = ""; $ipv4 = ""
+            Get-Content $rec | ForEach-Object {
+                if ($_ -match '^phone_number_label=(.+)$') { $label = $Matches[1].Trim() }
+                elseif ($_ -match '^serial=(.+)$') { $serial = $Matches[1].Trim() }
+                elseif ($_ -match '^time_utc=(.+)$') { $when = $Matches[1].Trim() }
+                elseif ($_ -match '^peer_ipv4=(.+)$') { $ipv4 = $Matches[1].Trim() }
+            }
+            if (-not $label) { $label = $_.Name }
+            $rows.Add(("<tr><td>{0}</td><td><code>{1}</code></td><td>{2}</td><td>{3}</td><td><code>{4}</code></td></tr>" -f
+                (Html-Encode $label), (Html-Encode $_.Name), (Html-Encode $when),
+                (Html-Encode $ipv4), (Html-Encode $serial)))
+        }
+    if ($rows.Count -eq 0) { return "<p class='meta'>No enrollments yet.</p>" }
+    return "<table class='roster'><thead><tr><th>Label</th><th>Id</th><th>UTC</th><th>Hub</th><th>Serial</th></tr></thead><tbody>" +
+        ($rows -join "") + "</tbody></table>"
+}
+
+function Test-EnrollUsbGate([string]$serial) {
+    $pol = Load-OrgPolicy
+    if ($pol.wipe_armed -ne "1" -or $pol.enroll_block_on_usb -ne "1") {
+        return @{ Ok=$true; Msg="" }
+    }
+    # Kill-mode enroll gate (DEC-0056). Lab bootstrap: leave wipe_armed=0.
+    if ($pol.require_adb_off -eq "1") {
+        return @{ Ok=$false; Msg="ERR: kill policy require_adb_off=1 blocks USB enroll (adb is required for Connect & Enroll). Arm USB gates after first join, or set require_adb_off=0 / enroll_block_on_usb=0." }
+    }
+    if ($pol.require_usb_charge_only -eq "1") {
+        # Best-effort: if ADB is up, USB data path is active — fail closed when kill armed.
+        return @{ Ok=$false; Msg="ERR: kill policy require_usb_charge_only=1 blocks USB enroll while debugging is active. Bootstrap with flags off, then arm after mesh join." }
+    }
+    return @{ Ok=$true; Msg="" }
 }
 
 function Load-UpdateAnnounce {
@@ -575,109 +632,136 @@ function Page-Html([string]$flash, [string]$detail) {
 <meta charset="utf-8"/>
 <title>Athanor admin</title>
 <style>
-body{font-family:Georgia,serif;max-width:42rem;margin:2rem auto;padding:0 1rem;background:#f7f4ef;color:#1a1a1a}
-h1{font-size:1.75rem;margin-bottom:0.25rem}
-h2{font-size:1.2rem;margin-top:2rem;border-top:1px solid #ccc;padding-top:1rem}
-.sub{color:#444;margin-bottom:1.5rem}
-label{display:block;margin-top:0.75rem;font-weight:bold}
-input,textarea,select{width:100%;box-sizing:border-box;padding:0.5rem;margin-top:0.25rem;font:inherit}
-button{margin-top:1.25rem;width:100%;padding:0.85rem;font-size:1.1rem;font-weight:bold;cursor:pointer;background:#1a1a1a;color:#f7f4ef;border:0}
-button:disabled{opacity:0.5;cursor:wait}
-.flash{padding:0.75rem;background:#e8f0e4;border:1px solid #6a8f5a;margin-bottom:1rem}
-.err{background:#f8e8e8;border-color:#a55}
-.meta{font-size:0.9rem;color:#333;margin:1rem 0}
-code{font-family:Consolas,monospace;font-size:0.85rem}
-.live{font-weight:bold}
+:root{--bg:#0e1116;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--line:#30363d;--accent:#3fb950;--warn:#d29922;--danger:#f85149;--focus:#58a6ff}
+*{box-sizing:border-box}
+body{font-family:"Segoe UI",system-ui,sans-serif;margin:0;background:var(--bg);color:var(--ink);line-height:1.45}
+.wrap{max-width:52rem;margin:0 auto;padding:1.25rem 1rem 3rem}
+h1{font-size:1.5rem;margin:0 0 0.25rem;letter-spacing:0.02em}
+.sub{color:var(--muted);margin:0 0 1rem;font-size:0.95rem}
+.nav{display:flex;flex-wrap:wrap;gap:0.35rem;margin:1rem 0 1.25rem;border-bottom:1px solid var(--line);padding-bottom:0.5rem}
+.nav button{background:transparent;color:var(--muted);border:1px solid transparent;border-radius:6px;padding:0.45rem 0.75rem;font:inherit;cursor:pointer;width:auto;margin:0}
+.nav button:hover{color:var(--ink);border-color:var(--line)}
+.nav button.on{color:var(--ink);background:var(--panel);border-color:var(--line)}
+.panel{display:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:1rem 1.1rem}
+.panel.on{display:block}
+h2{font-size:1.05rem;margin:0 0 0.5rem}
+h3{font-size:0.95rem;margin:1.25rem 0 0.4rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+label{display:block;margin-top:0.7rem;font-weight:600;font-size:0.9rem}
+input,textarea,select{width:100%;padding:0.5rem 0.55rem;margin-top:0.25rem;font:inherit;background:#0d1117;color:var(--ink);border:1px solid var(--line);border-radius:6px}
+button.act{margin-top:1rem;width:100%;padding:0.75rem;font-size:1rem;font-weight:700;cursor:pointer;background:var(--focus);color:#0d1117;border:0;border-radius:6px}
+button.act:disabled{opacity:0.5;cursor:wait}
+button.danger{background:var(--danger);color:#fff}
+.flash{padding:0.75rem;background:#12261a;border:1px solid var(--accent);margin-bottom:1rem;border-radius:6px}
+.err{background:#2a1215;border-color:var(--danger)}
+.meta{font-size:0.88rem;color:var(--muted);margin:0.75rem 0}
+code{font-family:Consolas,"Cascadia Mono",monospace;font-size:0.84rem;color:#c9d1d9}
+.live{font-weight:700;color:var(--accent)}
+.banner{padding:0.75rem 0.9rem;border-radius:6px;margin:0.75rem 0;border:1px solid var(--line)}
+.banner.kill{background:#2a1215;border-color:var(--danger);color:#ffb4b0}
+.banner.ok{background:#12261a;border-color:var(--accent)}
+table.roster{width:100%;border-collapse:collapse;font-size:0.85rem;margin-top:0.5rem}
+table.roster th,table.roster td{border-bottom:1px solid var(--line);padding:0.45rem 0.35rem;text-align:left;vertical-align:top}
+table.roster th{color:var(--muted);font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem}
+@media(max-width:640px){.grid2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
+<div class="wrap">
 <h1>Athanor admin</h1>
-<p class="sub">Loopback only (DEC-0042 / DEC-0045). Network policy pushes to connected
-Android nodes via the hub (no USB re-enroll). Phone number is a roster label - never SMS.
-Hub fields pre-fill from <code>lab/deploy-state.json</code> (gaps from <code>lab/org.local.json</code>).</p>
+<p class="sub">Loopback only (DEC-0042 / DEC-0056). Policy pushes over PQ/AEAD tunnel to
+nodes and peer hubs. Offline devices catch up on rejoin. Phone numbers are roster
+labels — never SMS.</p>
 <div class="meta" id="status">
 <span class="live" id="devLine">__DEVLINE__</span><br/>
 <span id="apkLine">__APKLINE__</span><br/>
-Bind: __BIND__
+Bind: __BIND__ · policy_ver=<code>__POLVER__</code> · wipe_armed=<code>__WIPE_VAL__</code>
 </div>
+__KILL_BANNER__
 __FLASH__
 __DETAIL__
-<h2>Publish mesh update</h2>
-<p class="meta">DEC-0048. Copies a local hub file to <code>lab/updates/payload.bin</code>,
-writes announce.conf (id=__UPD_ID__ kind=__UPD_KIND__ size=__UPD_SIZE__).
-Hub pushes announce+chunks over the <strong>encrypted tunnel only</strong> (DATA
-<code>U</code> / <code>UC</code>) to the ESTABLISHED phone and peer hubs in
-<code>lab/hub-peers.conf</code>. No HTTP/URL download path.</p>
-<form method="POST" action="/update" id="updateForm">
-<label>kind</label>
-<select name="kind">__KIND_OPTS__</select>
-<label>version</label>
-<input name="version" value="__UPD_VER__" required placeholder="1.0.0"/>
-<label>source_path (local on this hub)</label>
-<input name="source_path" value="android/athanor-lab.apk" required/>
-<button type="submit">Publish update</button>
-</form>
-__PEERS_SECTION__
-<h2>Network-wide policy</h2>
-<p class="meta">Writes <code>lab/org-policy.conf</code> (ver __POLVER__). Keep
-<code>atnnode listen</code> running so ESTABLISHED phones receive pushes.</p>
+<nav class="nav" id="tabs">
+<button type="button" data-tab="overview" class="on">Overview</button>
+<button type="button" data-tab="devices">Devices</button>
+<button type="button" data-tab="security">Security</button>
+<button type="button" data-tab="peers">Peers</button>
+<button type="button" data-tab="enroll">Enroll</button>
+<button type="button" data-tab="compromise">Compromise</button>
+<button type="button" data-tab="updates">Updates</button>
+</nav>
+
+<section class="panel on" id="tab-overview">
+<h2>Overview</h2>
+<p class="meta">Hub listen must be running. Live nodes get policy immediately; offline
+nodes and hubs sync on next ESTABLISHED / higher <code>policy_ver</code>.</p>
+<p class="meta">Listen path is single-session today (one phone at a time). Peer hubs
+listed under Peers receive policy fan-out over tunnel AEAD.</p>
+</section>
+
+<section class="panel" id="tab-devices">
+<h2>Devices</h2>
+<p class="meta">From <code>lab/enrollments/</code> (USB bootstrap receipts). Not a live
+presence feed — reconnect after policy change to confirm apply.</p>
+__DEVICE_ROSTER__
+</section>
+
+<section class="panel" id="tab-security">
+<h2>Security postures</h2>
+<p class="meta">Writes <code>lab/org-policy.conf</code> (ver __POLVER__). Takes effect
+immediately on live nodes; peer hubs adopt higher ver; offline catch up on rejoin.
+USB/ADB gates enforce only when <code>wipe_armed=1</code> (kill mode).</p>
 <form method="POST" action="/policy" id="policyForm">
-<label>diag</label>
-<select name="diag">__DIAG_OPTS__</select>
-<label>flush_mode</label>
-<select name="flush_mode">__FLUSH_OPTS__</select>
-<label>wipe_armed</label>
-<select name="wipe_armed">__WIPE_OPTS__</select>
+<h3>Boom / kill</h3>
+<div class="grid2">
+<div><label>wipe_armed (1 = kill shred)</label><select name="wipe_armed">__WIPE_OPTS__</select></div>
+<div><label>boom_silence_s</label><input name="boom_silence_s" value="__BOOM__" required/></div>
+</div>
+<div class="grid2">
+<div><label>diag</label><select name="diag">__DIAG_OPTS__</select></div>
+<div><label>flush_mode</label><select name="flush_mode">__FLUSH_OPTS__</select></div>
+</div>
 <label>outage_class</label>
 <select name="outage_class">__OUTAGE_OPTS__</select>
-<label>boom_silence_s (hub silence -> BOOM)</label>
-<input name="boom_silence_s" value="__BOOM__" required/>
-<label>password_fail_max (unlock fails -> BOOM/flush)</label>
-<input name="password_fail_max" value="__FAILK__" required/>
-<label>biometric_allowed (0=fingerprint+face/iris OFF)</label>
-<select name="biometric_allowed">__BIO_OPTS__</select>
-<label>password_min_len (alphanumeric only)</label>
-<input name="password_min_len" value="__MINLEN__" required/>
-<label>usb_data_block (1=block MTP/adb data when Knox jar present)</label>
-<select name="usb_data_block">__USB_OPTS__</select>
-<label>pwd_deny_check (1=reject rockyou/common leak hashes)</label>
-<select name="pwd_deny_check">__DENY_OPTS__</select>
-<button type="submit">Save network policy</button>
+<h3>Lock screen</h3>
+<div class="grid2">
+<div><label>password_fail_max</label><input name="password_fail_max" value="__FAILK__" required/></div>
+<div><label>password_min_len</label><input name="password_min_len" value="__MINLEN__" required/></div>
+</div>
+<div class="grid2">
+<div><label>biometric_allowed</label><select name="biometric_allowed">__BIO_OPTS__</select></div>
+<div><label>pwd_deny_check</label><select name="pwd_deny_check">__DENY_OPTS__</select></div>
+</div>
+<h3>USB / ADB (kill-mode gates)</h3>
+<p class="meta">Detect always on phone. Enroll-block and runtime BOOM only when
+wipe_armed=1 and flags below. Bootstrap enroll with wipe_armed=0, then arm.</p>
+<div class="grid2">
+<div><label>usb_data_block (Knox charge-only assert)</label><select name="usb_data_block">__USB_OPTS__</select></div>
+<div><label>require_adb_off</label><select name="require_adb_off">__ADB_OPTS__</select></div>
+</div>
+<div class="grid2">
+<div><label>require_usb_charge_only</label><select name="require_usb_charge_only">__CHG_OPTS__</select></div>
+<div><label>enroll_block_on_usb</label><select name="enroll_block_on_usb">__ENROLLUSB_OPTS__</select></div>
+</div>
+<label>boom_on_usb_breach (runtime BOOM if posture flips)</label>
+<select name="boom_on_usb_breach">__BOOMUSB_OPTS__</select>
+<button class="act" type="submit">Save network policy</button>
 </form>
-<h2>Compromise vote (stolen phone)</h2>
-<p class="meta">DEC-0047. Marks an enrolled roster label suspected compromised.
-Quorum YES or timeout -> hub sends boom (flush keys; Knox wipe when jar present).
-Keep <code>atnnode listen</code> running. State: __COMP_STATE__ vote_id=__COMP_VID__
-yes=__COMP_YES__ no=__COMP_NO__ quorum=__COMP_QUORUM__ target=__COMP_TARGET__</p>
-<form method="POST" action="/compromise" id="compStartForm">
-<input type="hidden" name="comp_action" value="start"/>
-<label>target_label (enrolled phone)</label>
-<select name="target_label">__COMP_LABEL_OPTS__</select>
-<label>timeout_s (fail-closed boom if votes incomplete)</label>
-<input name="timeout_s" value="__COMP_TIMEOUT__" required/>
-<label>quorum (YES votes needed)</label>
-<input name="quorum" value="__COMP_QUORUM_IN__" required/>
-<button type="submit">Start compromise vote</button>
-</form>
-<form method="POST" action="/compromise" style="margin-top:0.75rem">
-<input type="hidden" name="comp_action" value="yes"/>
-<button type="submit">Vote YES (compromised -> boom)</button>
-</form>
-<form method="POST" action="/compromise">
-<input type="hidden" name="comp_action" value="no"/>
-<button type="submit">Vote NO (not compromised)</button>
-</form>
-<form method="POST" action="/compromise">
-<input type="hidden" name="comp_action" value="clear"/>
-<button type="submit">Clear vote</button>
-</form>
+</section>
+
+<section class="panel" id="tab-peers">
+__PEERS_SECTION__
+</section>
+
+<section class="panel" id="tab-enroll">
 <h2>USB enroll (bootstrap)</h2>
+<p class="meta">Lab path uses USB debugging. Kill-mode USB gates refuse enroll when
+armed — join first, then enable postures under Security.</p>
 <form method="POST" action="/enroll" id="enrollForm">
 <label>Phone number (roster label)</label>
 <input name="phone_number" required placeholder="+61..." pattern="\+?[0-9][0-9 \-]{5,30}[0-9]"/>
 <label>Hub domain (optional; resolves to peer_ipv4)</label>
 <input name="peer_domain" value="$peerDomain" placeholder="mesh.example.org"/>
-<label>Hub peer_ipv4 (dotted; leave blank to use domain)</label>
+<label>Hub peer_ipv4</label>
 <input name="peer_ipv4" value="$peerIpv4" placeholder="hub or public IPv4"/>
 <label>Hub peer_port</label>
 <input name="peer_port" value="$peerPort" required/>
@@ -689,30 +773,75 @@ yes=__COMP_YES__ no=__COMP_NO__ quorum=__COMP_QUORUM__ target=__COMP_TARGET__</p
 <select name="flush_mode">__FLUSH_OPTS__</select>
 <label>outage_class</label>
 <select name="outage_class">__OUTAGE_OPTS__</select>
-<button type="submit" name="action" value="enroll" id="enrollBtn">Connect and Enroll</button>
+<button class="act" type="submit" name="action" value="enroll" id="enrollBtn">Connect and Enroll</button>
 </form>
-<p class="meta">After enroll: Activate Device Admin on the phone if prompted, then confirm MESH UP.
-Receipts land under <code>lab/enrollments/</code> (gitignored).</p>
+</section>
+
+<section class="panel" id="tab-compromise">
+<h2>Compromise vote</h2>
+<p class="meta">DEC-0047. State: __COMP_STATE__ vote_id=__COMP_VID__
+yes=__COMP_YES__ no=__COMP_NO__ quorum=__COMP_QUORUM__ target=__COMP_TARGET__</p>
+<form method="POST" action="/compromise" id="compStartForm">
+<input type="hidden" name="comp_action" value="start"/>
+<label>target_label</label>
+<select name="target_label">__COMP_LABEL_OPTS__</select>
+<label>timeout_s</label>
+<input name="timeout_s" value="__COMP_TIMEOUT__" required/>
+<label>quorum</label>
+<input name="quorum" value="__COMP_QUORUM_IN__" required/>
+<button class="act" type="submit">Start compromise vote</button>
+</form>
+<form method="POST" action="/compromise" style="margin-top:0.75rem">
+<input type="hidden" name="comp_action" value="yes"/>
+<button class="act danger" type="submit">Vote YES</button>
+</form>
+<form method="POST" action="/compromise">
+<input type="hidden" name="comp_action" value="no"/>
+<button class="act" type="submit">Vote NO</button>
+</form>
+<form method="POST" action="/compromise">
+<input type="hidden" name="comp_action" value="clear"/>
+<button class="act" type="submit">Clear vote</button>
+</form>
+</section>
+
+<section class="panel" id="tab-updates">
+<h2>Publish mesh update</h2>
+<p class="meta">DEC-0048. Tunnel only (<code>U</code>/<code>UC</code>). id=__UPD_ID__
+kind=__UPD_KIND__ size=__UPD_SIZE__.</p>
+<form method="POST" action="/update" id="updateForm">
+<label>kind</label>
+<select name="kind">__KIND_OPTS__</select>
+<label>version</label>
+<input name="version" value="__UPD_VER__" required placeholder="1.0.0"/>
+<label>source_path</label>
+<input name="source_path" value="android/athanor-lab.apk" required/>
+<button class="act" type="submit">Publish update</button>
+</form>
+</section>
+</div>
 <script>
 (function(){
-  var form = document.getElementById('enrollForm');
-  var btn = document.getElementById('enrollBtn');
-  if (form && btn) {
-    form.addEventListener('submit', function(){
-      btn.disabled = true;
-      btn.textContent = 'Enrolling... keep this page open';
+  var tabs=document.querySelectorAll('#tabs button');
+  function show(id){
+    tabs.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-tab')===id); });
+    document.querySelectorAll('.panel').forEach(function(p){
+      p.classList.toggle('on', p.id==='tab-'+id);
     });
+    try{ localStorage.setItem('atnAdminTab', id); }catch(e){}
   }
+  tabs.forEach(function(b){ b.addEventListener('click', function(){ show(b.getAttribute('data-tab')); }); });
+  var saved=null; try{ saved=localStorage.getItem('atnAdminTab'); }catch(e){}
+  if(saved) show(saved);
+  var form=document.getElementById('enrollForm');
+  var btn=document.getElementById('enrollBtn');
+  if(form&&btn){ form.addEventListener('submit', function(){ btn.disabled=true; btn.textContent='Enrolling...'; }); }
   function tick(){
     fetch('/status').then(function(r){ return r.json(); }).then(function(j){
-      var d = document.getElementById('devLine');
-      var a = document.getElementById('apkLine');
-      if (d) d.textContent = j.device_ok
-        ? ('USB device: ' + j.device + ' (ready)')
-        : 'USB device: none (plug in with USB debugging)';
-      if (a) a.textContent = j.apk_ok
-        ? 'APK: android/athanor-lab.apk OK'
-        : 'APK: missing - run make android-apk';
+      var d=document.getElementById('devLine');
+      var a=document.getElementById('apkLine');
+      if(d) d.textContent=j.device_ok?('USB device: '+j.device+' (ready)'):'USB device: none (plug in with USB debugging)';
+      if(a) a.textContent=j.apk_ok?'APK: android/athanor-lab.apk OK':'APK: missing - run make android-apk';
     }).catch(function(){});
   }
   setInterval(tick, 3000);
@@ -722,12 +851,20 @@ Receipts land under <code>lab/enrollments/</code> (gitignored).</p>
 </html>
 "@
     $bind = ("http" + "://" + "127.0.0.1:$Port/")
+    $killBanner = if ($pol.wipe_armed -eq "1") {
+        "<div class='banner kill'><strong>KILL MODE ARMED</strong> — wipe_armed=1. USB/ADB gates and crypto-shred BOOM are live when their flags are on.</div>"
+    } else {
+        "<div class='banner ok'>Test boom mode (wipe_armed=0). Arm kill only when ready for production posture.</div>"
+    }
     $html = $html.Replace('__DEVLINE__', (Html-Encode $devLine))
     $html = $html.Replace('__APKLINE__', (Html-Encode $apkLine))
     $html = $html.Replace('__BIND__', (Html-Encode $bind))
     $html = $html.Replace('__FLASH__', $flashHtml)
     $html = $html.Replace('__DETAIL__', $detailHtml)
+    $html = $html.Replace('__KILL_BANNER__', $killBanner)
+    $html = $html.Replace('__DEVICE_ROSTER__', (List-DeviceRoster))
     $html = $html.Replace('__POLVER__', (Html-Encode $pol.policy_ver))
+    $html = $html.Replace('__WIPE_VAL__', (Html-Encode $pol.wipe_armed))
     $html = $html.Replace('__UPD_ID__', (Html-Encode $upd.update_id))
     $html = $html.Replace('__UPD_KIND__', (Html-Encode $upd.kind))
     $html = $html.Replace('__UPD_SIZE__', (Html-Encode $upd.size))
@@ -736,7 +873,7 @@ Receipts land under <code>lab/enrollments/</code> (gitignored).</p>
     $html = $html.Replace('__PEERS_SECTION__', (Html-Peers-Section))
     $diagOpts = (Opt $pol.diag "1" "1 (lab)") + (Opt $pol.diag "0" "0 (prod)")
     $flushOpts = (Opt $pol.flush_mode "log_only" "log_only") + (Opt $pol.flush_mode "zeroize" "zeroize")
-    $wipeOpts = (Opt $pol.wipe_armed "0" "0") + (Opt $pol.wipe_armed "1" "1")
+    $wipeOpts = (Opt $pol.wipe_armed "0" "0 (test)") + (Opt $pol.wipe_armed "1" "1 (KILL)")
     $outageOpts = (Opt $pol.outage_class "normal" "normal") +
         (Opt $pol.outage_class "maintenance" "maintenance") +
         (Opt $pol.outage_class "blackout" "blackout") +
@@ -752,6 +889,10 @@ Receipts land under <code>lab/enrollments/</code> (gitignored).</p>
     $html = $html.Replace('__BIO_OPTS__', ((Opt $pol.biometric_allowed "0" "0 (OFF)") + (Opt $pol.biometric_allowed "1" "1 (allow)")))
     $html = $html.Replace('__USB_OPTS__', ((Opt $pol.usb_data_block "1" "1 (block data)") + (Opt $pol.usb_data_block "0" "0")))
     $html = $html.Replace('__DENY_OPTS__', ((Opt $pol.pwd_deny_check "1" "1 (check deny list)") + (Opt $pol.pwd_deny_check "0" "0")))
+    $html = $html.Replace('__ADB_OPTS__', ((Opt $pol.require_adb_off "0" "0") + (Opt $pol.require_adb_off "1" "1 (require ADB off)")))
+    $html = $html.Replace('__CHG_OPTS__', ((Opt $pol.require_usb_charge_only "0" "0") + (Opt $pol.require_usb_charge_only "1" "1 (charge-only)")))
+    $html = $html.Replace('__ENROLLUSB_OPTS__', ((Opt $pol.enroll_block_on_usb "0" "0") + (Opt $pol.enroll_block_on_usb "1" "1 (block kill enroll)")))
+    $html = $html.Replace('__BOOMUSB_OPTS__', ((Opt $pol.boom_on_usb_breach "0" "0") + (Opt $pol.boom_on_usb_breach "1" "1 (BOOM on breach)")))
     $html = $html.Replace('__COMP_STATE__', (Html-Encode $comp.state))
     $html = $html.Replace('__COMP_VID__', (Html-Encode $comp.vote_id))
     $html = $html.Replace('__COMP_YES__', (Html-Encode $comp.yes))
@@ -849,6 +990,10 @@ function Do-Enroll($form) {
     $serial = Find-AdbDevice
     if (-not $serial) {
         return @{ Ok=$false; Msg="ERR: no adb device - enable USB debugging and keep this page open" }
+    }
+    $gate = Test-EnrollUsbGate $serial
+    if (-not $gate.Ok) {
+        return @{ Ok=$false; Msg=$gate.Msg; Detail="" }
     }
 
     $safe = ($phone -replace '[^0-9+]','')

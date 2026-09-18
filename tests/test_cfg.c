@@ -207,13 +207,28 @@ int main(void)
         p.password_min_len = 14;
         p.usb_data_block = 1;
         p.pwd_deny_check = 1;
+        p.require_adb_off = 1;
+        p.require_usb_charge_only = 1;
+        p.enroll_block_on_usb = 1;
+        p.boom_on_usb_breach = 1;
         check("policy encode",
               atn_policy_encode(&p, text, sizeof(text), &tn) == ATN_OK);
         check("policy roundtrip",
               atn_policy_parse(text, tn, &p2) == ATN_OK && p2.ver == 7u &&
                   p2.outage_class == ATN_CFG_OUTAGE_BLACKOUT &&
                   p2.boom_silence_s == 45u && p2.password_fail_max == 4u &&
-                  p2.password_min_len == 14u);
+                  p2.password_min_len == 14u && p2.require_adb_off == 1u &&
+                  p2.require_usb_charge_only == 1u &&
+                  p2.enroll_block_on_usb == 1u &&
+                  p2.boom_on_usb_breach == 1u);
+        {
+            atn_policy d;
+            atn_policy_init(&d);
+            check("policy usb defaults",
+                  d.require_adb_off == 0u && d.boom_on_usb_breach == 0u &&
+                      d.enroll_block_on_usb == 0u &&
+                      d.require_usb_charge_only == 0u);
+        }
         check("policy wire",
               atn_policy_encode_wire(&p, wire, sizeof(wire), &wn) == ATN_OK &&
                   wn > 1u && wire[0] == ATN_POLICY_WIRE);

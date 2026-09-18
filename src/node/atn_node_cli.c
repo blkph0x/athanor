@@ -387,6 +387,8 @@ static int parse_ek_hex(const char *hex, uint8_t ek[ATN_MLKEM1024_EK_LEN])
     return parse_hex_buf(hex, n, ek, ATN_MLKEM1024_EK_LEN);
 }
 
+static int hub_send_policy(atn_tun *t, const atn_policy *pol);
+
 /*
  * Purpose:  Push current update to peer hubs listed in lab/hub-peers.conf.
  * Spec:     DEC-0048. Line format: ipv4 port ek_hex.
@@ -487,6 +489,112 @@ static void hub_fanout_update_peers(const atn_update *u)
             (void)hub_stream_update(&peer, u);
         } else {
             fprintf(stderr, "update_fanout failed %s:%u\n", ip, port);
+        }
+        atn_tun_wipe(&peer);
+        atn_memzero(ek, sizeof(ek));
+    }
+    fclose(f);
+}
+
+/*
+ * Purpose:  Push org policy to peer hubs (DEC-0056). Same peer list + PQ
+ *           tunnel as update fan-out. Peer adopts higher policy_ver only.
+ * Spec:     lab/hub-peers.conf; no cleartext / HTTP.
+ */
+static void hub_fanout_policy_peers(const atn_policy *pol)
+{
+    FILE *f;
+    char line[8192];
+    const char *path = hub_peers_path();
+
+    if (pol == NULL || pol->ver == 0) {
+        return;
+    }
+    f = fopen(path, "rb");
+    if (f == NULL) {
+        return;
+    }
+    printf("policy_fanout peers file %s ver=%u (tunnel-only)\n", path,
+           (unsigned)pol->ver);
+    fflush(stdout);
+    while (fgets(line, (int)sizeof(line), f) != NULL) {
+        char ip[64];
+        unsigned port = 0;
+        char *ekhex;
+        uint8_t ek[ATN_MLKEM1024_EK_LEN];
+        atn_tun peer;
+        uint32_t ipv4 = 0;
+        unsigned a = 0, b = 0, c = 0, d = 0;
+        int attempt;
+        int rc;
+        char *sp1;
+        char *sp2;
+
+        if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') {
+            continue;
+        }
+        sp1 = strchr(line, ' ');
+        if (sp1 == NULL) {
+            continue;
+        }
+        *sp1 = '\0';
+        if (strlen(line) >= sizeof(ip)) {
+            continue;
+        }
+        memcpy(ip, line, strlen(line) + 1u);
+        while (*++sp1 == ' ') {
+        }
+        port = (unsigned)strtoul(sp1, &sp2, 10);
+        if (sp2 == sp1 || port == 0 || port > 65535u) {
+            continue;
+        }
+        while (*sp2 == ' ' || *sp2 == '\t') {
+            sp2++;
+        }
+        ekhex = sp2;
+        {
+            size_t el = strlen(ekhex);
+            while (el > 0 && (ekhex[el - 1u] == '\n' || ekhex[el - 1u] == '\r' ||
+                              ekhex[el - 1u] == ' ')) {
+                ekhex[--el] = '\0';
+            }
+        }
+        if (sscanf(ip, "%u.%u.%u.%u", &a, &b, &c, &d) != 4 || a > 255u ||
+            b > 255u || c > 255u || d > 255u) {
+            continue;
+        }
+        ipv4 = (a << 24) | (b << 16) | (c << 8) | d;
+        if (parse_ek_hex(ekhex, ek) != ATN_OK) {
+            fprintf(stderr, "hub-peers bad ek for %s\n", ip);
+            continue;
+        }
+        if (atn_tun_init_initiator(&peer, ek) != ATN_OK) {
+            continue;
+        }
+        if (atn_tun_bind(&peer, 0) != ATN_OK ||
+            atn_tun_set_peer(&peer, ipv4, (uint16_t)port) != ATN_OK ||
+            atn_tun_hs_send_init(&peer) != ATN_OK) {
+            atn_tun_wipe(&peer);
+            continue;
+        }
+        for (attempt = 0; attempt < 20; attempt++) {
+            rc = atn_tun_pump(&peer, 500);
+            if (peer.state == ATN_TUN_ESTABLISHED) {
+                break;
+            }
+            if (rc != ATN_OK && rc != ATN_ERR_STATE) {
+                break;
+            }
+            if (peer.state == ATN_TUN_HANDSHAKE) {
+                (void)atn_tun_hs_retry(&peer);
+            }
+        }
+        if (peer.state == ATN_TUN_ESTABLISHED) {
+            printf("policy_fanout ESTABLISHED %s:%u\n", ip, port);
+            fflush(stdout);
+            (void)hub_send_policy(&peer, pol);
+        } else {
+            fprintf(stderr, "policy_fanout failed %s:%u\n", ip, port);
         }
         atn_tun_wipe(&peer);
         atn_memzero(ek, sizeof(ek));
@@ -624,7 +732,11 @@ static int policy_same(const atn_policy *a, const atn_policy *b)
            a->biometric_allowed == b->biometric_allowed &&
            a->password_min_len == b->password_min_len &&
            a->usb_data_block == b->usb_data_block &&
-           a->pwd_deny_check == b->pwd_deny_check;
+           a->pwd_deny_check == b->pwd_deny_check &&
+           a->require_adb_off == b->require_adb_off &&
+           a->require_usb_charge_only == b->require_usb_charge_only &&
+           a->enroll_block_on_usb == b->enroll_block_on_usb &&
+           a->boom_on_usb_breach == b->boom_on_usb_breach;
 }
 
 static int compromise_same(const atn_compromise *a, const atn_compromise *b)
@@ -818,6 +930,7 @@ static int cmd_listen(uint16_t port)
                 need_push = 1;
                 printf("policy_reload ver=%u\n", (unsigned)pol.ver);
                 fflush(stdout);
+                hub_fanout_policy_peers(&pol);
             }
             if (atn_compromise_load_file(cpath, &comp_new) == ATN_OK &&
                 !compromise_same(&comp, &comp_new)) {
@@ -889,8 +1002,21 @@ static int cmd_listen(uint16_t port)
                     if (pr == ATN_ERR_STATE) {
                         /* Phone asked for current org policy. */
                         need_push = 1;
+                    } else if (pr == ATN_OK && tmp.ver > pol.ver) {
+                        /*
+                         * DEC-0056: peer-hub policy sync (higher ver only).
+                         * Phones must not author policy; adopt + push phone;
+                         * no re-fanout (avoids A↔B loops).
+                         */
+                        pol = tmp;
+                        if (atn_policy_save_file(ppath, &pol) == ATN_OK) {
+                            printf("policy_adopt ver=%u (peer tunnel)\n",
+                                   (unsigned)pol.ver);
+                            fflush(stdout);
+                            need_push = 1;
+                        }
                     }
-                    /* Hub never applies phone-authored policy. */
+                    /* Equal/lower ver ignored — never downgrade. */
                 } else if (pt[0] == ATN_COMP_WIRE) {
                     atn_compromise tmp;
                     if (atn_compromise_parse_wire(pt, n, &tmp) == ATN_OK &&

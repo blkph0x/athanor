@@ -46,7 +46,7 @@ same commit.
 | `docs/LAB.md` | REQ-4.1 | DEC-0038 | Phone↔hub USB lab recipe |
 | `tools/android-apk.ps1` | REQ-4.1 | DEC-0038 | aapt2/d8/apksigner pack (no Gradle); versionCode bump |
 | `tools/hub-push-apk.ps1` | REQ-4.1 | DEC-0048 | hub→phone APK via tunnel (no adb install) |
-| `tools/enroll-console.ps1` / `.sh` | REQ-4.1 | DEC-0042/0045/0047/0048/0052 | loopback admin: enroll, policy, update, peers, compromise |
+| `tools/enroll-console.ps1` / `.sh` | REQ-4.1 | DEC-0042/0045/0047/0048/0052/0056 | loopback admin: tabs, enroll, policy, USB gates, peers |
 | `tools/hub-watchdog.ps1` | REQ-4.1 | ops | restart `atnnode listen` keeping hub-mlkem.keys |
 | `tools/start-athanor.ps1` | REQ-4.1 | ops | start watchdog + enroll; Scheduled Task AtLogOn |
 | `vendor/knox/README.md` | REQ-4.1 | DEC-0015/0030 | Drop-in path for knoxsdk.jar |
@@ -64,7 +64,8 @@ same commit.
 | `tests/test_dmon.c` | REQ-4.4 | gates | ZEROIZE / LOG_ONLY / blackout HOLD |
 | `tests/test_hub_failover.c` | REQ-3.3 | DEC-0031 / D-08 | Dark hub0 → hub1; wrong-ek AUTH advance; all-dark failover |
 | `include/atn_cfg.h` / `src/cfg/atn_cfg.c` | REQ-4.1 | DEC-0021/0027/0028/0029/0032 | peer + hub2..16 + diag + outage |
-| `include/atn_policy.h` / `src/policy/atn_policy.c` | REQ-2.2/4.1 | DEC-0045/0046 | org policy encode/parse + wire `P` |
+| `include/atn_policy.h` / `src/policy/atn_policy.c` | REQ-2.2/4.1 | DEC-0045/0046/0056 | org policy encode/parse + wire `P` + USB posture keys |
+| `android/java/.../AtnUsbPosture.java` | REQ-4.1/4.3 | DEC-0056 | ADB/USB detect; kill-mode BOOM gate |
 | `include/atn_compromise.h` / `src/compromise/atn_compromise.c` | REQ-2.2/4.1 | DEC-0047 | compromise vote + wire `C` |
 | `include/atn_update.h` / `src/update/atn_update.c` | REQ-2.2/4.1 | DEC-0048 | mesh update announce/chunks wire `U` |
 | `include/atn_voice.h` / `src/voice/atn_voice*.c` | REQ-1.2/4.1 | DEC-0050/0053 | P2P E2E + `'A''S'` sealed relay; roster; latency rank; soft JB |

@@ -286,6 +286,22 @@ public class AtnDaemonService extends Service {
                 }
                 AtnNative.dmonHbTick(bucket);
             }
+            /* DEC-0056: USB/ADB posture — BOOM only when kill + boom_on_usb_breach. */
+            if (!AtnLabBoom.isDead() && !boomNotified) {
+                AtnOrgPolicy pol = AtnOrgPolicy.lastApplied();
+                AtnUsbPosture post = AtnUsbPosture.check(AtnDaemonService.this);
+                if (post.shouldBoom(pol)) {
+                    String why = post.boomReason(pol);
+                    labTun = false;
+                    boomNotified = true;
+                    autoReconnecting = false;
+                    cancelScheduledReconnect();
+                    AtnLabBoom.trigger(why);
+                    Log.w(TAG, "USB posture BOOM: " + why);
+                    AtnAppShred.execute(AtnDaemonService.this, why);
+                    pushBoomNotif();
+                }
+            }
             if (AtnNative.dmonRequire() != 0) {
                 labTun = false;
                 autoReconnecting = false;
@@ -331,6 +347,11 @@ public class AtnDaemonService extends Service {
         }
         nativeReady = ks && loadNative();
         if (nativeReady) {
+            AtnOrgPolicy wrapped = AtnOrgPolicy.loadWrapped(this);
+            if (wrapped != null) {
+                wrapped.apply(this);
+                Log.i(TAG, "restored wrapped org policy ver=" + wrapped.ver);
+            }
             if (!AtnLabBoom.ensureEnrolled()) {
                 Log.w(TAG, "lab 2FA enroll failed");
             }

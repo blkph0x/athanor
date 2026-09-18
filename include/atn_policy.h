@@ -1,5 +1,5 @@
 /*
- * Org network + device policy (DEC-0045 / DEC-0046).
+ * Org network + device policy (DEC-0045 / DEC-0046 / DEC-0056).
  * Hub-authoritative; phones apply over tunnel; phone stores Keystore wrap.
  *
  * Wire: ATN_TUN_DATA plaintext starts with ATN_POLICY_WIRE ('P'), then
@@ -11,7 +11,7 @@
 #include "atn_cfg.h"
 
 #define ATN_POLICY_WIRE       0x50u /* 'P' */
-#define ATN_POLICY_MAX_TEXT   1024u
+#define ATN_POLICY_MAX_TEXT   1536u
 #define ATN_POLICY_MAX_WIRE   (1u + ATN_POLICY_MAX_TEXT)
 
 #define ATN_POLICY_BOOM_SILENCE_DEFAULT 30u
@@ -31,11 +31,17 @@ typedef struct {
     uint8_t  password_min_len;
     uint8_t  usb_data_block;    /* 1 = charge-only / no data */
     uint8_t  pwd_deny_check;    /* 1 = check deny-hash set */
+    /* DEC-0056 USB/ADB posture (enforce only when wipe_armed=1) */
+    uint8_t  require_adb_off;
+    uint8_t  require_usb_charge_only;
+    uint8_t  enroll_block_on_usb;
+    uint8_t  boom_on_usb_breach;
 } atn_policy;
 
 void atn_policy_init(atn_policy *p);
 int  atn_policy_parse(const char *text, size_t n, atn_policy *p);
 int  atn_policy_load_file(const char *path, atn_policy *p);
+int  atn_policy_save_file(const char *path, const atn_policy *p);
 int  atn_policy_encode(const atn_policy *p, char *out, size_t out_cap,
                        size_t *out_n);
 int  atn_policy_encode_wire(const atn_policy *p, uint8_t *out, size_t out_cap,

@@ -1,5 +1,5 @@
 /*
- * Org network + device policy encode/parse (DEC-0045 / DEC-0046).
+ * Org network + device policy encode/parse (DEC-0045 / DEC-0046 / DEC-0056).
  */
 #include "atn_policy.h"
 #include "atn_crypto.h"
@@ -23,6 +23,10 @@ void atn_policy_init(atn_policy *p)
     p->password_min_len = ATN_POLICY_PWD_MIN_DEFAULT;
     p->usb_data_block = 1;
     p->pwd_deny_check = 1;
+    p->require_adb_off = 0;
+    p->require_usb_charge_only = 0;
+    p->enroll_block_on_usb = 0;
+    p->boom_on_usb_breach = 0;
 }
 
 static int is_ws(char c)
@@ -194,6 +198,31 @@ int atn_policy_parse(const char *text, size_t n, atn_policy *p)
                 return ATN_ERR_PARAM;
             }
             p->pwd_deny_check = (uint8_t)v;
+        } else if (klen == 15 && memcmp(line, "require_adb_off", 15) == 0) {
+            uint32_t v;
+            if (parse_u32(line + vstart, vlen, &v) != ATN_OK || v > 1u) {
+                return ATN_ERR_PARAM;
+            }
+            p->require_adb_off = (uint8_t)v;
+        } else if (klen == 23 &&
+                   memcmp(line, "require_usb_charge_only", 23) == 0) {
+            uint32_t v;
+            if (parse_u32(line + vstart, vlen, &v) != ATN_OK || v > 1u) {
+                return ATN_ERR_PARAM;
+            }
+            p->require_usb_charge_only = (uint8_t)v;
+        } else if (klen == 19 && memcmp(line, "enroll_block_on_usb", 19) == 0) {
+            uint32_t v;
+            if (parse_u32(line + vstart, vlen, &v) != ATN_OK || v > 1u) {
+                return ATN_ERR_PARAM;
+            }
+            p->enroll_block_on_usb = (uint8_t)v;
+        } else if (klen == 18 && memcmp(line, "boom_on_usb_breach", 18) == 0) {
+            uint32_t v;
+            if (parse_u32(line + vstart, vlen, &v) != ATN_OK || v > 1u) {
+                return ATN_ERR_PARAM;
+            }
+            p->boom_on_usb_breach = (uint8_t)v;
         } else {
             return ATN_ERR_PARAM;
         }
@@ -221,6 +250,31 @@ int atn_policy_load_file(const char *path, atn_policy *p)
     fclose(f);
     buf[n] = '\0';
     return atn_policy_parse(buf, n, p);
+}
+
+int atn_policy_save_file(const char *path, const atn_policy *p)
+{
+    char text[ATN_POLICY_MAX_TEXT];
+    size_t tn = 0;
+    FILE *f;
+    if (path == NULL || p == NULL) {
+        return ATN_ERR_PARAM;
+    }
+    if (atn_policy_encode(p, text, sizeof(text), &tn) != ATN_OK) {
+        return ATN_ERR_PARAM;
+    }
+    f = fopen(path, "wb");
+    if (f == NULL) {
+        return ATN_ERR_SOCK;
+    }
+    if (fwrite(text, 1, tn, f) != tn) {
+        fclose(f);
+        atn_memzero(text, sizeof(text));
+        return ATN_ERR_SOCK;
+    }
+    fclose(f);
+    atn_memzero(text, sizeof(text));
+    return ATN_OK;
 }
 
 int atn_policy_encode(const atn_policy *p, char *out, size_t out_cap,
@@ -261,7 +315,11 @@ int atn_policy_encode(const atn_policy *p, char *out, size_t out_cap,
                   "biometric_allowed=%u\n"
                   "password_min_len=%u\n"
                   "usb_data_block=%u\n"
-                  "pwd_deny_check=%u\n",
+                  "pwd_deny_check=%u\n"
+                  "require_adb_off=%u\n"
+                  "require_usb_charge_only=%u\n"
+                  "enroll_block_on_usb=%u\n"
+                  "boom_on_usb_breach=%u\n",
                   (unsigned)p->ver, (unsigned)p->diag, flush,
                   (unsigned)p->wipe_armed, outage,
                   (unsigned)p->boom_silence_s,
@@ -269,7 +327,11 @@ int atn_policy_encode(const atn_policy *p, char *out, size_t out_cap,
                   (unsigned)p->biometric_allowed,
                   (unsigned)p->password_min_len,
                   (unsigned)p->usb_data_block,
-                  (unsigned)p->pwd_deny_check);
+                  (unsigned)p->pwd_deny_check,
+                  (unsigned)p->require_adb_off,
+                  (unsigned)p->require_usb_charge_only,
+                  (unsigned)p->enroll_block_on_usb,
+                  (unsigned)p->boom_on_usb_breach);
     if (nw < 0 || (size_t)nw >= out_cap) {
         return ATN_ERR_PARAM;
     }

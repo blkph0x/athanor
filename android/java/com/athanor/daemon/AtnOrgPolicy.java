@@ -28,6 +28,11 @@ public final class AtnOrgPolicy {
     public int passwordMinLen = 12;
     public int usbDataBlock = 1;
     public int pwdDenyCheck = 1;
+    /* DEC-0056: USB/ADB posture (enforce only when wipeArmed=1). */
+    public int requireAdbOff;
+    public int requireUsbChargeOnly;
+    public int enrollBlockOnUsb;
+    public int boomOnUsbBreach;
 
     private AtnOrgPolicy() {}
 
@@ -97,6 +102,14 @@ public final class AtnOrgPolicy {
                     p.usbDataBlock = oneBit(v);
                 } else if ("pwd_deny_check".equals(k)) {
                     p.pwdDenyCheck = oneBit(v);
+                } else if ("require_adb_off".equals(k)) {
+                    p.requireAdbOff = oneBit(v);
+                } else if ("require_usb_charge_only".equals(k)) {
+                    p.requireUsbChargeOnly = oneBit(v);
+                } else if ("enroll_block_on_usb".equals(k)) {
+                    p.enrollBlockOnUsb = oneBit(v);
+                } else if ("boom_on_usb_breach".equals(k)) {
+                    p.boomOnUsbBreach = oneBit(v);
                 } else {
                     return null;
                 }
@@ -169,7 +182,25 @@ public final class AtnOrgPolicy {
                 + "biometric_allowed=" + biometricAllowed + "\n"
                 + "password_min_len=" + passwordMinLen + "\n"
                 + "usb_data_block=" + usbDataBlock + "\n"
-                + "pwd_deny_check=" + pwdDenyCheck + "\n";
+                + "pwd_deny_check=" + pwdDenyCheck + "\n"
+                + "require_adb_off=" + requireAdbOff + "\n"
+                + "require_usb_charge_only=" + requireUsbChargeOnly + "\n"
+                + "enroll_block_on_usb=" + enrollBlockOnUsb + "\n"
+                + "boom_on_usb_breach=" + boomOnUsbBreach + "\n";
+    }
+
+    private static AtnOrgPolicy lastOrgPolicy;
+
+    /** Last applied org policy (for USB posture). */
+    public static void noteApplied(AtnOrgPolicy p) {
+        lastOrgPolicy = p;
+    }
+
+    public static AtnOrgPolicy lastApplied() {
+        if (lastOrgPolicy != null) {
+            return lastOrgPolicy;
+        }
+        return defaults();
     }
 
     /**
@@ -180,10 +211,13 @@ public final class AtnOrgPolicy {
         AtnLabBoom.setPolicyTimers(boomSilenceS * 1000L, passwordFailMax);
         /* DEC-0054: wipe_armed=1 arms real kill shred; else test boom only. */
         AtnAppShred.setKillMode(wipeArmed == 1);
+        noteApplied(this);
         Log.i(TAG, "policy apply rc=" + rc + " diag=" + diag
                 + " boom_s=" + boomSilenceS + " fail_k=" + passwordFailMax
                 + " wipe_armed=" + wipeArmed
-                + " killMode=" + AtnAppShred.isKillMode());
+                + " killMode=" + AtnAppShred.isKillMode()
+                + " adb_off=" + requireAdbOff
+                + " boom_usb=" + boomOnUsbBreach);
         Log.i(TAG, "applied ver=" + ver + " dmon=" + rc
                 + " boom_s=" + boomSilenceS + " fail_k=" + passwordFailMax
                 + " bio=" + biometricAllowed + " usb_block=" + usbDataBlock);
@@ -192,7 +226,7 @@ public final class AtnOrgPolicy {
             ComponentName admin = AtnDeviceAdminReceiver.component(ctx);
             if (!AtnKnoxBuild.isStub() && AtnDeviceAdminReceiver.isAdminActive(ctx)) {
                 AtnKnoxPolicy.applyOrgDeviceLock(ctx, admin, this);
-                if (usbDataBlock == 1) {
+                if (usbDataBlock == 1 || requireUsbChargeOnly == 1) {
                     AtnKnoxPolicy.applyUsbChargeOnly(ctx);
                 }
             } else if (AtnKnoxBuild.isStub()) {

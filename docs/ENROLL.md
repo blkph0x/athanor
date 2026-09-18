@@ -12,11 +12,14 @@ One-time on a new clone: copy `lab/org.local.json.example` → `lab/org.local.js
 fill real IPs, then `tools/install-git-hooks` so push is blocked if org values
 leak into tracked files.
 
-**Network-wide policy (DEC-0045 / DEC-0046):** **Save network policy** writes
-`lab/org-policy.conf` (boom silence, password-fail K, biometrics off,
-alphanumeric min length, USB data block, leak-password deny check). Hub
-pushes to phones; phones store **Keystore-wrapped** `atn-policy.bin` and
-wipe plaintext after apply. Rebuild deny hashes from rockyou locally:
+**Network-wide policy (DEC-0045 / DEC-0046 / DEC-0056):** Tabbed admin
+(**Security**) writes `lab/org-policy.conf` (boom silence, password-fail K,
+biometrics, USB data block, leak-password deny, plus kill-mode USB/ADB
+gates). Hub pushes `'P'` to ESTABLISHED phones and fans out to peer hubs;
+offline nodes catch up on rejoin. Phones store **Keystore-wrapped**
+`atn-policy.bin`. USB Connect & Enroll is blocked when `wipe_armed=1` and
+`enroll_block_on_usb=1` with ADB/charge-only requirements — bootstrap with
+gates off, then arm. Rebuild deny hashes from rockyou locally:
 
 `python tools/gen_pwd_deny.py --rockyou /path/to/rockyou.txt`
 

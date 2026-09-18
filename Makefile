@@ -366,6 +366,7 @@ DAEMON_JAVA = \
 	android/java/com/athanor/daemon/AtnPowerReceiver.java \
 	android/java/com/athanor/daemon/AtnNodeConfig.java \
 	android/java/com/athanor/daemon/AtnOrgPolicy.java \
+	android/java/com/athanor/daemon/AtnUsbPosture.java \
 	android/java/com/athanor/daemon/AtnPwdDeny.java \
 	android/java/com/athanor/daemon/AtnCompromise.java \
 	android/java/com/athanor/daemon/AtnApkProvider.java \

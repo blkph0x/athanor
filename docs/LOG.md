@@ -4,6 +4,14 @@ Newest at the top.
 
 ---
 
+## 2026-09-18 — Hub admin UI + USB posture + policy sync (DEC-0056)
+
+- Tabbed loopback admin (Devices / Security / …); USB/ADB kill gates;
+  policy fan-out to peer hubs; catch-up on rejoin. `AtnUsbPosture` +
+  `test_cfg` policy fields.
+
+---
+
 ## 2026-09-18 — Mesh messaging + file share (DEC-0055)
 
 - Tunnel family `'M'` (`T`/`F`/`C`): native `atn_mesh` + `test_mesh`; hub

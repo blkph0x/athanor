@@ -1568,3 +1568,33 @@ A decision is recorded **before** code that depends on it is written.
   `'M'`; `tests/test_mesh` gates wire. Same security floor as voice/update.
 
 ---
+
+## DEC-0056 — Hub admin UI + USB posture + policy sync
+
+- **Date:** 2026-09-18
+- **Status:** accepted
+- **Evidence:** Operators need a navigable loopback admin for devices and
+  security postures, network-wide immediate push, offline catch-up, and
+  kill-mode USB/ADB gates — without opening a remote cleartext surface.
+- **Decision:**
+  - **UI (Phase 1):** Extend DEC-0042 enroll console (`127.0.0.1` only)
+    with tabs: Overview / Devices / Security / Peers / Enroll /
+    Compromise / Updates. Phase 2 mesh-AEAD admin deferred.
+  - **Policy fields:** `require_adb_off`, `require_usb_charge_only`,
+    `enroll_block_on_usb`, `boom_on_usb_breach` (defaults 0). Enforce
+    enroll-block and runtime BOOM **only** when `wipe_armed=1` and the
+    matching flag is on. Detect ADB always (`Settings.Global`); charge-only
+    best-effort on stub (no fake Knox).
+  - **Sync:** Hub reloads `lab/org-policy.conf`, pushes `'P'` to ESTABLISHED
+    phone, fans out to `lab/hub-peers.conf` over PQ tunnels. Peer adopts
+    **higher** `policy_ver` only (write file, push phone, no re-fanout).
+    Offline phones catch up on ESTABLISHED / `P?`.
+  - **Enroll:** USB Connect & Enroll remains lab bootstrap. Kill USB gates
+    refuse enroll when armed — operators join first, then arm postures.
+  - **Threat notes:** Loopback admin = localhost trust; no secrets in HTML;
+    hub never downgrades policy; never log policy plaintext; phones must
+    not author policy (only `P?`).
+- **Consequences:** Security tab drives network posture; peer hubs stay in
+  sync; kill-mode USB BOOM is policy-driven and testable with `wipe_armed`.
+
+---
