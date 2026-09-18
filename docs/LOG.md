@@ -4,6 +4,14 @@ Newest at the top.
 
 ---
 
+## 2026-09-18 — Start Athanor + logon keep-alive
+
+- `tools/start-athanor.ps1`: start hub-watchdog (respawns `atnnode listen`),
+  enroll console, register Scheduled Task **AthanorHubWatchdog** AtLogOn.
+- Watchdog already polls UDP 47000 / process health every 3s.
+
+---
+
 ## 2026-09-10 — Voice soft latency + hub-drop hold (DEC-0053)
 
 - Native: JB soft retarget 40–480 ms (`atn_voice_jb_set_target_ms`); PROBE →
