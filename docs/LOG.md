@@ -6,10 +6,10 @@ Newest at the top.
 
 ## 2026-09-18 — Standalone vault + crypto-shred BOOM (DEC-0054)
 
-- `AtnVault` + `AtnAppShred`: BOOM kills tunnel, zeroizes dmon keys, destroys
-  Keystore alias, overwrite-deletes conf/contacts/updates/vault. Works
-  without Knox; real Knox still adds `wipeData` after shred.
-- Contacts sealed in vault; all boom triggers share one shred path.
+- `AtnVault` + `AtnAppShred`: default **test boom** (UI dead, keys kept).
+  Real kill shred only when `wipe_armed=1`. Knox `wipeData` only in kill
+  mode with jar+admin.
+- Contacts sealed in vault; all boom triggers share one path.
 
 ---
 

@@ -634,8 +634,10 @@ public class AtnDaemonService extends Service {
         }
         int pol = AtnNative.dmonSetPolicy(c.diag, c.flushMode, c.wipeArmed,
                 c.outageClass);
+        AtnAppShred.setKillMode(c.wipeArmed == 1);
         Log.i(TAG, "lab policy rc=" + pol + " diag=" + c.diag
-                + " flush=" + c.flushMode);
+                + " flush=" + c.flushMode + " wipe_armed=" + c.wipeArmed
+                + " killMode=" + AtnAppShred.isKillMode());
         /* DEC-0046: wrapped org overlay overrides enroll seed when present. */
         AtnOrgPolicy wrapped = AtnOrgPolicy.loadWrapped(this);
         if (wrapped != null) {

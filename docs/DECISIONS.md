@@ -1500,11 +1500,11 @@ A decision is recorded **before** code that depends on it is written.
     `filesDir/vault/*.aead` with Android Keystore AES-256-GCM
     (`AtnKeystore` alias `atn-device`). Same crypto posture as DEC-0016
     wrap — not a classical downgrade.
-  - **BOOM / shred (`AtnAppShred`):** hang up voice; `dmonFlush` (closes
-    tunnel + zeroizes native keys); overwrite+delete sensitive files
-    (conf, wraps, updates, vault); delete Keystore alias so ciphertext
-    cannot be decrypted; stop reconnect. All boom triggers (compromise,
-    silence, unlock K, app-code K, require-flush) call this path.
+  - **BOOM / shred (`AtnAppShred`):** default **test mode** — UI dead +
+    hangup, keys/vault kept (lab soak). **Kill mode** only when
+    `wipe_armed=1` (org policy / conf): then `dmonFlush`, overwrite+delete
+    sensitive files, destroy Keystore alias, optional Knox `wipeData`.
+    All boom triggers share this gate.
   - **Messaging:** Call/media already ride PQ/AEAD tunnels (DEC-0050).
     No parallel cleartext messenger. Future sealed chat blobs use the
     vault + same tunnel floor.
@@ -1513,8 +1513,8 @@ A decision is recorded **before** code that depends on it is written.
     the Keystore key is the cryptographic SoT for vault ciphertext.
     `atn-node.conf` remains plaintext for native parse until a later
     DEC seals it; shred still destroys it on BOOM.
-- **Consequences:** Lab/stub phones get irreversible app-realm destroy
-  without Partner jar. Knox remains a stronger whole-device option when
+- Consequences: Lab/stub phones prove boom without destroy until
+  `wipe_armed=1`. Knox remains a stronger whole-device option when
   available.
 
 ---

@@ -178,6 +178,12 @@ public final class AtnOrgPolicy {
     public void apply(Context ctx) {
         int rc = AtnNative.dmonSetPolicy(diag, flushMode, wipeArmed, outageClass);
         AtnLabBoom.setPolicyTimers(boomSilenceS * 1000L, passwordFailMax);
+        /* DEC-0054: wipe_armed=1 arms real kill shred; else test boom only. */
+        AtnAppShred.setKillMode(wipeArmed == 1);
+        Log.i(TAG, "policy apply rc=" + rc + " diag=" + diag
+                + " boom_s=" + boomSilenceS + " fail_k=" + passwordFailMax
+                + " wipe_armed=" + wipeArmed
+                + " killMode=" + AtnAppShred.isKillMode());
         Log.i(TAG, "applied ver=" + ver + " dmon=" + rc
                 + " boom_s=" + boomSilenceS + " fail_k=" + passwordFailMax
                 + " bio=" + biometricAllowed + " usb_block=" + usbDataBlock);

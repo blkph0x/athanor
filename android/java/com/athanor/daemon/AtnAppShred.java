@@ -11,15 +11,16 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 
 /**
- * Standalone app-scoped BOOM (DEC-0054). Works with or without Knox:
- * tear down mesh, zeroize native keys, destroy Keystore wrap keys, and
- * overwrite+delete app files so ciphertext cannot be decoded. Knox
- * wipeData remains an extra factory path when jar + Device Admin active.
+ * App-scoped BOOM (DEC-0054). Default is <b>test mode</b>: UI dead + hangup
+ * + stop mesh use, keys and vault kept (lab soak). Kill mode (real shred)
+ * only when {@code wipe_armed=1} from org policy / conf.
  */
 public final class AtnAppShred {
     private static final String TAG = "atn-shred";
     private static final Object LOCK = new Object();
     private static volatile boolean shredded;
+    /* Default OFF — DEC-0054 lab: prove boom without destroying data. */
+    private static volatile boolean killMode;
 
     private static final String[] SENSITIVE_NAMES = {
             "atn-node.conf",
@@ -41,25 +42,42 @@ public final class AtnAppShred {
         return shredded;
     }
 
+    public static boolean isKillMode() {
+        return killMode;
+    }
+
+    /** From org policy / conf wipe_armed (1 = real crypto-shred). */
+    public static void setKillMode(boolean kill) {
+        killMode = kill;
+        Log.i(TAG, kill ? "KILL mode armed (wipe_armed=1)"
+                : "TEST mode (boom UI only; keys kept)");
+    }
+
     /**
-     * Irreversible app-realm destroy. Safe to call repeatedly.
-     * @return true if this call performed shred (or already shredded)
+     * BOOM entry. Test mode: mark dead + hangup, keep keys/files.
+     * Kill mode: irreversible shred (+ Knox wipeData when available).
      */
     public static boolean execute(Context ctx, String why) {
         synchronized (LOCK) {
-            AtnLabBoom.trigger(why != null ? why : "app shred");
-            if (shredded) {
-                /* Still re-flush network path. */
-                killNetwork();
-                return true;
-            }
-            Log.w(TAG, "SHRED begin: " + why);
-            killNetwork();
+            String reason = why != null ? why : "app boom";
+            AtnLabBoom.trigger(reason);
             try {
                 AtnVoice.hangup();
             } catch (Exception e) {
                 Log.w(TAG, "voice hangup: " + e.getMessage());
             }
+            if (!killMode) {
+                Log.w(TAG, "TEST BOOM (no shred): " + reason);
+                return true;
+            }
+            if (shredded) {
+                try {
+                    AtnNative.dmonFlush();
+                } catch (Exception ignored) {
+                }
+                return true;
+            }
+            Log.w(TAG, "KILL SHRED begin: " + reason);
             try {
                 AtnNative.dmonFlush();
             } catch (Exception e) {
@@ -71,7 +89,7 @@ public final class AtnAppShred {
                 AtnVault.shredAll(app);
                 shredNamed(app, rng);
                 shredDir(new File(app.getFilesDir(), "updates"), rng);
-                shredDir(new File(app.getCacheDir(), ""), rng);
+                shredDir(app.getCacheDir(), rng);
                 try {
                     app.getSharedPreferences("atn", Context.MODE_PRIVATE)
                             .edit().clear().commit();
@@ -84,13 +102,9 @@ public final class AtnAppShred {
                 AtnKeystore.destroyKey();
             }
             shredded = true;
-            Log.w(TAG, "SHRED done — app data cryptographically dead");
+            Log.w(TAG, "KILL SHRED done — app data cryptographically dead");
             return true;
         }
-    }
-
-    private static void killNetwork() {
-        /* dmonFlush closes + wipes tunnel; called by execute(). */
     }
 
     private static void shredNamed(Context ctx, SecureRandom rng) {
@@ -122,7 +136,6 @@ public final class AtnAppShred {
         dir.delete();
     }
 
-    /** Overwrite with random then delete. Package-visible for AtnVault. */
     static void shredFile(File f, SecureRandom rng) {
         if (f == null || !f.isFile()) {
             return;
@@ -160,7 +173,7 @@ public final class AtnAppShred {
 
     private static void maybeKnoxWipe(Context ctx) {
         if (AtnKnoxBuild.isStub() || !AtnDeviceAdminReceiver.isAdminActive(ctx)) {
-            Log.i(TAG, "standalone shred complete (no Knox factory wipe)");
+            Log.i(TAG, "kill shred complete (no Knox factory wipe)");
             return;
         }
         try {
@@ -170,7 +183,7 @@ public final class AtnAppShred {
             if (dpm != null) {
                 dpm.wipeData(0);
             }
-            Log.w(TAG, "Knox wipeData after app shred admin=" + admin);
+            Log.w(TAG, "Knox wipeData after kill shred admin=" + admin);
         } catch (SecurityException e) {
             Log.w(TAG, "wipeData SecurityException", e);
         } catch (UnsupportedOperationException e) {
