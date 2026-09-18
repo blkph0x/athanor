@@ -64,8 +64,9 @@ public class AtnDeviceAdminReceiver extends DeviceAdminReceiver {
             /* DEC-0040/0046 lab: BOOM at org password_fail_max. */
             int k = AtnLabBoom.failMax();
             if (n >= k) {
-                AtnLabBoom.trigger("device unlock fail x" + n + " (lab)");
                 Log.w(TAG, "LAB BOOM: device unlock fail x" + n);
+                AtnAppShred.execute(context,
+                        "device unlock fail x" + n + " (lab)");
                 Intent svc = new Intent(context, AtnDaemonService.class);
                 svc.setAction(AtnDaemonService.ACTION_LAB_BOOM);
                 if (Build.VERSION.SDK_INT >= 26) {
@@ -79,8 +80,8 @@ public class AtnDeviceAdminReceiver extends DeviceAdminReceiver {
 
         int k = AtnLabBoom.failMax();
         if (n >= k) {
-            AtnNative.dmonFlush();
-            AtnKeystore.deleteWrap(context);
+            AtnAppShred.execute(context,
+                    "device unlock fail x" + n + " (knox)");
             dpm.lockNow();
         }
     }

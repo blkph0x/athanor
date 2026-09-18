@@ -353,6 +353,8 @@ DAEMON_JAVA = \
 	android/java/com/athanor/daemon/AtnKnoxBuild.java \
 	android/java/com/athanor/daemon/AtnKnoxPolicy.java \
 	android/java/com/athanor/daemon/AtnKeystore.java \
+	android/java/com/athanor/daemon/AtnVault.java \
+	android/java/com/athanor/daemon/AtnAppShred.java \
 	android/java/com/athanor/daemon/AtnDeviceAdminReceiver.java \
 	android/java/com/athanor/daemon/AtnBootReceiver.java \
 	android/java/com/athanor/daemon/AtnPowerReceiver.java \

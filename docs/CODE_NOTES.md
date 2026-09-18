@@ -71,7 +71,8 @@ same commit.
 | `tests/test_voice.c` | REQ-1.2 | DEC-0050/0053 | direct E2E, opaque hub, latency, roster, soft JB/PROBE |
 | `docs/VOICE.md` | REQ-1.2 | DEC-0050/0053 | trust model; mid-call bounce / soft cadence |
 | `android/java/.../AtnVoice.java` | REQ-4.1 | DEC-0050/0053 | lab call + PROBE JB + transport hold/restore |
-| `android/java/.../AtnContacts.java` | REQ-4.1 | DEC-0050 | lab contact roster filesDir |
+| `android/java/.../AtnVault.java` | REQ-4.1 | DEC-0054 | Keystore AEAD vault under filesDir/vault |
+| `android/java/.../AtnAppShred.java` | REQ-4.1 | DEC-0054 | standalone crypto-shred BOOM (no Knox req) |
 | `tests/test_cfg.c` | REQ-4.1 | gates | parse/ready/hubs/diag/outage/cap16/policy/compromise/update |
 | `include/atn_sign.h` / `src/sign/atn_sign.c` | REQ-5.1 | DEC-0019/0021/0027 | Manifest + report `diag=` |
 | `docs/SIGN.md` | REQ-5.1 | DEC-0019/0021/0027 | Manifest + report wire format |

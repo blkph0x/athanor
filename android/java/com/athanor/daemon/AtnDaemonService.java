@@ -81,6 +81,7 @@ public class AtnDaemonService extends Service {
                 if (!boomNotified) {
                     boomNotified = true;
                     Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
+                    AtnAppShred.execute(AtnDaemonService.this, AtnLabBoom.reason());
                     pushBoomNotif();
                 }
                 tickHandler.postDelayed(this, TICK_MS);
@@ -249,6 +250,7 @@ public class AtnDaemonService extends Service {
                     autoReconnecting = false;
                     cancelScheduledReconnect();
                     Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
+                    AtnAppShred.execute(AtnDaemonService.this, AtnLabBoom.reason());
                     pushBoomNotif();
                 } else if (autoReconnecting || !net
                         || st == AtnNative.TUN_HANDSHAKE
@@ -278,10 +280,11 @@ public class AtnDaemonService extends Service {
                 labTun = false;
                 autoReconnecting = false;
                 cancelScheduledReconnect();
-                AtnKeystore.deleteWrap(AtnDaemonService.this);
                 AtnLabBoom.clearEnrolled();
-                AtnLabBoom.trigger("native require failed (flush)");
-                Log.w(TAG, "hb UNTRUSTED/DEAD: wrap deleted");
+                AtnAppShred.execute(AtnDaemonService.this,
+                        "native require failed (flush)");
+                boomNotified = true;
+                Log.w(TAG, "hb UNTRUSTED/DEAD: app shred");
                 pushBoomNotif();
             }
             tickHandler.postDelayed(this, TICK_MS);
@@ -702,6 +705,7 @@ public class AtnDaemonService extends Service {
             boomNotified = true;
             autoReconnecting = false;
             cancelScheduledReconnect();
+            AtnAppShred.execute(this, AtnLabBoom.reason());
             Log.w(TAG, "LAB BOOM: " + AtnLabBoom.reason());
             pushBoomNotif();
         }

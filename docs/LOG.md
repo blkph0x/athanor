@@ -4,6 +4,15 @@ Newest at the top.
 
 ---
 
+## 2026-09-18 — Standalone vault + crypto-shred BOOM (DEC-0054)
+
+- `AtnVault` + `AtnAppShred`: BOOM kills tunnel, zeroizes dmon keys, destroys
+  Keystore alias, overwrite-deletes conf/contacts/updates/vault. Works
+  without Knox; real Knox still adds `wipeData` after shred.
+- Contacts sealed in vault; all boom triggers share one shred path.
+
+---
+
 ## 2026-09-18 — Start Athanor + logon keep-alive
 
 - `tools/start-athanor.ps1`: start hub-watchdog (respawns `atnnode listen`),

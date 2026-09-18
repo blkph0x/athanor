@@ -1,15 +1,15 @@
 package com.athanor.daemon;
 
-import android.app.admin.DevicePolicyManager;
-import android.content.ComponentName;
 import android.content.Context;
 import android.util.Log;
 
 import java.util.Arrays;
 
+
 /**
- * Compromise vote wire + local boom (DEC-0047).
+ * Compromise vote wire + local boom (DEC-0047/0054).
  * Wire: 'C' + key=value over tunnel AEAD (no parallel HMAC; DEC-0025 reuse).
+ * Boom → AtnAppShred (app crypto-shred; Knox wipeData when jar+admin).
  */
 public final class AtnCompromise {
     private static final String TAG = "atn-comp";
@@ -166,34 +166,6 @@ public final class AtnCompromise {
     }
 
     public static void executeBoom(Context ctx, String why) {
-        if (!AtnLabBoom.trigger(why)) {
-            /* already dead — still flush */
-        }
-        AtnNative.dmonFlush();
-        if (ctx != null) {
-            AtnKeystore.deleteWrap(ctx);
-        }
-        Log.w(TAG, "BOOM: " + why);
-        if (ctx == null) {
-            return;
-        }
-        if (AtnKnoxBuild.isStub() || !AtnDeviceAdminReceiver.isAdminActive(ctx)) {
-            Log.i(TAG, "stub/lab: boom signal proven; Knox wipe waits T-0400");
-            return;
-        }
-        try {
-            DevicePolicyManager dpm = (DevicePolicyManager)
-                    ctx.getSystemService(Context.DEVICE_POLICY_SERVICE);
-            ComponentName admin = AtnDeviceAdminReceiver.component(ctx);
-            if (dpm != null) {
-                /* Production: factory reset path when DO/Knox present. */
-                dpm.wipeData(0);
-            }
-            Log.w(TAG, "wipeData tripped admin=" + admin);
-        } catch (SecurityException e) {
-            Log.w(TAG, "wipeData SecurityException", e);
-        } catch (UnsupportedOperationException e) {
-            Log.w(TAG, "wipeData unavailable", e);
-        }
+        AtnAppShred.execute(ctx, why != null ? why : "compromise boom");
     }
 }

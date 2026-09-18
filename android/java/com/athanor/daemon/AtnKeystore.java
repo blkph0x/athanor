@@ -255,4 +255,80 @@ public final class AtnKeystore {
         }
         ctx.deleteFile(WRAP_FILE);
     }
+
+    /**
+     * Delete Android Keystore alias so wrapped blobs cannot be decrypted
+     * (DEC-0054 standalone shred). Idempotent.
+     */
+    public static void destroyKey() {
+        try {
+            KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+            ks.load(null);
+            if (ks.containsAlias(ALIAS)) {
+                ks.deleteEntry(ALIAS);
+                Log.w(TAG, "Keystore alias destroyed: " + ALIAS);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "destroyKey failed", e);
+        }
+    }
+
+    /**
+     * Wrap up to 256 KiB for vault blobs (DEC-0054). Same AES-GCM as wrapData.
+     */
+    public static byte[] wrapDataFlexible(byte[] pt) {
+        if (pt == null || pt.length == 0 || pt.length > 256 * 1024) {
+            return null;
+        }
+        if (!ensureKey()) {
+            return null;
+        }
+        try {
+            KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+            ks.load(null);
+            SecretKey key = (SecretKey) ks.getKey(ALIAS, null);
+            if (key == null) {
+                return null;
+            }
+            Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
+            c.init(Cipher.ENCRYPT_MODE, key);
+            byte[] iv = c.getIV();
+            if (iv == null || iv.length != IV_LEN) {
+                return null;
+            }
+            byte[] ct = c.doFinal(pt);
+            byte[] out = new byte[IV_LEN + ct.length];
+            System.arraycopy(iv, 0, out, 0, IV_LEN);
+            System.arraycopy(ct, 0, out, IV_LEN, ct.length);
+            return out;
+        } catch (Exception e) {
+            Log.e(TAG, "wrapDataFlexible failed", e);
+            return null;
+        }
+    }
+
+    public static byte[] unwrapDataFlexible(byte[] blob) {
+        if (blob == null || blob.length <= IV_LEN
+                || blob.length > 256 * 1024 + 64) {
+            return null;
+        }
+        try {
+            KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
+            ks.load(null);
+            SecretKey key = (SecretKey) ks.getKey(ALIAS, null);
+            if (key == null) {
+                return null;
+            }
+            byte[] iv = new byte[IV_LEN];
+            byte[] ct = new byte[blob.length - IV_LEN];
+            System.arraycopy(blob, 0, iv, 0, IV_LEN);
+            System.arraycopy(blob, IV_LEN, ct, 0, ct.length);
+            Cipher c = Cipher.getInstance("AES/GCM/NoPadding");
+            c.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_BITS, iv));
+            return c.doFinal(ct);
+        } catch (Exception e) {
+            Log.e(TAG, "unwrapDataFlexible failed", e);
+            return null;
+        }
+    }
 }

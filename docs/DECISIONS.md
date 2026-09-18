@@ -1486,6 +1486,39 @@ A decision is recorded **before** code that depends on it is written.
 
 ---
 
+## DEC-0054 — Standalone app-scoped vault + crypto-shred BOOM (no Knox required)
+
+- **Date:** 2026-09-18
+- **Status:** accepted
+- **Evidence:** Partner Knox jar (T-0400) may lag. Operators still need
+  BOOM to kill mesh and make app-held secrets unrecoverable on a normal
+  Android app install — without claiming full-device factory wipe.
+- **Decision:**
+  - **Dual mode:** Stub / no Device Owner = **standalone** shred only.
+    Real Knox + active Device Admin = shred **then** `wipeData` (DEC-0047).
+  - **Vault:** `AtnVault` seals contacts (and future blobs) under
+    `filesDir/vault/*.aead` with Android Keystore AES-256-GCM
+    (`AtnKeystore` alias `atn-device`). Same crypto posture as DEC-0016
+    wrap — not a classical downgrade.
+  - **BOOM / shred (`AtnAppShred`):** hang up voice; `dmonFlush` (closes
+    tunnel + zeroizes native keys); overwrite+delete sensitive files
+    (conf, wraps, updates, vault); delete Keystore alias so ciphertext
+    cannot be decrypted; stop reconnect. All boom triggers (compromise,
+    silence, unlock K, app-code K, require-flush) call this path.
+  - **Messaging:** Call/media already ride PQ/AEAD tunnels (DEC-0050).
+    No parallel cleartext messenger. Future sealed chat blobs use the
+    vault + same tunnel floor.
+  - **Honest limits:** App sandbox shred ≠ TIMA/Knox factory brick.
+    Forensic recovery of overwritten flash is out of scope; destroying
+    the Keystore key is the cryptographic SoT for vault ciphertext.
+    `atn-node.conf` remains plaintext for native parse until a later
+    DEC seals it; shred still destroys it on BOOM.
+- **Consequences:** Lab/stub phones get irreversible app-realm destroy
+  without Partner jar. Knox remains a stronger whole-device option when
+  available.
+
+---
+
 ## DEC-0053 — Voice soft latency / hub-bounce mid-call (no hangup)
 
 - **Date:** 2026-09-10

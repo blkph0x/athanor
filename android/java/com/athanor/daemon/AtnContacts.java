@@ -9,11 +9,12 @@ import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
- * Lab contact roster (DEC-0050). label ipv4 port ek_hex [hub_ip hub_port ...]
- * Stored under filesDir; no cloud sync.
+ * Contact roster (DEC-0050/0054). Sealed in AtnVault when Keystore available;
+ * plaintext atn-contacts.conf is legacy migrate-once then removed.
  */
 public final class AtnContacts {
     private static final String FILE = "atn-contacts.conf";
@@ -31,6 +32,17 @@ public final class AtnContacts {
 
     public static List<Entry> load(Context ctx) {
         List<Entry> out = new ArrayList<Entry>();
+        byte[] sealed = AtnVault.get(ctx, AtnVault.CONTACTS);
+        if (sealed != null) {
+            try {
+                String text = new String(sealed, StandardCharsets.UTF_8);
+                parseInto(text, out);
+            } finally {
+                Arrays.fill(sealed, (byte) 0);
+            }
+            return out;
+        }
+        /* Legacy plaintext → migrate into vault. */
         File f = new File(ctx.getFilesDir(), FILE);
         if (!f.isFile()) {
             return out;
@@ -38,14 +50,24 @@ public final class AtnContacts {
         try {
             BufferedReader br = new BufferedReader(new InputStreamReader(
                     new FileInputStream(f), StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
             String line;
             while ((line = br.readLine()) != null) {
+                sb.append(line).append('\n');
                 Entry e = parseLine(line);
                 if (e != null) {
                     out.add(e);
                 }
             }
             br.close();
+            if (out.size() > 0) {
+                byte[] raw = sb.toString().getBytes(StandardCharsets.UTF_8);
+                if (AtnVault.put(ctx, AtnVault.CONTACTS, raw)) {
+                    //noinspection ResultOfMethodCallIgnored
+                    f.delete();
+                }
+                Arrays.fill(raw, (byte) 0);
+            }
         } catch (Exception ignored) {
         }
         return out;
@@ -53,7 +75,7 @@ public final class AtnContacts {
 
     public static boolean save(Context ctx, List<Entry> list) {
         StringBuilder sb = new StringBuilder();
-        sb.append("# DEC-0050 contacts: label ipv4 port ek_hex [hub_ip hub_port]\n");
+        sb.append("# DEC-0050/0054 contacts (vault)\n");
         if (list != null) {
             for (Entry e : list) {
                 if (e == null || e.label == null || e.label.length() == 0) {
@@ -67,6 +89,16 @@ public final class AtnContacts {
                 sb.append('\n');
             }
         }
+        byte[] raw = sb.toString().getBytes(StandardCharsets.UTF_8);
+        boolean ok = AtnVault.put(ctx, AtnVault.CONTACTS, raw);
+        Arrays.fill(raw, (byte) 0);
+        if (ok) {
+            File legacy = new File(ctx.getFilesDir(), FILE);
+            //noinspection ResultOfMethodCallIgnored
+            legacy.delete();
+            return true;
+        }
+        /* Fallback plaintext only if vault/Keystore unavailable. */
         try {
             FileOutputStream fos = new FileOutputStream(
                     new File(ctx.getFilesDir(), FILE));
@@ -75,6 +107,16 @@ public final class AtnContacts {
             return true;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    private static void parseInto(String text, List<Entry> out) {
+        String[] lines = text.split("\n");
+        for (int i = 0; i < lines.length; i++) {
+            Entry e = parseLine(lines[i]);
+            if (e != null) {
+                out.add(e);
+            }
         }
     }
 

@@ -636,8 +636,8 @@ public class AtnLabActivity extends Activity {
         if (AtnLabBoom.isDead()) {
             boomBanner.setVisibility(View.VISIBLE);
             boomBanner.setText("BOOM phone is dead now\n" + AtnLabBoom.reason());
-            status.setText("LAB DEAD (diag/log_only - keys kept)\n"
-                    + "tap Start/reconnect to reset soak");
+            status.setText("DEAD — app shred (DEC-0054)\n"
+                    + "mesh keys + vault destroyed; reconnect needs re-enroll");
             if (callMeshBanner != null) {
                 callMeshBanner.setTextColor(Color.RED);
                 callMeshBanner.setText("mesh: DEAD — " + AtnLabBoom.reason());
