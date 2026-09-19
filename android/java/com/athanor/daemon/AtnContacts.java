@@ -26,6 +26,8 @@ public final class AtnContacts {
         public String ekHex = "";
         public String hubIpv4 = "";
         public int hubPort;
+        /** "hub" or "node" — messaging roster kind (DEC-0057). */
+        public String kind = "node";
     }
 
     private AtnContacts() {}
@@ -86,6 +88,11 @@ public final class AtnContacts {
                 if (e.hubIpv4 != null && e.hubIpv4.length() > 0 && e.hubPort > 0) {
                     sb.append(' ').append(e.hubIpv4).append(' ').append(e.hubPort);
                 }
+                String k = e.kind != null ? e.kind.trim() : "node";
+                if (!"hub".equals(k) && !"node".equals(k)) {
+                    k = "node";
+                }
+                sb.append(' ').append(k);
                 sb.append('\n');
             }
         }
@@ -124,7 +131,8 @@ public final class AtnContacts {
         List<Entry> cur = load(ctx);
         for (Entry e : cur) {
             if ("hub".equals(e.label)) {
-                return true;
+                e.kind = "hub";
+                return save(ctx, cur);
             }
         }
         Entry e = new Entry();
@@ -132,6 +140,26 @@ public final class AtnContacts {
         e.ipv4 = "127.0.0.1";
         e.port = 46000;
         e.ekHex = "00"; /* placeholder — replace via enroll */
+        e.kind = "hub";
+        cur.add(e);
+        return save(ctx, cur);
+    }
+
+    /** Ensure a demo peer node contact for Messages roster (DEC-0057). */
+    public static boolean addDemoNode(Context ctx) {
+        List<Entry> cur = load(ctx);
+        for (Entry e : cur) {
+            if ("node-demo".equals(e.label)) {
+                e.kind = "node";
+                return save(ctx, cur);
+            }
+        }
+        Entry e = new Entry();
+        e.label = "node-demo";
+        e.ipv4 = "127.0.0.1";
+        e.port = 46001;
+        e.ekHex = "00";
+        e.kind = "node";
         cur.add(e);
         return save(ctx, cur);
     }
@@ -157,14 +185,39 @@ public final class AtnContacts {
             return null;
         }
         e.ekHex = p[3];
-        if (p.length >= 6) {
+        int idx = 4;
+        if (p.length >= 6 && looksIpv4(p[4])) {
             e.hubIpv4 = p[4];
             try {
                 e.hubPort = Integer.parseInt(p[5]);
             } catch (Exception ex) {
                 e.hubPort = 0;
             }
+            idx = 6;
+        }
+        if (p.length > idx && ("hub".equals(p[idx]) || "node".equals(p[idx]))) {
+            e.kind = p[idx];
+        } else if ("hub".equals(e.label)) {
+            e.kind = "hub";
+        } else {
+            e.kind = "node";
         }
         return e;
+    }
+
+    private static boolean looksIpv4(String s) {
+        if (s == null || s.length() == 0) {
+            return false;
+        }
+        int dots = 0;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '.') {
+                dots++;
+            } else if (c < '0' || c > '9') {
+                return false;
+            }
+        }
+        return dots == 3;
     }
 }

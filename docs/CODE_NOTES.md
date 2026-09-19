@@ -72,9 +72,11 @@ same commit.
 | `tests/test_voice.c` | REQ-1.2 | DEC-0050/0053 | direct E2E, opaque hub, latency, roster, soft JB/PROBE |
 | `docs/VOICE.md` | REQ-1.2 | DEC-0050/0053 | trust model; mid-call bounce / soft cadence |
 | `android/java/.../AtnVoice.java` | REQ-4.1 | DEC-0050/0053 | lab call + PROBE JB + transport hold/restore |
-| `include/atn_mesh.h` / `src/mesh/atn_mesh.c` | REQ-4.1 | DEC-0055 | `'M'` text/file/chunk wire |
-| `tests/test_mesh.c` | REQ-4.1 | DEC-0055 | encode/parse gates |
-| `android/java/.../AtnMesh.java` | REQ-4.1 | DEC-0055 | chat + file share over tun; vault at rest |
+| `include/atn_mesh.h` / `src/mesh/atn_mesh.c` | REQ-4.1 | DEC-0055/0057 | `'M'` text/file/chunk wire (`from`+`to`) |
+| `tests/test_mesh.c` | REQ-4.1 | DEC-0055/0057 | encode/parse gates |
+| `android/java/.../AtnMesh.java` | REQ-4.1 | DEC-0055/0057 | chat + file share; per-peer vault threads |
+| `lab/admin-role.conf` | REQ-4.1 | DEC-0057 | primary vs secondary admin hub |
+| `.github/workflows/release.yml` | REQ-6.x | DEC-0057 | tagged release assets |
 | `android/java/.../AtnVault.java` | REQ-4.1 | DEC-0054 | Keystore AEAD vault under filesDir/vault |
 | `android/java/.../AtnAppShred.java` | REQ-4.1 | DEC-0054 | standalone crypto-shred BOOM (no Knox req) |
 | `tests/test_cfg.c` | REQ-4.1 | gates | parse/ready/hubs/diag/outage/cap16/policy/compromise/update |

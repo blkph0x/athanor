@@ -11,10 +11,10 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 
 /**
- * Mesh messaging + file share (DEC-0055). Family 'M' over the same PQ/AEAD
- * tunnel as voice/update — no HTTP/cleartext side channel. Only peers that
- * share an ESTABLISHED mesh session (same network/app floor) can exchange.
- * Inbox + received files sealed in AtnVault (Keystore AES-GCM).
+ * Mesh messaging + file share (DEC-0055 / DEC-0057). Family 'M' over the same
+ * PQ/AEAD tunnel as voice/update — no HTTP/cleartext side channel. Text and
+ * file announce carry from+to (peer label or "*"). Per-contact threads sealed
+ * in AtnVault. Hubs and nodes share the same floor (no admin on nodes).
  */
 public final class AtnMesh {
     private static final String TAG = "atn-mesh";
@@ -27,22 +27,27 @@ public final class AtnMesh {
     public static final int CHUNK_MAX = 900;
     public static final int NAME_MAX = 64;
     public static final int FROM_MAX = 64;
+    public static final int TO_MAX = 64;
     public static final int BODY_MAX = 800;
     public static final int SHA_LEN = 32;
-    public static final int FILE_MAX = 200 * 1024; /* vault-sized lab share */
+    public static final int FILE_MAX = 200 * 1024;
+    public static final String TO_ANY = "*";
     public static final String VAULT_INBOX = "mesh-inbox";
+    public static final String VAULT_THREAD_PREFIX = "mesh-th-";
     public static final String VAULT_FILE_PREFIX = "meshfile-";
 
     private static final Object LOCK = new Object();
     private static String lastStatus = "mesh-msg: idle";
     private static Context appCtx;
     private static String localFrom = "phone";
+    private static String activePeer = "hub";
 
-    /* In-flight receive (one file at a time for lab). */
     private static int rxId;
     private static int rxSize;
     private static int rxGot;
     private static String rxName = "";
+    private static String rxFrom = "";
+    private static String rxTo = TO_ANY;
     private static byte[] rxSha;
     private static File rxPath;
 
@@ -60,6 +65,20 @@ public final class AtnMesh {
         }
     }
 
+    public static String localFrom() {
+        return localFrom;
+    }
+
+    public static void setActivePeer(String peer) {
+        if (peer != null && peer.length() > 0 && peer.length() < TO_MAX) {
+            activePeer = peer;
+        }
+    }
+
+    public static String activePeer() {
+        return activePeer;
+    }
+
     public static String statusLine() {
         synchronized (LOCK) {
             return lastStatus;
@@ -72,7 +91,45 @@ public final class AtnMesh {
         }
     }
 
-    /** Vault-sealed transcript (newest lines at end). Caller must wipe. */
+    private static String vaultKeyForPeer(String peer) {
+        if (peer == null || peer.length() == 0) {
+            peer = TO_ANY;
+        }
+        StringBuilder sb = new StringBuilder(VAULT_THREAD_PREFIX);
+        for (int i = 0; i < peer.length() && i < 48; i++) {
+            char c = peer.charAt(i);
+            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+                    || (c >= '0' && c <= '9') || c == '-' || c == '_'
+                    || c == '+') {
+                sb.append(c);
+            } else {
+                sb.append('_');
+            }
+        }
+        return sb.toString();
+    }
+
+    /** Vault-sealed transcript for one peer (newest at end). */
+    public static String loadThread(Context ctx, String peer) {
+        if (ctx == null) {
+            return "";
+        }
+        byte[] raw = AtnVault.get(ctx, vaultKeyForPeer(peer));
+        if (raw == null) {
+            /* Legacy global inbox only when viewing hub/* */
+            if ("hub".equals(peer) || TO_ANY.equals(peer)) {
+                return loadInbox(ctx);
+            }
+            return "";
+        }
+        try {
+            return new String(raw, StandardCharsets.UTF_8);
+        } finally {
+            Arrays.fill(raw, (byte) 0);
+        }
+    }
+
+    /** Legacy combined inbox (DEC-0055). Prefer loadThread. */
     public static String loadInbox(Context ctx) {
         byte[] raw = AtnVault.get(ctx, VAULT_INBOX);
         if (raw == null) {
@@ -85,7 +142,43 @@ public final class AtnMesh {
         }
     }
 
-    private static void appendInbox(Context ctx, String line) {
+    private static void appendThread(Context ctx, String peer, String line) {
+        if (ctx == null || line == null || line.length() == 0) {
+            return;
+        }
+        if (peer == null || peer.length() == 0) {
+            peer = TO_ANY;
+        }
+        String prev = loadThread(ctx, peer);
+        /* Avoid double-reading legacy into itself when vault empty. */
+        if (prev.length() == 0 && ("hub".equals(peer) || TO_ANY.equals(peer))) {
+            byte[] check = AtnVault.get(ctx, vaultKeyForPeer(peer));
+            if (check == null) {
+                prev = "";
+            } else {
+                Arrays.fill(check, (byte) 0);
+            }
+        }
+        String next = prev;
+        if (next.length() > 0 && !next.endsWith("\n")) {
+            next = next + "\n";
+        }
+        next = next + line + "\n";
+        if (next.length() > 32 * 1024) {
+            next = next.substring(next.length() - 24 * 1024);
+            int nl = next.indexOf('\n');
+            if (nl > 0) {
+                next = next.substring(nl + 1);
+            }
+        }
+        byte[] raw = next.getBytes(StandardCharsets.UTF_8);
+        AtnVault.put(ctx, vaultKeyForPeer(peer), raw);
+        Arrays.fill(raw, (byte) 0);
+        /* Mirror to legacy inbox for Mesh-tab status. */
+        appendInboxLegacy(ctx, line);
+    }
+
+    private static void appendInboxLegacy(Context ctx, String line) {
         if (ctx == null || line == null || line.length() == 0) {
             return;
         }
@@ -95,7 +188,6 @@ public final class AtnMesh {
             next = next + "\n";
         }
         next = next + line + "\n";
-        /* Cap transcript ~32 KiB. */
         if (next.length() > 32 * 1024) {
             next = next.substring(next.length() - 24 * 1024);
             int nl = next.indexOf('\n');
@@ -109,7 +201,11 @@ public final class AtnMesh {
     }
 
     public static boolean sendText(Context ctx, String body) {
-        if (ctx == null || body == null) {
+        return sendText(ctx, activePeer, body);
+    }
+
+    public static boolean sendText(Context ctx, String to, String body) {
+        if (ctx == null || body == null || to == null) {
             return false;
         }
         byte[] utf = body.getBytes(StandardCharsets.UTF_8);
@@ -117,11 +213,15 @@ public final class AtnMesh {
             setStatus("mesh-msg: body too long/empty");
             return false;
         }
+        if (to.length() == 0 || to.length() >= TO_MAX) {
+            setStatus("mesh-msg: bad to");
+            return false;
+        }
         if (AtnNative.tunState() != AtnNative.TUN_ESTABLISHED) {
             setStatus("mesh-msg: tunnel not ESTABLISHED");
             return false;
         }
-        byte[] wire = encodeText(localFrom, utf);
+        byte[] wire = encodeText(localFrom, to, utf);
         Arrays.fill(utf, (byte) 0);
         if (wire == null) {
             setStatus("mesh-msg: encode fail");
@@ -133,18 +233,19 @@ public final class AtnMesh {
             setStatus("mesh-msg: tunSend rc=" + rc);
             return false;
         }
-        appendInbox(ctx, "me> " + body);
-        setStatus("mesh-msg: sent text (" + body.length() + " chars)");
-        Log.i(TAG, "sent text len=" + body.length());
+        appendThread(ctx, to, "me->" + to + "> " + body);
+        setStatus("mesh-msg: sent -> " + to + " (" + body.length() + " chars)");
+        Log.i(TAG, "sent text to=" + to + " len=" + body.length());
         return true;
     }
 
-    /**
-     * Share a small app-scoped demo blob (or caller bytes) over tunnel AEAD.
-     * Announce + chunks; peer stores sealed in vault after SHA-256 check.
-     */
     public static boolean sendFile(Context ctx, String name, byte[] data) {
-        if (ctx == null || name == null || data == null) {
+        return sendFile(ctx, activePeer, name, data);
+    }
+
+    public static boolean sendFile(Context ctx, String to, String name,
+                                   byte[] data) {
+        if (ctx == null || name == null || data == null || to == null) {
             return false;
         }
         if (data.length == 0 || data.length > FILE_MAX) {
@@ -153,6 +254,10 @@ public final class AtnMesh {
         }
         if (name.length() == 0 || name.length() >= NAME_MAX) {
             setStatus("mesh-msg: bad file name");
+            return false;
+        }
+        if (to.length() == 0 || to.length() >= TO_MAX) {
+            setStatus("mesh-msg: bad to");
             return false;
         }
         if (AtnNative.tunState() != AtnNative.TUN_ESTABLISHED) {
@@ -171,7 +276,8 @@ public final class AtnMesh {
             setStatus("mesh-msg: sha fail");
             return false;
         }
-        byte[] announce = encodeFile(fileId, data.length, name, sha);
+        byte[] announce = encodeFile(fileId, data.length, name, localFrom, to,
+                sha);
         if (announce == null) {
             return false;
         }
@@ -204,23 +310,27 @@ public final class AtnMesh {
             } catch (InterruptedException ignored) {
             }
         }
-        appendInbox(ctx, "me> FILE " + name + " id=" + fileId
+        appendThread(ctx, to, "me->" + to + "> FILE " + name + " id=" + fileId
                 + " size=" + data.length);
-        setStatus("mesh-msg: sent file " + name + " (" + data.length + " B)");
-        Log.i(TAG, "sent file id=" + fileId + " size=" + data.length);
+        setStatus("mesh-msg: sent file -> " + to + " " + name
+                + " (" + data.length + " B)");
+        Log.i(TAG, "sent file to=" + to + " id=" + fileId
+                + " size=" + data.length);
         return true;
     }
 
-    /** Lab: share a short sealed note as a file over the tunnel. */
     public static boolean sendDemoNote(Context ctx) {
+        return sendDemoNote(ctx, activePeer);
+    }
+
+    public static boolean sendDemoNote(Context ctx, String to) {
         String note = "athanor mesh file share " + System.currentTimeMillis();
         byte[] data = note.getBytes(StandardCharsets.UTF_8);
-        boolean ok = sendFile(ctx, "demo-note.txt", data);
+        boolean ok = sendFile(ctx, to, "demo-note.txt", data);
         Arrays.fill(data, (byte) 0);
         return ok;
     }
 
-    /** Daemon drain: handle decrypted 'M' frames. Returns true if consumed. */
     public static boolean onFrame(Context ctx, byte[] msg, int n) {
         if (msg == null || n < 2 || msg[0] != WIRE) {
             return false;
@@ -240,35 +350,54 @@ public final class AtnMesh {
         return true;
     }
 
+    private static boolean addressedToUs(String to) {
+        if (to == null) {
+            return false;
+        }
+        if (TO_ANY.equals(to)) {
+            return true;
+        }
+        return to.equals(localFrom) || "phone".equals(to);
+    }
+
     private static boolean onText(Context ctx, byte[] msg, int n) {
-        String from = null;
-        String body = null;
         try {
-            if (n < 5) {
+            if (n < 6) {
                 return false;
             }
             int fromLen = msg[2] & 0xff;
-            if (fromLen == 0 || fromLen >= FROM_MAX || n < 3 + fromLen + 2) {
+            if (fromLen == 0 || fromLen >= FROM_MAX || n < 3 + fromLen + 1) {
                 return false;
             }
-            from = new String(msg, 3, fromLen, StandardCharsets.UTF_8);
+            String from = new String(msg, 3, fromLen, StandardCharsets.UTF_8);
             int off = 3 + fromLen;
+            int toLen = msg[off] & 0xff;
+            off += 1;
+            if (toLen == 0 || toLen >= TO_MAX || n < off + toLen + 2) {
+                return false;
+            }
+            String to = new String(msg, off, toLen, StandardCharsets.UTF_8);
+            off += toLen;
             int blen = be16(msg, off);
             off += 2;
             if (blen <= 0 || blen > BODY_MAX || off + blen != n) {
                 return false;
             }
-            body = new String(msg, off, blen, StandardCharsets.UTF_8);
-            /* Hub opaque echo: skip our own loopback so inbox stays clean. */
+            String body = new String(msg, off, blen, StandardCharsets.UTF_8);
             if (from.equals(localFrom)) {
                 Log.i(TAG, "text echo skipped from=" + from);
                 return true;
             }
-            if (ctx != null) {
-                appendInbox(ctx, from + "> " + body);
+            if (!addressedToUs(to)) {
+                Log.i(TAG, "text not for us to=" + to);
+                return true;
             }
-            setStatus("mesh-msg: from " + from + " (" + blen + " B)");
-            Log.i(TAG, "recv text from=" + from + " len=" + blen);
+            if (ctx != null) {
+                appendThread(ctx, from, from + "> " + body);
+            }
+            setStatus("mesh-msg: from " + from + " → " + to
+                    + " (" + blen + " B)");
+            Log.i(TAG, "recv text from=" + from + " to=" + to + " len=" + blen);
             return true;
         } catch (Exception e) {
             Log.w(TAG, "text parse", e);
@@ -277,7 +406,7 @@ public final class AtnMesh {
     }
 
     private static boolean onFileAnnounce(Context ctx, byte[] msg, int n) {
-        if (n < 2 + 4 + 4 + 1 + SHA_LEN) {
+        if (n < 2 + 4 + 4 + 1 + 1 + 1 + SHA_LEN) {
             return false;
         }
         int id = be32(msg, 2);
@@ -286,14 +415,33 @@ public final class AtnMesh {
         if (nameLen == 0 || nameLen >= NAME_MAX) {
             return false;
         }
-        int need = 11 + nameLen + SHA_LEN;
-        if (n != need || size <= 0 || size > FILE_MAX) {
-            Log.w(TAG, "file announce bad size/name");
+        if (n < 11 + nameLen + 1) {
             return false;
         }
         String name = new String(msg, 11, nameLen, StandardCharsets.UTF_8);
+        int fromLen = msg[11 + nameLen] & 0xff;
+        if (fromLen == 0 || fromLen >= FROM_MAX || n < 12 + nameLen + fromLen + 1) {
+            return false;
+        }
+        String from = new String(msg, 12 + nameLen, fromLen,
+                StandardCharsets.UTF_8);
+        int toLen = msg[12 + nameLen + fromLen] & 0xff;
+        if (toLen == 0 || toLen >= TO_MAX) {
+            return false;
+        }
+        int need = 13 + nameLen + fromLen + toLen + SHA_LEN;
+        if (n != need || size <= 0 || size > FILE_MAX) {
+            Log.w(TAG, "file announce bad size/name/from/to");
+            return false;
+        }
+        String to = new String(msg, 13 + nameLen + fromLen, toLen,
+                StandardCharsets.UTF_8);
+        if (!addressedToUs(to)) {
+            Log.i(TAG, "file not for us to=" + to);
+            return true;
+        }
         byte[] sha = new byte[SHA_LEN];
-        System.arraycopy(msg, 11 + nameLen, sha, 0, SHA_LEN);
+        System.arraycopy(msg, 13 + nameLen + fromLen + toLen, sha, 0, SHA_LEN);
         synchronized (LOCK) {
             wipeRxLocked();
             if (ctx == null) {
@@ -316,13 +464,15 @@ public final class AtnMesh {
             rxSize = size;
             rxGot = 0;
             rxName = name;
+            rxFrom = from;
+            rxTo = to;
             rxSha = sha;
             rxPath = tmp;
         }
-        setStatus("mesh-msg: receiving " + name + " id=" + id
-                + " size=" + size);
+        setStatus("mesh-msg: receiving " + name + " from " + from
+                + " → " + to + " id=" + id + " size=" + size);
         Log.i(TAG, "file announce id=" + id + " size=" + size
-                + " name=" + name);
+                + " name=" + name + " from=" + from + " to=" + to);
         return true;
     }
 
@@ -402,7 +552,9 @@ public final class AtnMesh {
                 setStatus("mesh-msg: vault put fail");
                 return false;
             }
-            appendInbox(ctx, "peer> FILE " + rxName + " id=" + rxId
+            String peer = (rxFrom != null && rxFrom.length() > 0)
+                    ? rxFrom : activePeer;
+            appendThread(ctx, peer, peer + "> FILE " + rxName + " id=" + rxId
                     + " size=" + rxSize + " vault=" + vname);
             setStatus("mesh-msg: stored " + rxName + " → vault/" + vname);
             Log.i(TAG, "file complete id=" + rxId + " vault=" + vname);
@@ -428,45 +580,67 @@ public final class AtnMesh {
         rxSize = 0;
         rxGot = 0;
         rxName = "";
+        rxFrom = "";
+        rxTo = TO_ANY;
         rxSha = null;
         rxPath = null;
     }
 
-    static byte[] encodeText(String from, byte[] body) {
-        if (from == null || body == null) {
+    static byte[] encodeText(String from, String to, byte[] body) {
+        if (from == null || to == null || body == null) {
             return null;
         }
         byte[] fb = from.getBytes(StandardCharsets.UTF_8);
+        byte[] tb = to.getBytes(StandardCharsets.UTF_8);
         if (fb.length == 0 || fb.length >= FROM_MAX
+                || tb.length == 0 || tb.length >= TO_MAX
                 || body.length == 0 || body.length > BODY_MAX) {
             return null;
         }
-        byte[] out = new byte[2 + 1 + fb.length + 2 + body.length];
+        byte[] out = new byte[2 + 1 + fb.length + 1 + tb.length + 2
+                + body.length];
         out[0] = WIRE;
         out[1] = TEXT;
         out[2] = (byte) fb.length;
         System.arraycopy(fb, 0, out, 3, fb.length);
-        putBe16(out, 3 + fb.length, body.length);
-        System.arraycopy(body, 0, out, 3 + fb.length + 2, body.length);
+        int o = 3 + fb.length;
+        out[o] = (byte) tb.length;
+        o += 1;
+        System.arraycopy(tb, 0, out, o, tb.length);
+        o += tb.length;
+        putBe16(out, o, body.length);
+        System.arraycopy(body, 0, out, o + 2, body.length);
         return out;
     }
 
-    static byte[] encodeFile(int fileId, int size, String name, byte[] sha) {
-        if (name == null || sha == null || sha.length != SHA_LEN) {
+    static byte[] encodeFile(int fileId, int size, String name, String from,
+                             String to, byte[] sha) {
+        if (name == null || from == null || to == null || sha == null
+                || sha.length != SHA_LEN) {
             return null;
         }
         byte[] nb = name.getBytes(StandardCharsets.UTF_8);
-        if (nb.length == 0 || nb.length >= NAME_MAX || size <= 0) {
+        byte[] fb = from.getBytes(StandardCharsets.UTF_8);
+        byte[] tb = to.getBytes(StandardCharsets.UTF_8);
+        if (nb.length == 0 || nb.length >= NAME_MAX
+                || fb.length == 0 || fb.length >= FROM_MAX
+                || tb.length == 0 || tb.length >= TO_MAX || size <= 0) {
             return null;
         }
-        byte[] out = new byte[2 + 4 + 4 + 1 + nb.length + SHA_LEN];
+        byte[] out = new byte[2 + 4 + 4 + 1 + nb.length + 1 + fb.length
+                + 1 + tb.length + SHA_LEN];
         out[0] = WIRE;
         out[1] = FILE;
         putBe32(out, 2, fileId);
         putBe32(out, 6, size);
         out[10] = (byte) nb.length;
         System.arraycopy(nb, 0, out, 11, nb.length);
-        System.arraycopy(sha, 0, out, 11 + nb.length, SHA_LEN);
+        out[11 + nb.length] = (byte) fb.length;
+        System.arraycopy(fb, 0, out, 12 + nb.length, fb.length);
+        out[12 + nb.length + fb.length] = (byte) tb.length;
+        System.arraycopy(tb, 0, out, 13 + nb.length + fb.length, tb.length);
+        System.arraycopy(sha, 0, out, 13 + nb.length + fb.length + tb.length,
+                SHA_LEN);
         return out;
     }
 

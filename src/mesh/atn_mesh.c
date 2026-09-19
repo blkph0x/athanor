@@ -1,5 +1,5 @@
 /*
- * Mesh messaging + file share encode/parse (DEC-0055).
+ * Mesh messaging + file share encode/parse (DEC-0055 / DEC-0057).
  */
 #include "atn_mesh.h"
 
@@ -32,21 +32,25 @@ static uint16_t get_be16(const uint8_t *p)
     return (uint16_t)(((uint16_t)p[0] << 8) | (uint16_t)p[1]);
 }
 
-int atn_mesh_encode_text(const char *from, const uint8_t *body, uint16_t body_len,
+int atn_mesh_encode_text(const char *from, const char *to,
+                         const uint8_t *body, uint16_t body_len,
                          uint8_t *out, size_t out_cap, size_t *out_n)
 {
-    size_t from_len, need;
-    if (from == NULL || body == NULL || out == NULL || out_n == NULL) {
+    size_t from_len, to_len, need;
+    if (from == NULL || to == NULL || body == NULL || out == NULL ||
+        out_n == NULL) {
         return ATN_ERR_PARAM;
     }
     if (body_len == 0u || body_len > ATN_MESH_BODY_MAX) {
         return ATN_ERR_LEN;
     }
     from_len = strlen(from);
-    if (from_len == 0u || from_len >= ATN_MESH_FROM_MAX) {
+    to_len = strlen(to);
+    if (from_len == 0u || from_len >= ATN_MESH_FROM_MAX || to_len == 0u ||
+        to_len >= ATN_MESH_TO_MAX) {
         return ATN_ERR_LEN;
     }
-    need = 2u + 1u + from_len + 2u + (size_t)body_len;
+    need = 2u + 1u + from_len + 1u + to_len + 2u + (size_t)body_len;
     if (need > out_cap || need > ATN_TUN_MAX_PT) {
         return ATN_ERR_LEN;
     }
@@ -54,17 +58,19 @@ int atn_mesh_encode_text(const char *from, const uint8_t *body, uint16_t body_le
     out[1] = ATN_MESH_TEXT;
     out[2] = (uint8_t)from_len;
     memcpy(out + 3, from, from_len);
-    put_be16(out + 3u + from_len, body_len);
-    memcpy(out + 3u + from_len + 2u, body, body_len);
+    out[3u + from_len] = (uint8_t)to_len;
+    memcpy(out + 4u + from_len, to, to_len);
+    put_be16(out + 4u + from_len + to_len, body_len);
+    memcpy(out + 4u + from_len + to_len + 2u, body, body_len);
     *out_n = need;
     return ATN_OK;
 }
 
 int atn_mesh_parse_text(const uint8_t *msg, size_t n, atn_mesh_text *t)
 {
-    size_t from_len, off;
+    size_t from_len, to_len, off;
     uint16_t blen;
-    if (msg == NULL || t == NULL || n < 5u) {
+    if (msg == NULL || t == NULL || n < 6u) {
         return ATN_ERR_PARAM;
     }
     if (msg[0] != ATN_MESH_WIRE || msg[1] != ATN_MESH_TEXT) {
@@ -73,12 +79,20 @@ int atn_mesh_parse_text(const uint8_t *msg, size_t n, atn_mesh_text *t)
     atn_memzero(t, sizeof(*t));
     from_len = msg[2];
     if (from_len == 0u || from_len >= ATN_MESH_FROM_MAX ||
-        n < 3u + from_len + 2u) {
+        n < 3u + from_len + 1u) {
         return ATN_ERR_LEN;
     }
     memcpy(t->from, msg + 3, from_len);
     t->from[from_len] = '\0';
     off = 3u + from_len;
+    to_len = msg[off];
+    off += 1u;
+    if (to_len == 0u || to_len >= ATN_MESH_TO_MAX || n < off + to_len + 2u) {
+        return ATN_ERR_LEN;
+    }
+    memcpy(t->to, msg + off, to_len);
+    t->to[to_len] = '\0';
+    off += to_len;
     blen = get_be16(msg + off);
     off += 2u;
     if (blen == 0u || blen > ATN_MESH_BODY_MAX || off + blen != n) {
@@ -92,15 +106,20 @@ int atn_mesh_parse_text(const uint8_t *msg, size_t n, atn_mesh_text *t)
 int atn_mesh_encode_file(const atn_mesh_file *f, uint8_t *out, size_t out_cap,
                          size_t *out_n)
 {
-    size_t name_len, need;
+    size_t name_len, from_len, to_len, need;
     if (f == NULL || out == NULL || out_n == NULL) {
         return ATN_ERR_PARAM;
     }
     name_len = strlen(f->name);
-    if (name_len == 0u || name_len >= ATN_MESH_NAME_MAX || f->size == 0u) {
+    from_len = strlen(f->from);
+    to_len = strlen(f->to);
+    if (name_len == 0u || name_len >= ATN_MESH_NAME_MAX || f->size == 0u ||
+        from_len == 0u || from_len >= ATN_MESH_FROM_MAX || to_len == 0u ||
+        to_len >= ATN_MESH_TO_MAX) {
         return ATN_ERR_LEN;
     }
-    need = 2u + 4u + 4u + 1u + name_len + ATN_MESH_SHA_LEN;
+    need = 2u + 4u + 4u + 1u + name_len + 1u + from_len + 1u + to_len +
+           ATN_MESH_SHA_LEN;
     if (need > out_cap || need > ATN_TUN_MAX_PT) {
         return ATN_ERR_LEN;
     }
@@ -110,15 +129,21 @@ int atn_mesh_encode_file(const atn_mesh_file *f, uint8_t *out, size_t out_cap,
     put_be32(out + 6, f->size);
     out[10] = (uint8_t)name_len;
     memcpy(out + 11, f->name, name_len);
-    memcpy(out + 11u + name_len, f->sha256, ATN_MESH_SHA_LEN);
+    out[11u + name_len] = (uint8_t)from_len;
+    memcpy(out + 12u + name_len, f->from, from_len);
+    out[12u + name_len + from_len] = (uint8_t)to_len;
+    memcpy(out + 13u + name_len + from_len, f->to, to_len);
+    memcpy(out + 13u + name_len + from_len + to_len, f->sha256,
+           ATN_MESH_SHA_LEN);
     *out_n = need;
     return ATN_OK;
 }
 
 int atn_mesh_parse_file(const uint8_t *msg, size_t n, atn_mesh_file *f)
 {
-    size_t name_len, need;
-    if (msg == NULL || f == NULL || n < 2u + 4u + 4u + 1u + ATN_MESH_SHA_LEN) {
+    size_t name_len, from_len, to_len, need;
+    if (msg == NULL || f == NULL ||
+        n < 2u + 4u + 4u + 1u + 1u + 1u + ATN_MESH_SHA_LEN) {
         return ATN_ERR_PARAM;
     }
     if (msg[0] != ATN_MESH_WIRE || msg[1] != ATN_MESH_FILE) {
@@ -128,16 +153,31 @@ int atn_mesh_parse_file(const uint8_t *msg, size_t n, atn_mesh_file *f)
     f->file_id = get_be32(msg + 2);
     f->size = get_be32(msg + 6);
     name_len = msg[10];
-    if (name_len == 0u || name_len >= ATN_MESH_NAME_MAX) {
-        return ATN_ERR_LEN;
-    }
-    need = 11u + name_len + ATN_MESH_SHA_LEN;
-    if (n != need || f->size == 0u) {
+    if (name_len == 0u || name_len >= ATN_MESH_NAME_MAX ||
+        n < 11u + name_len + 1u) {
         return ATN_ERR_LEN;
     }
     memcpy(f->name, msg + 11, name_len);
     f->name[name_len] = '\0';
-    memcpy(f->sha256, msg + 11u + name_len, ATN_MESH_SHA_LEN);
+    from_len = msg[11u + name_len];
+    if (from_len == 0u || from_len >= ATN_MESH_FROM_MAX ||
+        n < 12u + name_len + from_len + 1u) {
+        return ATN_ERR_LEN;
+    }
+    memcpy(f->from, msg + 12u + name_len, from_len);
+    f->from[from_len] = '\0';
+    to_len = msg[12u + name_len + from_len];
+    if (to_len == 0u || to_len >= ATN_MESH_TO_MAX) {
+        return ATN_ERR_LEN;
+    }
+    need = 13u + name_len + from_len + to_len + ATN_MESH_SHA_LEN;
+    if (n != need || f->size == 0u) {
+        return ATN_ERR_LEN;
+    }
+    memcpy(f->to, msg + 13u + name_len + from_len, to_len);
+    f->to[to_len] = '\0';
+    memcpy(f->sha256, msg + 13u + name_len + from_len + to_len,
+           ATN_MESH_SHA_LEN);
     return ATN_OK;
 }
 

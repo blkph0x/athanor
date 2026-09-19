@@ -1,0 +1,137 @@
+# Athanor release assets — build native + lab APK when tagged (DEC-0057).
+# Complements ci.yml (make test). Does not ship production signing keys.
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native:
+    name: native-${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x86_64
+          - os: ubuntu-24.04-arm
+            name: linux-aarch64
+          - os: macos-latest
+            name: darwin
+    steps:
+      - uses: actions/checkout@v4
+      - name: make test
+        run: make test
+      - name: make lib
+        run: make lib
+      - name: Package CLI binaries
+        run: |
+          mkdir -p dist
+          for b in atnnode atnenroll atnsign atn2fa atnhttp atndns; do
+            if [ -f "$b" ]; then cp "$b" "dist/${b}-${{ matrix.name }}"; fi
+            if [ -f "$b.exe" ]; then cp "$b.exe" "dist/${b}-${{ matrix.name }}.exe"; fi
+          done
+          ls -la dist || true
+      - name: Upload native artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: warn
+
+  windows:
+    name: native-windows-x86_64
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: mingw-w64-x86_64-gcc make
+      - name: make test
+        run: make test
+      - name: Package
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Get-ChildItem -Filter "*.exe" | Where-Object {
+            $_.Name -match '^(atnnode|atnenroll|atnsign|atn2fa|atnhttp|atndns)\.exe$'
+          } | ForEach-Object {
+            Copy-Item $_.FullName ("dist/" + $_.BaseName + "-windows-x86_64.exe")
+          }
+          Get-ChildItem dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-windows-x86_64
+          path: dist/*
+          if-no-files-found: warn
+
+  apk:
+    name: android-lab-apk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install NDK + build-tools hints
+        run: |
+          sudo apt-get update -qq
+          # Prefer preinstalled Android SDK on runner when present
+          echo "ANDROID_HOME=${ANDROID_HOME:-}" 
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-}"
+          ls "$ANDROID_HOME" 2>/dev/null || ls "$ANDROID_SDK_ROOT" 2>/dev/null || true
+      - name: make android-apk (best-effort)
+        id: apk
+        continue-on-error: true
+        run: |
+          make android-apk || make android || true
+          if [ -f android/athanor-lab.apk ]; then
+            mkdir -p dist
+            cp android/athanor-lab.apk dist/athanor-lab.apk
+            echo "built=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "built=0" >> "$GITHUB_OUTPUT"
+            echo "APK skipped (SDK/NDK not available on runner)"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: steps.apk.outputs.built == '1'
+        with:
+          name: android-lab-apk
+          path: dist/athanor-lab.apk
+
+  publish:
+    name: github-release
+    needs: [native, windows, apk]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Stage release files
+        run: |
+          mkdir -p release
+          find artifacts -type f -print -exec cp {} release/ \;
+          ls -la release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -127,6 +127,105 @@ function Load-OrgPolicy {
     return $d
 }
 
+function Load-AdminRole {
+    $path = Join-Path $Root "lab\admin-role.conf"
+    $d = @{ role = "primary"; hub_id = "lab-hub-1" }
+    if (-not (Test-Path $path)) { return $d }
+    try {
+        Get-Content $path | ForEach-Object {
+            if ($_ -match '^\s*#' -or $_ -notmatch '=') { return }
+            $parts = $_ -split '=', 2
+            if ($parts.Count -lt 2) { return }
+            $k = $parts[0].Trim(); $v = $parts[1].Trim()
+            if ($d.ContainsKey($k)) { $d[$k] = $v }
+        }
+    } catch { }
+    return $d
+}
+
+function Admin-IsPrimary {
+    $r = Load-AdminRole
+    return ($r.role -eq "primary")
+}
+
+function Save-MeshOutbox([hashtable]$form) {
+    $to = ([string]$form["msg_to"]).Trim()
+    $body = ([string]$form["msg_body"]).Trim()
+    $from = ([string]$form["msg_from"]).Trim()
+    if (-not $from) { $from = "hub" }
+    if (-not $to) { return @{ Ok=$false; Msg="ERR: msg_to required"; Detail="" } }
+    if (-not $body) { return @{ Ok=$false; Msg="ERR: msg_body required"; Detail="" } }
+    if ($to.Length -ge 64 -or $from.Length -ge 64 -or $body.Length -ge 800) {
+        return @{ Ok=$false; Msg="ERR: field too long"; Detail="" }
+    }
+    if ($body -match '\|' -or $to -match '\|' -or $from -match '\|') {
+        return @{ Ok=$false; Msg="ERR: pipe char not allowed"; Detail="" }
+    }
+    $dir = Join-Path $Root "lab"
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+    $line = "TEXT|$from|$to|$body"
+    $path = Join-Path $dir "mesh-outbox.txt"
+    [System.IO.File]::AppendAllText($path, ($line + "`n"))
+    return @{ Ok=$true; Msg=("OK: queued mesh TEXT to {0} (hub drains when ESTABLISHED)" -f $to); Detail=$line }
+}
+
+function Html-Messages-Section {
+    $labels = @(List-EnrolledLabels)
+    $peers = @()
+    try { $peers = @(Load-HubPeers) } catch { $peers = @() }
+    $opts = '<option value="*">* (any / broadcast)</option>'
+    $opts += '<option value="phone">phone</option>'
+    foreach ($lab in $labels) {
+        $opts += ('<option value="{0}">node: {0}</option>' -f (Html-Encode $lab))
+    }
+    foreach ($p in $peers) {
+        $key = if ($p.key) { $p.key } else { "$($p.ipv4):$($p.port)" }
+        $opts += ('<option value="{0}">hub: {0}</option>' -f (Html-Encode $key))
+    }
+    $inboxPath = Join-Path $Root "lab\mesh-inbox.txt"
+    $inbox = "(empty — messages appear when tunnel ESTABLISHED peers chat)"
+    if (Test-Path $inboxPath) {
+        try {
+            $raw = Get-Content $inboxPath -Raw -ErrorAction SilentlyContinue
+            if ($raw -and $raw.Trim().Length -gt 0) {
+                $tail = ($raw -split "`n" | Select-Object -Last 40) -join "`n"
+                $inbox = $tail
+            }
+        } catch { }
+    }
+    $roster = '<ul class="meta">'
+    foreach ($lab in $labels) {
+        $roster += ('<li><code>[node]</code> {0}</li>' -f (Html-Encode $lab))
+    }
+    foreach ($p in $peers) {
+        $key = if ($p.key) { $p.key } else { "$($p.ipv4):$($p.port)" }
+        $roster += ('<li><code>[hub]</code> {0}</li>' -f (Html-Encode $key))
+    }
+    if ($labels.Count -eq 0 -and $peers.Count -eq 0) {
+        $roster += '<li class="meta">No contacts yet — enroll a phone or add a peer hub.</li>'
+    }
+    $roster += '</ul>'
+    return @"
+<h2>Messages</h2>
+<p class="meta">DEC-0057. Same PQ/AEAD mesh floor as phone Messages. Hub and nodes
+exchange text (and file share on phone). Queues to <code>lab/mesh-outbox.txt</code>;
+<code>atnnode listen</code> drains on ESTABLISHED. Nodes never author org policy.</p>
+<h3>Contacts</h3>
+$roster
+<form method="POST" action="/mesh" id="meshForm">
+<label>from</label>
+<input name="msg_from" value="hub" required/>
+<label>to</label>
+<select name="msg_to">$opts</select>
+<label>message</label>
+<input name="msg_body" required placeholder="hello mesh" maxlength="700"/>
+<button class="act" type="submit">Send over mesh</button>
+</form>
+<h3>Inbox (recent)</h3>
+<pre class="meta"><code>$(Html-Encode $inbox)</code></pre>
+"@
+}
+
 function Opt([string]$cur, [string]$val, [string]$label) {
     $sel = if ($cur -eq $val) { " selected" } else { "" }
     return "<option value=`"$val`"$sel>$label</option>"
@@ -249,6 +348,10 @@ function Do-Compromise([hashtable]$form) {
 }
 
 function Save-OrgPolicy([hashtable]$form) {
+    if (-not (Admin-IsPrimary)) {
+        $role = Load-AdminRole
+        return @{ Ok=$false; Msg=("ERR: this hub is role={0} (hub_id={1}). Only the primary admin hub may author org policy. Secondaries adopt higher policy_ver over tunnel." -f $role.role, $role.hub_id); Detail="" }
+    }
     $diag = [string]$form["diag"]
     $flush = [string]$form["flush_mode"]
     $wipe = [string]$form["wipe_armed"]
@@ -669,20 +772,23 @@ table.roster th{color:var(--muted);font-weight:600}
 <body>
 <div class="wrap">
 <h1>Athanor admin</h1>
-<p class="sub">Loopback only (DEC-0042 / DEC-0056). Policy pushes over PQ/AEAD tunnel to
-nodes and peer hubs. Offline devices catch up on rejoin. Phone numbers are roster
-labels - never SMS.</p>
+<p class="sub">Loopback only (DEC-0042 / DEC-0056 / DEC-0057). Policy pushes over PQ/AEAD tunnel to
+nodes and peer hubs. Only the primary admin hub authors security policy. Messages tab
+shares the same mesh floor as phones (hubs + nodes).</p>
 <div class="meta" id="status">
 <span class="live" id="devLine">__DEVLINE__</span><br/>
 <span id="apkLine">__APKLINE__</span><br/>
 Bind: __BIND__ · policy_ver=<code>__POLVER__</code> · wipe_armed=<code>__WIPE_VAL__</code>
+ · admin=<code>__ADMIN_ROLE__</code>
 </div>
 __KILL_BANNER__
+__ADMIN_BANNER__
 __FLASH__
 __DETAIL__
 <nav class="nav" id="tabs">
 <button type="button" data-tab="overview" class="on">Overview</button>
 <button type="button" data-tab="devices">Devices</button>
+<button type="button" data-tab="messages">Messages</button>
 <button type="button" data-tab="security">Security</button>
 <button type="button" data-tab="peers">Peers</button>
 <button type="button" data-tab="enroll">Enroll</button>
@@ -705,47 +811,16 @@ presence feed - reconnect after policy change to confirm apply.</p>
 __DEVICE_ROSTER__
 </section>
 
+<section class="panel" id="tab-messages">
+__MESSAGES_SECTION__
+</section>
+
 <section class="panel" id="tab-security">
 <h2>Security postures</h2>
-<p class="meta">Writes <code>lab/org-policy.conf</code> (ver __POLVER__). Takes effect
-immediately on live nodes; peer hubs adopt higher ver; offline catch up on rejoin.
-USB/ADB gates enforce only when <code>wipe_armed=1</code> (kill mode).</p>
-<form method="POST" action="/policy" id="policyForm">
-<h3>Boom / kill</h3>
-<div class="grid2">
-<div><label>wipe_armed (1 = kill shred)</label><select name="wipe_armed">__WIPE_OPTS__</select></div>
-<div><label>boom_silence_s</label><input name="boom_silence_s" value="__BOOM__" required/></div>
-</div>
-<div class="grid2">
-<div><label>diag</label><select name="diag">__DIAG_OPTS__</select></div>
-<div><label>flush_mode</label><select name="flush_mode">__FLUSH_OPTS__</select></div>
-</div>
-<label>outage_class</label>
-<select name="outage_class">__OUTAGE_OPTS__</select>
-<h3>Lock screen</h3>
-<div class="grid2">
-<div><label>password_fail_max</label><input name="password_fail_max" value="__FAILK__" required/></div>
-<div><label>password_min_len</label><input name="password_min_len" value="__MINLEN__" required/></div>
-</div>
-<div class="grid2">
-<div><label>biometric_allowed</label><select name="biometric_allowed">__BIO_OPTS__</select></div>
-<div><label>pwd_deny_check</label><select name="pwd_deny_check">__DENY_OPTS__</select></div>
-</div>
-<h3>USB / ADB (kill-mode gates)</h3>
-<p class="meta">Detect always on phone. Enroll-block and runtime BOOM only when
-wipe_armed=1 and flags below. Bootstrap enroll with wipe_armed=0, then arm.</p>
-<div class="grid2">
-<div><label>usb_data_block (Knox charge-only assert)</label><select name="usb_data_block">__USB_OPTS__</select></div>
-<div><label>require_adb_off</label><select name="require_adb_off">__ADB_OPTS__</select></div>
-</div>
-<div class="grid2">
-<div><label>require_usb_charge_only</label><select name="require_usb_charge_only">__CHG_OPTS__</select></div>
-<div><label>enroll_block_on_usb</label><select name="enroll_block_on_usb">__ENROLLUSB_OPTS__</select></div>
-</div>
-<label>boom_on_usb_breach (runtime BOOM if posture flips)</label>
-<select name="boom_on_usb_breach">__BOOMUSB_OPTS__</select>
-<button class="act" type="submit">Save network policy</button>
-</form>
+<p class="meta">Writes <code>lab/org-policy.conf</code> (ver __POLVER__). Primary admin
+hub only. Takes effect immediately on live nodes; peer hubs adopt higher ver;
+offline catch up on rejoin. USB/ADB gates enforce only when <code>wipe_armed=1</code>.</p>
+__POLICY_FORM__
 </section>
 
 <section class="panel" id="tab-peers">
@@ -856,12 +931,65 @@ kind=__UPD_KIND__ size=__UPD_SIZE__.</p>
     } else {
         '<div class="banner ok">Test boom mode (wipe_armed=0). Arm kill only when ready for production posture.</div>'
     }
+    $adminRole = Load-AdminRole
+    $isPrimary = Admin-IsPrimary
+    $adminBanner = if ($isPrimary) {
+        ('<div class="banner ok">Primary admin hub (<code>{0}</code>). This hub authors network security policy.</div>' -f (Html-Encode $adminRole.hub_id))
+    } else {
+        ('<div class="banner kill">Secondary hub (<code>{0}</code> role={1}). Policy Save disabled — adopt higher policy_ver from primary over tunnel. Messages still work.</div>' -f (Html-Encode $adminRole.hub_id), (Html-Encode $adminRole.role))
+    }
+    $policyForm = if ($isPrimary) {
+        @"
+<form method="POST" action="/policy" id="policyForm">
+<h3>Boom / kill</h3>
+<div class="grid2">
+<div><label>wipe_armed (1 = kill shred)</label><select name="wipe_armed">__WIPE_OPTS__</select></div>
+<div><label>boom_silence_s</label><input name="boom_silence_s" value="__BOOM__" required/></div>
+</div>
+<div class="grid2">
+<div><label>diag</label><select name="diag">__DIAG_OPTS__</select></div>
+<div><label>flush_mode</label><select name="flush_mode">__FLUSH_OPTS__</select></div>
+</div>
+<label>outage_class</label>
+<select name="outage_class">__OUTAGE_OPTS__</select>
+<h3>Lock screen</h3>
+<div class="grid2">
+<div><label>password_fail_max</label><input name="password_fail_max" value="__FAILK__" required/></div>
+<div><label>password_min_len</label><input name="password_min_len" value="__MINLEN__" required/></div>
+</div>
+<div class="grid2">
+<div><label>biometric_allowed</label><select name="biometric_allowed">__BIO_OPTS__</select></div>
+<div><label>pwd_deny_check</label><select name="pwd_deny_check">__DENY_OPTS__</select></div>
+</div>
+<h3>USB / ADB (kill-mode gates)</h3>
+<p class="meta">Detect always on phone. Enroll-block and runtime BOOM only when
+wipe_armed=1 and flags below. Bootstrap enroll with wipe_armed=0, then arm.</p>
+<div class="grid2">
+<div><label>usb_data_block (Knox charge-only assert)</label><select name="usb_data_block">__USB_OPTS__</select></div>
+<div><label>require_adb_off</label><select name="require_adb_off">__ADB_OPTS__</select></div>
+</div>
+<div class="grid2">
+<div><label>require_usb_charge_only</label><select name="require_usb_charge_only">__CHG_OPTS__</select></div>
+<div><label>enroll_block_on_usb</label><select name="enroll_block_on_usb">__ENROLLUSB_OPTS__</select></div>
+</div>
+<label>boom_on_usb_breach (runtime BOOM if posture flips)</label>
+<select name="boom_on_usb_breach">__BOOMUSB_OPTS__</select>
+<button class="act" type="submit">Save network policy</button>
+</form>
+"@
+    } else {
+        '<p class="meta">Read-only on secondary hubs. Change <code>lab/admin-role.conf</code> only if this machine is intentionally the sole primary.</p>'
+    }
     $html = $html.Replace('__DEVLINE__', (Html-Encode $devLine))
     $html = $html.Replace('__APKLINE__', (Html-Encode $apkLine))
     $html = $html.Replace('__BIND__', (Html-Encode $bind))
     $html = $html.Replace('__FLASH__', $flashHtml)
     $html = $html.Replace('__DETAIL__', $detailHtml)
     $html = $html.Replace('__KILL_BANNER__', $killBanner)
+    $html = $html.Replace('__ADMIN_BANNER__', $adminBanner)
+    $html = $html.Replace('__ADMIN_ROLE__', (Html-Encode $adminRole.role))
+    $html = $html.Replace('__POLICY_FORM__', $policyForm)
+    $html = $html.Replace('__MESSAGES_SECTION__', (Html-Messages-Section))
     $html = $html.Replace('__DEVICE_ROSTER__', (List-DeviceRoster))
     $html = $html.Replace('__POLVER__', (Html-Encode $pol.policy_ver))
     $html = $html.Replace('__WIPE_VAL__', (Html-Encode $pol.wipe_armed))
@@ -1158,6 +1286,14 @@ while ($listener.IsListening) {
             $result = Do-Peers $form
             $flash = $result.Msg
             if ($result.Detail) { $detail = $result.Detail }
+        } elseif ($req.HttpMethod -eq "POST" -and $path -eq "/mesh") {
+            $reader = New-Object System.IO.StreamReader($req.InputStream, $req.ContentEncoding)
+            $body = $reader.ReadToEnd()
+            $reader.Close()
+            $form = Get-Form $body
+            $result = Save-MeshOutbox $form
+            $flash = $result.Msg
+            if ($result.Detail) { $detail = $result.Detail }
         } elseif ($req.HttpMethod -eq "POST" -and $path -eq "/enroll") {
             $reader = New-Object System.IO.StreamReader($req.InputStream, $req.ContentEncoding)
             $body = $reader.ReadToEnd()
@@ -1166,7 +1302,7 @@ while ($listener.IsListening) {
             $result = Do-Enroll $form
             $flash = $result.Msg
             if ($result.Detail) { $detail = $result.Detail }
-        } elseif ($path -ne "/" -and $path -ne "/enroll" -and $path -ne "/policy" -and $path -ne "/compromise" -and $path -ne "/update" -and $path -ne "/peers") {
+        } elseif ($path -ne "/" -and $path -ne "/enroll" -and $path -ne "/policy" -and $path -ne "/compromise" -and $path -ne "/update" -and $path -ne "/peers" -and $path -ne "/mesh") {
             $res.StatusCode = 404
             $bytes = [Text.Encoding]::ASCII.GetBytes("not found")
             $res.ContentLength64 = $bytes.Length

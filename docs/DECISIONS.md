@@ -1598,3 +1598,32 @@ A decision is recorded **before** code that depends on it is written.
   sync; kill-mode USB BOOM is policy-driven and testable with `wipe_armed`.
 
 ---
+
+## DEC-0057 — Messages tab + primary admin hub + release assets
+
+- **Date:** 2026-09-19
+- **Status:** accepted
+- **Evidence:** Operators need a real messaging UX (contacts + threads + file
+  share) across hubs and nodes on the same mesh floor, a single primary hub
+  that authors org security policy, and CI release artifacts for native/APK.
+- **Decision:**
+  - **Wire:** `'M''T'` and `'M''F'` carry `from` + `to` (peer label or `*`).
+    Chunks unchanged. Same tunnel AEAD floor as DEC-0055.
+  - **Phone UI:** Lab **Messages** tab lists contacts (hub|node kind),
+    per-peer vault threads, Send + Share file. Mesh tab keeps reconnect /
+    policy soak; quick send still works.
+  - **Capability parity:** Nodes and hubs share messaging + file share.
+    Nodes do **not** get admin/policy authoring (no Security Save).
+  - **Primary admin:** `lab/admin-role.conf` `role=primary|secondary`.
+    Only primary may Save org policy / local `policy_reload` fan-out.
+    Secondaries adopt higher `policy_ver` over tunnel only.
+  - **Hub Messages:** Admin console Messages tab queues
+    `lab/mesh-outbox.txt` (`TEXT|from|to|body`); `atnnode listen` drains
+    when ESTABLISHED; inbox at `lab/mesh-inbox.txt`.
+  - **CI:** `.github/workflows/release.yml` builds native artifacts (+ best-
+    effort lab APK) and publishes on `v*` tags.
+- **Consequences:** Messaging is addressable end-to-end on mesh; one hub
+  owns policy; release assets land for operators without changing the
+  make-test CI contract.
+
+---

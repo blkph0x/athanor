@@ -23,8 +23,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 /**
- * Lab launcher (DEC-0038/0039/0040/0050/0055). Mesh / Call / Logs tabs.
- * Not a production UI.
+ * Lab launcher (DEC-0038/0039/0040/0050/0055/0057).
+ * Mesh / Messages / Call / Logs tabs. Not a production UI.
  */
 public class AtnLabActivity extends Activity {
     private static final String TAG = "atn-lab";
@@ -32,8 +32,9 @@ public class AtnLabActivity extends Activity {
     private static final int REQ_ADMIN = 41;
     private static final int REQ_MIC = 42;
     private static final int TAB_MESH = 0;
-    private static final int TAB_CALL = 1;
-    private static final int TAB_LOGS = 2;
+    private static final int TAB_MSG = 1;
+    private static final int TAB_CALL = 2;
+    private static final int TAB_LOGS = 3;
 
     private TextView status;
     private TextView boomBanner;
@@ -41,6 +42,11 @@ public class AtnLabActivity extends Activity {
     private TextView meshMsgStatus;
     private TextView meshInbox;
     private EditText meshMsgBox;
+    private TextView msgThread;
+    private TextView msgPeerLabel;
+    private TextView msgContactsBox;
+    private EditText msgCompose;
+    private LinearLayout msgContactButtons;
     private TextView logBox;
     private TextView voiceStats;
     private TextView ringBanner;
@@ -54,9 +60,11 @@ public class AtnLabActivity extends Activity {
     private TextView callCodec;
     private EditText codeBox;
     private Button tabMeshBtn;
+    private Button tabMsgBtn;
     private Button tabCallBtn;
     private Button tabLogsBtn;
     private ScrollView meshScroll;
+    private ScrollView msgScroll;
     private ScrollView callScroll;
     private ScrollView logsScroll;
     private int activeTab = TAB_MESH;
@@ -108,9 +116,11 @@ public class AtnLabActivity extends Activity {
         LinearLayout tabBar = new LinearLayout(this);
         tabBar.setOrientation(LinearLayout.HORIZONTAL);
         tabMeshBtn = tabButton("Mesh", TAB_MESH);
+        tabMsgBtn = tabButton("Messages", TAB_MSG);
         tabCallBtn = tabButton("Call", TAB_CALL);
         tabLogsBtn = tabButton("Logs", TAB_LOGS);
         tabBar.addView(tabMeshBtn, tabLp());
+        tabBar.addView(tabMsgBtn, tabLp());
         tabBar.addView(tabCallBtn, tabLp());
         tabBar.addView(tabLogsBtn, tabLp());
         root.addView(tabBar);
@@ -118,6 +128,11 @@ public class AtnLabActivity extends Activity {
         meshScroll = new ScrollView(this);
         meshScroll.addView(buildMeshPanel());
         root.addView(meshScroll, fillLp());
+
+        msgScroll = new ScrollView(this);
+        msgScroll.addView(buildMsgPanel());
+        msgScroll.setVisibility(View.GONE);
+        root.addView(msgScroll, fillLp());
 
         callScroll = new ScrollView(this);
         callScroll.addView(buildCallPanel());
@@ -134,6 +149,7 @@ public class AtnLabActivity extends Activity {
         root.addView(logsScroll, fillLp());
 
         setContentView(root);
+        AtnContacts.addDemoHub(this);
         showTab(TAB_MESH);
         appendLog("knoxStub=" + stub);
         if (!AtnDeviceAdminReceiver.isAdminActive(this)) {
@@ -179,11 +195,17 @@ public class AtnLabActivity extends Activity {
     private void showTab(int tab) {
         activeTab = tab;
         meshScroll.setVisibility(tab == TAB_MESH ? View.VISIBLE : View.GONE);
+        msgScroll.setVisibility(tab == TAB_MSG ? View.VISIBLE : View.GONE);
         callScroll.setVisibility(tab == TAB_CALL ? View.VISIBLE : View.GONE);
         logsScroll.setVisibility(tab == TAB_LOGS ? View.VISIBLE : View.GONE);
         styleTab(tabMeshBtn, tab == TAB_MESH);
+        styleTab(tabMsgBtn, tab == TAB_MSG);
         styleTab(tabCallBtn, tab == TAB_CALL);
         styleTab(tabLogsBtn, tab == TAB_LOGS);
+        if (tab == TAB_MSG) {
+            refreshMsgContacts();
+            refreshMsgThread();
+        }
     }
 
     private void styleTab(Button b, boolean on) {
@@ -216,25 +238,25 @@ public class AtnLabActivity extends Activity {
 
         TextView note = new TextView(this);
         note.setText("Mesh: Device Admin + wrong PIN x failMax => BOOM."
-                + " Hub silence also BOOMs. Compromise votes when hub opens."
-                + " Chat/files ride the same PQ/AEAD tunnel (DEC-0055) —"
-                + " same-network mesh peers only; sealed in vault at rest.");
+                + " Hub silence also BOOMs. Use Messages tab for contacts,"
+                + " threads, and file share (DEC-0057) on the same PQ/AEAD"
+                + " tunnel — hubs and nodes, vault at rest.");
         p.addView(note);
 
         meshInbox = new TextView(this);
         meshInbox.setTypeface(Typeface.MONOSPACE);
         meshInbox.setTextSize(12f);
-        meshInbox.setText("(no messages yet)");
+        meshInbox.setText("(open Messages tab for chat)");
         p.addView(meshInbox);
 
         meshMsgBox = new EditText(this);
-        meshMsgBox.setHint("mesh message (tunnel AEAD)");
+        meshMsgBox.setHint("quick mesh → active peer");
         meshMsgBox.setSingleLine(true);
         p.addView(meshMsgBox);
 
         LinearLayout msgRow = new LinearLayout(this);
         msgRow.setOrientation(LinearLayout.HORIZONTAL);
-        msgRow.addView(btn("Send msg", new View.OnClickListener() {
+        msgRow.addView(btn("Quick send", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 String body = meshMsgBox.getText() != null
@@ -244,23 +266,20 @@ public class AtnLabActivity extends Activity {
                     return;
                 }
                 boolean ok = AtnMesh.sendText(AtnLabActivity.this, body);
-                appendLog(ok ? "mesh text sent" : "mesh text failed: "
-                        + AtnMesh.statusLine());
+                appendLog(ok ? "mesh text → " + AtnMesh.activePeer()
+                        : "mesh text failed: " + AtnMesh.statusLine());
                 if (ok) {
                     meshMsgBox.setText("");
                 }
                 refreshMeshInbox();
+                refreshMsgThread();
                 paintStatus();
             }
         }), tabLp());
-        msgRow.addView(btn("Send demo file", new View.OnClickListener() {
+        msgRow.addView(btn("Open Messages", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                boolean ok = AtnMesh.sendDemoNote(AtnLabActivity.this);
-                appendLog(ok ? "mesh demo file sent (vault-sized note)"
-                        : "mesh file failed: " + AtnMesh.statusLine());
-                refreshMeshInbox();
-                paintStatus();
+                showTab(TAB_MSG);
             }
         }), tabLp());
         p.addView(msgRow);
@@ -334,11 +353,166 @@ public class AtnLabActivity extends Activity {
         if (meshInbox == null) {
             return;
         }
-        String t = AtnMesh.loadInbox(this);
+        String t = AtnMesh.loadThread(this, AtnMesh.activePeer());
         if (t == null || t.length() == 0) {
-            meshInbox.setText("(no messages yet — ESTABLISHED then Send msg)");
+            meshInbox.setText("(no messages — Messages tab / ESTABLISHED)");
         } else {
             meshInbox.setText(t);
+        }
+    }
+
+    private LinearLayout buildMsgPanel() {
+        LinearLayout p = new LinearLayout(this);
+        p.setOrientation(LinearLayout.VERTICAL);
+
+        TextView title = new TextView(this);
+        title.setTextSize(16f);
+        title.setTypeface(Typeface.SANS_SERIF, Typeface.BOLD);
+        title.setText("Messages");
+        p.addView(title);
+
+        TextView hint = new TextView(this);
+        hint.setText("Contacts = enrolled hubs + nodes (same mesh floor as"
+                + " file share). Tap a contact, then send text or a demo"
+                + " file over tunnel AEAD. Nodes have no admin/policy UI.");
+        p.addView(hint);
+
+        msgPeerLabel = new TextView(this);
+        msgPeerLabel.setTypeface(Typeface.MONOSPACE);
+        msgPeerLabel.setTextSize(13f);
+        msgPeerLabel.setText("to: " + AtnMesh.activePeer());
+        p.addView(msgPeerLabel);
+
+        msgContactButtons = new LinearLayout(this);
+        msgContactButtons.setOrientation(LinearLayout.VERTICAL);
+        p.addView(msgContactButtons);
+
+        LinearLayout rosterRow = new LinearLayout(this);
+        rosterRow.setOrientation(LinearLayout.HORIZONTAL);
+        rosterRow.addView(btn("Ensure hub", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AtnContacts.addDemoHub(AtnLabActivity.this);
+                refreshMsgContacts();
+                appendLog("msg contacts: hub");
+            }
+        }), tabLp());
+        rosterRow.addView(btn("Ensure node", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AtnContacts.addDemoNode(AtnLabActivity.this);
+                refreshMsgContacts();
+                appendLog("msg contacts: node-demo");
+            }
+        }), tabLp());
+        p.addView(rosterRow);
+
+        msgContactsBox = new TextView(this);
+        msgContactsBox.setTypeface(Typeface.MONOSPACE);
+        msgContactsBox.setTextSize(12f);
+        p.addView(msgContactsBox);
+
+        msgThread = new TextView(this);
+        msgThread.setTypeface(Typeface.MONOSPACE);
+        msgThread.setTextSize(12f);
+        msgThread.setText("(select a contact)");
+        p.addView(msgThread);
+
+        msgCompose = new EditText(this);
+        msgCompose.setHint("message to selected contact");
+        msgCompose.setSingleLine(true);
+        p.addView(msgCompose);
+
+        LinearLayout sendRow = new LinearLayout(this);
+        sendRow.setOrientation(LinearLayout.HORIZONTAL);
+        sendRow.addView(btn("Send", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String body = msgCompose.getText() != null
+                        ? msgCompose.getText().toString().trim() : "";
+                if (body.length() == 0) {
+                    appendLog("empty message ignored");
+                    return;
+                }
+                String to = AtnMesh.activePeer();
+                boolean ok = AtnMesh.sendText(AtnLabActivity.this, to, body);
+                appendLog(ok ? ("msg → " + to) : ("msg fail: "
+                        + AtnMesh.statusLine()));
+                if (ok) {
+                    msgCompose.setText("");
+                }
+                refreshMsgThread();
+                refreshMeshInbox();
+                paintStatus();
+            }
+        }), tabLp());
+        sendRow.addView(btn("Share file", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String to = AtnMesh.activePeer();
+                boolean ok = AtnMesh.sendDemoNote(AtnLabActivity.this, to);
+                appendLog(ok ? ("file → " + to)
+                        : ("file fail: " + AtnMesh.statusLine()));
+                refreshMsgThread();
+                refreshMeshInbox();
+                paintStatus();
+            }
+        }), tabLp());
+        p.addView(sendRow);
+
+        refreshMsgContacts();
+        refreshMsgThread();
+        return p;
+    }
+
+    private void refreshMsgContacts() {
+        if (msgContactsBox == null || msgContactButtons == null) {
+            return;
+        }
+        msgContactButtons.removeAllViews();
+        java.util.List<AtnContacts.Entry> list = AtnContacts.load(this);
+        if (list.isEmpty()) {
+            AtnContacts.addDemoHub(this);
+            list = AtnContacts.load(this);
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("roster:\n");
+        for (final AtnContacts.Entry e : list) {
+            String kind = e.kind != null ? e.kind : "node";
+            sb.append("  [").append(kind).append("] ").append(e.label)
+                    .append(" ").append(e.ipv4).append(':').append(e.port)
+                    .append('\n');
+            Button b = btn(kind + ": " + e.label, new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    AtnMesh.setActivePeer(e.label);
+                    if (msgPeerLabel != null) {
+                        msgPeerLabel.setText("to: " + e.label
+                                + " (" + e.kind + ")");
+                    }
+                    refreshMsgThread();
+                    appendLog("msg peer → " + e.label);
+                }
+            });
+            msgContactButtons.addView(b);
+        }
+        msgContactsBox.setText(sb.toString());
+        if (msgPeerLabel != null) {
+            msgPeerLabel.setText("to: " + AtnMesh.activePeer());
+        }
+    }
+
+    private void refreshMsgThread() {
+        if (msgThread == null) {
+            return;
+        }
+        String peer = AtnMesh.activePeer();
+        String t = AtnMesh.loadThread(this, peer);
+        if (t == null || t.length() == 0) {
+            msgThread.setText("(no messages with " + peer
+                    + " — ESTABLISHED then Send)");
+        } else {
+            msgThread.setText(t);
         }
     }
 
@@ -784,6 +958,9 @@ public class AtnLabActivity extends Activity {
             meshMsgStatus.setText(AtnMesh.statusLine());
         }
         refreshMeshInbox();
+        if (activeTab == TAB_MSG) {
+            refreshMsgThread();
+        }
         if (callMeshBanner != null) {
             int vst = AtnVoice.state();
             boolean inCall = vst != AtnVoice.IDLE && vst != AtnVoice.TERMINATING;
@@ -871,7 +1048,8 @@ public class AtnLabActivity extends Activity {
             sb.append("  (empty)\n");
         } else {
             for (AtnContacts.Entry e : list) {
-                sb.append("  ").append(e.label).append(" ")
+                sb.append("  [").append(e.kind != null ? e.kind : "?")
+                        .append("] ").append(e.label).append(" ")
                         .append(e.ipv4).append(':').append(e.port).append('\n');
             }
         }

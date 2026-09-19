@@ -4,6 +4,14 @@ Newest at the top.
 
 ---
 
+## 2026-09-19 — Messages + primary admin hub (DEC-0057)
+
+- Phone **Messages** tab: contacts (hub/node), per-peer vault threads, file share.
+- Wire `'M'` text/file announce now include `to` (plus `from`).
+- `lab/admin-role.conf`: only `role=primary` authors org policy; secondaries adopt.
+- Hub admin Messages tab + `mesh-outbox.txt` drain on ESTABLISHED.
+- `.github/workflows/release.yml` for tagged native/APK assets.
+
 ## 2026-09-18 — Hub admin UI + USB posture + policy sync (DEC-0056)
 
 - Tabbed loopback admin (Devices / Security / …); USB/ADB kill gates;

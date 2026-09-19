@@ -1,5 +1,5 @@
 /*
- * DEC-0055 mesh text / file announce / chunk wire gates.
+ * DEC-0055/0057 mesh text (from+to) / file announce / chunk wire gates.
  */
 #include "atn_mesh.h"
 #include "atn_tun.h"
@@ -27,17 +27,18 @@ static void test_text(void)
     const char *body = "hello mesh";
     printf("--- mesh text ---\n");
     check("enc text",
-          atn_mesh_encode_text("alice", (const uint8_t *)body,
+          atn_mesh_encode_text("alice", "bob", (const uint8_t *)body,
                                (uint16_t)strlen(body), wire, sizeof(wire),
                                &wn) == ATN_OK);
     check("text <= MAX_PT", wn <= ATN_TUN_MAX_PT);
     check("parse text", atn_mesh_parse_text(wire, wn, &t) == ATN_OK);
     check("from", strcmp(t.from, "alice") == 0);
+    check("to", strcmp(t.to, "bob") == 0);
     check("body len", t.body_len == strlen(body));
     check("body", memcmp(t.body, body, t.body_len) == 0);
     {
-        uint8_t bad[8] = { 'X', 'T', 1, 'a', 0, 1, 'z', 0 };
-        check("bad family", atn_mesh_parse_text(bad, 7, &t) == ATN_ERR_STATE);
+        uint8_t bad[8] = { 'X', 'T', 1, 'a', 1, 'b', 0, 1 };
+        check("bad family", atn_mesh_parse_text(bad, 8, &t) == ATN_ERR_STATE);
     }
 }
 
@@ -59,6 +60,8 @@ static void test_file_chunk(void)
     f.file_id = 42;
     f.size = sizeof(payload);
     memcpy(f.name, "note.bin", 9);
+    memcpy(f.from, "alice", 6);
+    memcpy(f.to, "bob", 4);
     for (i = 0; i < ATN_MESH_SHA_LEN; i++) {
         f.sha256[i] = (uint8_t)(0xa0u + i);
     }
@@ -68,6 +71,8 @@ static void test_file_chunk(void)
     check("file id", g.file_id == 42);
     check("file size", g.size == sizeof(payload));
     check("file name", strcmp(g.name, "note.bin") == 0);
+    check("file from", strcmp(g.from, "alice") == 0);
+    check("file to", strcmp(g.to, "bob") == 0);
     check("file sha", memcmp(g.sha256, f.sha256, ATN_MESH_SHA_LEN) == 0);
 
     check("enc chunk",

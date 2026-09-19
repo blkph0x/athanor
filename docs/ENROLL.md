@@ -12,14 +12,18 @@ One-time on a new clone: copy `lab/org.local.json.example` → `lab/org.local.js
 fill real IPs, then `tools/install-git-hooks` so push is blocked if org values
 leak into tracked files.
 
-**Network-wide policy (DEC-0045 / DEC-0046 / DEC-0056):** Tabbed admin
-(**Security**) writes `lab/org-policy.conf` (boom silence, password-fail K,
-biometrics, USB data block, leak-password deny, plus kill-mode USB/ADB
-gates). Hub pushes `'P'` to ESTABLISHED phones and fans out to peer hubs;
-offline nodes catch up on rejoin. Phones store **Keystore-wrapped**
-`atn-policy.bin`. USB Connect & Enroll is blocked when `wipe_armed=1` and
-`enroll_block_on_usb=1` with ADB/charge-only requirements — bootstrap with
-gates off, then arm. Rebuild deny hashes from rockyou locally:
+**Network-wide policy (DEC-0045 / DEC-0046 / DEC-0056 / DEC-0057):** Tabbed admin
+at `http://127.0.0.1:8799/` — Overview / Devices / Messages / Security / Peers /
+Enroll / Compromise / Updates. Only the **primary** admin hub
+(`lab/admin-role.conf` `role=primary`) may Save security policy; secondaries
+adopt higher `policy_ver` over the PQ/AEAD tunnel. Messages uses the same mesh
+floor as phones (hubs + nodes). Security tab writes `lab/org-policy.conf`
+(boom silence, password-fail K, biometrics, USB data block, leak-password deny,
+plus kill-mode USB/ADB gates). Hub pushes `'P'` to ESTABLISHED phones and fans
+out to peer hubs; offline nodes catch up on rejoin. Phones store
+**Keystore-wrapped** `atn-policy.bin`. USB Connect & Enroll is blocked when
+`wipe_armed=1` and `enroll_block_on_usb=1` with ADB/charge-only requirements —
+bootstrap with gates off, then arm. Rebuild deny hashes from rockyou locally:
 
 `python tools/gen_pwd_deny.py --rockyou /path/to/rockyou.txt`
 

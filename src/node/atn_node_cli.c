@@ -11,6 +11,7 @@
 #include "atn_compromise.h"
 #include "atn_crypto.h"
 #include "atn_dmon.h"
+#include "atn_mesh.h"
 #include "atn_platform.h"
 #include "atn_policy.h"
 #include "atn_tun.h"
@@ -175,6 +176,163 @@ static const char *hub_peers_path(void)
         return e;
     }
     return "lab/hub-peers.conf";
+}
+
+/*
+ * Purpose:  Primary admin hub gate (DEC-0057). Only primary authors local
+ *           org-policy fan-out; secondary adopts higher ver from tunnel.
+ */
+static const char *admin_role_path(void)
+{
+    const char *e = getenv("ATN_ADMIN_ROLE");
+    if (e != NULL && e[0] != '\0') {
+        return e;
+    }
+    return "lab/admin-role.conf";
+}
+
+static int admin_is_primary(void)
+{
+    FILE *fp;
+    char line[128];
+    int primary = 1; /* default primary for single-hub labs */
+
+    fp = fopen(admin_role_path(), "rb");
+    if (fp == NULL) {
+        return 1;
+    }
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        if (line[0] == '#' || line[0] == '\n' || line[0] == '\r') {
+            continue;
+        }
+        if (strncmp(line, "role=", 5) == 0) {
+            if (strncmp(line + 5, "secondary", 9) == 0) {
+                primary = 0;
+            } else if (strncmp(line + 5, "primary", 7) == 0) {
+                primary = 1;
+            }
+        }
+    }
+    fclose(fp);
+    return primary;
+}
+
+static const char *mesh_outbox_path(void)
+{
+    const char *e = getenv("ATN_MESH_OUTBOX");
+    if (e != NULL && e[0] != '\0') {
+        return e;
+    }
+    return "lab/mesh-outbox.txt";
+}
+
+static const char *mesh_inbox_path(void)
+{
+    const char *e = getenv("ATN_MESH_INBOX");
+    if (e != NULL && e[0] != '\0') {
+        return e;
+    }
+    return "lab/mesh-inbox.txt";
+}
+
+static void mesh_inbox_append(const char *line)
+{
+    FILE *fp;
+    if (line == NULL || line[0] == '\0') {
+        return;
+    }
+    fp = fopen(mesh_inbox_path(), "ab");
+    if (fp == NULL) {
+        return;
+    }
+    fprintf(fp, "%s\n", line);
+    fclose(fp);
+}
+
+/*
+ * Purpose:  Drain admin Messages outbox (DEC-0057). Lines:
+ *             TEXT|<from>|<to>|<body>
+ *           Sent as 'M''T' over ESTABLISHED tunnel; file truncated after.
+ */
+static void hub_drain_mesh_outbox(atn_tun *t)
+{
+    FILE *fp;
+    char line[1024];
+    char from[ATN_MESH_FROM_MAX];
+    char to[ATN_MESH_TO_MAX];
+    char body[ATN_MESH_BODY_MAX];
+    uint8_t wire[ATN_TUN_MAX_PT];
+    size_t wn;
+    int sent = 0;
+
+    if (t == NULL || t->state != ATN_TUN_ESTABLISHED) {
+        return;
+    }
+    fp = fopen(mesh_outbox_path(), "rb");
+    if (fp == NULL) {
+        return;
+    }
+    while (fgets(line, sizeof(line), fp) != NULL) {
+        char *p1;
+        char *p2;
+        char *p3;
+        size_t L = strlen(line);
+        size_t blen;
+        while (L > 0 && (line[L - 1] == '\n' || line[L - 1] == '\r')) {
+            line[--L] = '\0';
+        }
+        if (L == 0 || line[0] == '#') {
+            continue;
+        }
+        if (strncmp(line, "TEXT|", 5) != 0) {
+            continue;
+        }
+        p1 = strchr(line + 5, '|');
+        if (p1 == NULL) {
+            continue;
+        }
+        *p1 = '\0';
+        p2 = strchr(p1 + 1, '|');
+        if (p2 == NULL) {
+            continue;
+        }
+        *p2 = '\0';
+        p3 = p2 + 1;
+        if (strlen(line + 5) == 0u || strlen(line + 5) >= ATN_MESH_FROM_MAX ||
+            strlen(p1 + 1) == 0u || strlen(p1 + 1) >= ATN_MESH_TO_MAX) {
+            continue;
+        }
+        memcpy(from, line + 5, strlen(line + 5) + 1u);
+        memcpy(to, p1 + 1, strlen(p1 + 1) + 1u);
+        blen = strlen(p3);
+        if (blen == 0u || blen >= ATN_MESH_BODY_MAX) {
+            continue;
+        }
+        memcpy(body, p3, blen + 1u);
+        wn = 0;
+        if (atn_mesh_encode_text(from, to, (const uint8_t *)body,
+                                 (uint16_t)blen, wire, sizeof(wire),
+                                 &wn) != ATN_OK) {
+            continue;
+        }
+        if (atn_tun_send(t, wire, wn) == ATN_OK) {
+            char note[320];
+            sent++;
+            snprintf(note, sizeof(note), "hub>%s->%s %s", from, to, body);
+            mesh_inbox_append(note);
+        }
+        atn_memzero(wire, sizeof(wire));
+        atn_memzero(body, sizeof(body));
+    }
+    fclose(fp);
+    if (sent > 0) {
+        fp = fopen(mesh_outbox_path(), "wb");
+        if (fp != NULL) {
+            fclose(fp);
+        }
+        printf("mesh_outbox_sent n=%d\n", sent);
+        fflush(stdout);
+    }
 }
 
 /*
@@ -923,15 +1081,17 @@ static int cmd_listen(uint16_t port)
 
         for (;;) {
             size_t n = 0;
-            /* Reload policy file each tick (admin website is source of truth). */
-            if (atn_policy_load_file(ppath, &pol_new) == ATN_OK &&
+            /* Reload policy file each tick (primary admin is source of truth). */
+            if (admin_is_primary() &&
+                atn_policy_load_file(ppath, &pol_new) == ATN_OK &&
                 !policy_same(&pol, &pol_new)) {
                 pol = pol_new;
                 need_push = 1;
-                printf("policy_reload ver=%u\n", (unsigned)pol.ver);
+                printf("policy_reload ver=%u (primary)\n", (unsigned)pol.ver);
                 fflush(stdout);
                 hub_fanout_policy_peers(&pol);
             }
+            hub_drain_mesh_outbox(&t);
             if (atn_compromise_load_file(cpath, &comp_new) == ATN_OK &&
                 !compromise_same(&comp, &comp_new)) {
                 uint8_t prev = comp.state;
@@ -1080,19 +1240,30 @@ static int cmd_listen(uint16_t port)
                         fflush(stdout);
                     }
                     (void)atn_tun_send(&t, pt, n);
-                } else if (n >= 1 && pt[0] == 0x4Du /* 'M' DEC-0055 mesh */) {
+                } else if (n >= 1 && pt[0] == 0x4Du /* 'M' DEC-0055/0057 mesh */) {
                     /*
                      * Opaque echo/forward of messaging + file share.
-                     * Confidentiality = tunnel AEAD only; hub does not
-                     * interpret body. Multi-peer fan-out deferred.
+                     * Log text summaries for admin Messages tab; do not
+                     * interpret file bodies. Multi-peer fan-out deferred.
                      */
                     {
                         unsigned subtype = (n >= 2) ? (unsigned)pt[1] : 0u;
                         printf("mesh_frame n=%u subtype=%u\n",
                                (unsigned)n, subtype);
                         fflush(stdout);
+                        if (n >= 2 && pt[1] == ATN_MESH_TEXT) {
+                            atn_mesh_text mt;
+                            if (atn_mesh_parse_text(pt, n, &mt) == ATN_OK) {
+                                char note[320];
+                                snprintf(note, sizeof(note),
+                                         "%s->%s %.*s", mt.from, mt.to,
+                                         (int)mt.body_len, mt.body);
+                                mesh_inbox_append(note);
+                            }
+                        }
                     }
                     (void)atn_tun_send(&t, pt, n);
+                    hub_drain_mesh_outbox(&t);
                 } else {
                     (void)atn_tun_send(&t, pt, n); /* LAB echo / other */
                 }

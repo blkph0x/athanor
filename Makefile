@@ -243,8 +243,8 @@ $(TEST_MESH): $(SRC) $(MESH_SRC) tests/test_mesh.c include/atn_mesh.h include/at
 $(TEST_FUZZ): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(CFG_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_fuzz.c
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HTTP_SRC) $(DNS_SRC) $(CFG_SRC) $(HB_SRC) $(SYNC_SRC) tests/test_fuzz.c $(LDFLAGS)
 
-$(CLI_NODE): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) $(POLICY_SRC) $(COMPROMISE_SRC) $(UPDATE_SRC) src/node/atn_node_cli.c include/atn_cfg.h include/atn_policy.h include/atn_compromise.h include/atn_update.h include/atn_tun.h include/atn_dmon.h
-	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) $(POLICY_SRC) $(COMPROMISE_SRC) $(UPDATE_SRC) src/node/atn_node_cli.c $(LDFLAGS)
+$(CLI_NODE): $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) $(POLICY_SRC) $(COMPROMISE_SRC) $(UPDATE_SRC) $(MESH_SRC) src/node/atn_node_cli.c include/atn_cfg.h include/atn_policy.h include/atn_compromise.h include/atn_update.h include/atn_mesh.h include/atn_tun.h include/atn_dmon.h
+	$(CC) $(CFLAGS) -o $@ $(SRC) $(TUN_SRC) $(AUTH_SRC) $(HB_SRC) $(SYNC_SRC) $(DMON_SRC) $(CFG_SRC) $(POLICY_SRC) $(COMPROMISE_SRC) $(UPDATE_SRC) $(MESH_SRC) src/node/atn_node_cli.c $(LDFLAGS)
 
 $(CLI_ENROLL): src/enroll/atn_enroll_cli.c
 	$(CC) $(CFLAGS) -o $@ src/enroll/atn_enroll_cli.c $(LDFLAGS)
